@@ -16,7 +16,8 @@ import {
   User,
   Shield,
   Edit,
-  Lock
+  Lock,
+  Check
 } from 'lucide-react';
 import { 
   BarChart, 
@@ -63,10 +64,14 @@ const calculateStatus = (etaString) => {
 
 // --- DATOS INICIALES ---
 const rawData = [
-  { id: 1, bl: 'HLCU12345678', provider: 'HAPAG', client: 'Importadora México S.A.', clientCode: 'IMP', reason: 'FLETE', container: 'MSKU987654', eta: addDays(45), payment: 'paid', paymentDate: '2025-06-10', amount: 15000, concept: 'HAPAG IMP 1 FLETE' },
-  { id: 2, bl: 'MAEU87654321', provider: 'MAERSK', client: 'Logística Global', clientCode: 'LOG', reason: 'DEMORAS', container: 'TCLU123000', eta: addDays(15), payment: 'pending', paymentDate: null, amount: 22500, concept: 'MAERSK LOG 1 DEMORAS' },
-  { id: 3, bl: 'COSU11223344', provider: 'COSCO', client: 'Textiles del Norte', clientCode: 'TEX', reason: 'GARANTÍA', container: 'MRKU554433', eta: addDays(-3), payment: 'pending', paymentDate: null, amount: 18000, concept: 'COSCO TEX 1 GARANTÍA' },
-  { id: 4, bl: 'MSKU99887766', provider: 'ONE', client: 'Importadora México S.A.', clientCode: 'IMP', reason: 'ALMACENAJE', container: 'MSKU111222', eta: addDays(25), payment: 'pending', paymentDate: null, amount: 12000, concept: 'ONE IMP 2 ALMACENAJE' },
+  // Ejemplo: Pagado a tiempo (paymentDelay: 0)
+  { id: 1, bl: 'HLCU12345678', provider: 'HAPAG', client: 'Importadora México S.A.', clientCode: 'IMP', reason: 'FLETE', container: 'MSKU987654', eta: addDays(45), payment: 'paid', paymentDate: '2025-06-10', paymentDelay: 0, amount: 15000, concept: 'HAPAG IMP 1 FLETE' },
+  // Ejemplo: Pagado con retraso (Simulamos que se pagó tarde)
+  { id: 2, bl: 'MAEU87654321', provider: 'MAERSK', client: 'Logística Global', clientCode: 'LOG', reason: 'DEMORAS', container: 'TCLU123000', eta: addDays(-5), payment: 'paid', paymentDate: '2025-06-12', paymentDelay: 5, amount: 22500, concept: 'MAERSK LOG 1 DEMORAS' },
+  // Pendiente con ETA vencido (Riesgo)
+  { id: 3, bl: 'COSU11223344', provider: 'COSCO', client: 'Textiles del Norte', clientCode: 'TEX', reason: 'GARANTÍA', container: 'MRKU554433', eta: addDays(-3), payment: 'pending', paymentDate: null, paymentDelay: 0, amount: 18000, concept: 'COSCO TEX 1 GARANTÍA' },
+  // Pendiente a tiempo
+  { id: 4, bl: 'MSKU99887766', provider: 'ONE', client: 'Importadora México S.A.', clientCode: 'IMP', reason: 'ALMACENAJE', container: 'MSKU111222', eta: addDays(25), payment: 'pending', paymentDate: null, paymentDelay: 0, amount: 12000, concept: 'ONE IMP 2 ALMACENAJE' },
 ];
 
 const initialData = rawData.map(item => ({
@@ -80,15 +85,31 @@ const COLORS = {
 
 // --- COMPONENTES UI ---
 
-const StatusBadge = ({ status }) => {
+// Modificamos StatusBadge para recibir el objeto completo y decidir qué mostrar
+const StatusBadge = ({ item }) => {
+  // 1. Prioridad: Si está pagado, mostrar Verde Sólido con detalles
+  if (item.payment === 'paid') {
+    return (
+      <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold text-white shadow-sm ${item.paymentDelay > 0 ? 'bg-green-700' : 'bg-green-600'}`}>
+        <Check size={14} className="mr-1" strokeWidth={3} />
+        {item.paymentDelay > 0 
+          ? `PAGADO (+${item.paymentDelay} días retraso)` 
+          : 'PAGADO'}
+      </span>
+    );
+  }
+
+  // 2. Si no está pagado, mostrar el semáforo normal (Pendiente)
   const config = {
     ok: { color: 'bg-green-100 text-green-800', icon: CheckCircle, label: 'A Tiempo' },
     warning: { color: 'bg-yellow-100 text-yellow-800', icon: Clock, label: 'Alerta' },
     danger: { color: 'bg-red-100 text-red-800', icon: AlertTriangle, label: 'Urgente' },
     expired: { color: 'bg-red-800 text-white', icon: AlertTriangle, label: 'Vencido' },
   };
-  const current = config[status] || config.ok;
+  
+  const current = config[item.status] || config.ok;
   const Icon = current.icon;
+  
   return (
     <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${current.color}`}>
       <Icon size={12} className="mr-1" />
@@ -114,8 +135,9 @@ const RoleBadge = ({ role }) => {
 
 const DashboardView = ({ data }) => {
   const total = data.length;
-  const warning = data.filter(i => i.status === 'warning').length;
-  const danger = data.filter(i => i.status === 'danger' || i.status === 'expired').length;
+  // Solo contamos en alerta/riesgo los que NO están pagados
+  const warning = data.filter(i => i.status === 'warning' && i.payment === 'pending').length;
+  const danger = data.filter(i => (i.status === 'danger' || i.status === 'expired') && i.payment === 'pending').length;
   const pendingMoney = data.filter(i => i.payment === 'pending').reduce((acc, curr) => acc + curr.amount, 0);
 
   const clientData = useMemo(() => {
@@ -132,18 +154,17 @@ const DashboardView = ({ data }) => {
 
   return (
     <div className="space-y-6 animate-fade-in">
-      {/* KPIs */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex justify-between items-center">
           <div><p className="text-slate-500 text-xs uppercase font-bold">Activos</p><h3 className="text-2xl font-bold text-slate-800">{total}</h3></div>
           <div className="p-3 bg-blue-50 text-blue-600 rounded-lg"><Ship size={24}/></div>
         </div>
         <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex justify-between items-center">
-          <div><p className="text-slate-500 text-xs uppercase font-bold">Alerta</p><h3 className="text-2xl font-bold text-slate-800">{warning}</h3></div>
+          <div><p className="text-slate-500 text-xs uppercase font-bold">Alerta (Pendientes)</p><h3 className="text-2xl font-bold text-slate-800">{warning}</h3></div>
           <div className="p-3 bg-yellow-50 text-yellow-600 rounded-lg"><Clock size={24}/></div>
         </div>
         <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex justify-between items-center">
-          <div><p className="text-slate-500 text-xs uppercase font-bold">Críticos</p><h3 className="text-2xl font-bold text-slate-800">{danger}</h3></div>
+          <div><p className="text-slate-500 text-xs uppercase font-bold">Críticos (Pendientes)</p><h3 className="text-2xl font-bold text-slate-800">{danger}</h3></div>
           <div className="p-3 bg-red-50 text-red-600 rounded-lg"><AlertTriangle size={24}/></div>
         </div>
         <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex justify-between items-center">
@@ -190,7 +211,6 @@ const DashboardView = ({ data }) => {
 };
 
 const CaptureForm = ({ onSave, onCancel, existingData, role }) => {
-  // SEGURIDAD: Si no es Admin ni Ejecutivo, no debería ver esto
   if (role === 'pagos') return <div className="p-10 text-center text-red-500 font-bold">Acceso Denegado: Rol no autorizado para capturas.</div>;
 
   const [formData, setFormData] = useState({
@@ -219,6 +239,7 @@ const CaptureForm = ({ onSave, onCancel, existingData, role }) => {
       status: calculatedStatus, 
       payment: 'pending',
       paymentDate: null,
+      paymentDelay: 0,
       concept: generatedConcept 
     });
   };
@@ -293,7 +314,6 @@ const ListView = ({ data, onTogglePayment, role, onEdit }) => {
     item.container.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  // Permisos según rol
   const canPay = role === 'admin' || role === 'pagos';
   const canEdit = role === 'admin';
 
@@ -340,13 +360,15 @@ const ListView = ({ data, onTogglePayment, role, onEdit }) => {
                     <div className="text-xs text-slate-500">{item.container}</div>
                   </td>
                   <td className="p-4 text-slate-600">{formatDate(item.eta)}</td>
-                  <td className="p-4 text-center"><StatusBadge status={item.status} /></td>
+                  <td className="p-4 text-center">
+                    {/* Usamos el nuevo StatusBadge que recibe el item completo */}
+                    <StatusBadge item={item} />
+                  </td>
                   <td className="p-4 text-right font-medium">${item.amount.toLocaleString()}</td>
                   <td className="p-4 text-center text-xs text-slate-500">
                     {item.payment === 'paid' ? formatDate(item.paymentDate) : '-'}
                   </td>
                   <td className="p-4 flex justify-center space-x-2">
-                    {/* Botón de Pago: Solo Pagos y Admin */}
                     {canPay && item.payment === 'pending' && (
                       <button 
                         onClick={() => onTogglePayment(item.id)}
@@ -356,18 +378,12 @@ const ListView = ({ data, onTogglePayment, role, onEdit }) => {
                       </button>
                     )}
                     {item.payment === 'paid' && (
-                      <span className="px-3 py-1 bg-slate-100 text-slate-400 rounded text-xs font-bold border border-slate-200 cursor-not-allowed">
-                        Pagado
+                      <span className="px-3 py-1 bg-slate-50 text-slate-400 rounded text-xs font-bold border border-slate-200 cursor-not-allowed">
+                        Completado
                       </span>
                     )}
-
-                    {/* Botón Editar: Solo Admin */}
                     {canEdit && (
-                      <button 
-                        onClick={() => onEdit(item)}
-                        className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
-                        title="Editar (Solo Admin)"
-                      >
+                      <button onClick={() => onEdit(item)} className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors" title="Editar (Solo Admin)">
                         <Edit size={16} />
                       </button>
                     )}
@@ -388,21 +404,40 @@ export default function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [data, setData] = useState(initialData);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  
-  // --- ESTADO DE ROL (Simulación de Login) ---
-  const [role, setRole] = useState('admin'); // 'admin', 'ejecutivo', 'pagos'
+  const [role, setRole] = useState('admin');
 
   const handleSave = (newItem) => {
     const itemWithId = { ...newItem, id: Date.now() };
     setData([itemWithId, ...data]);
-    setActiveTab('list'); // Al guardar, se bloquea (no vuelve al form) y va a la lista
+    setActiveTab('list');
   };
 
   const togglePayment = (id) => {
-    const todayStr = new Date().toISOString().split('T')[0]; // Fecha actual YYYY-MM-DD
+    const today = new Date();
+    today.setHours(0,0,0,0);
+    const todayStr = today.toISOString().split('T')[0];
+
     const updatedData = data.map(item => {
       if (item.id === id && item.payment === 'pending') {
-        return { ...item, payment: 'paid', paymentDate: todayStr };
+        // --- LÓGICA DE DÍAS DE RETRASO AL PAGAR ---
+        const [year, month, day] = item.eta.split('-').map(Number);
+        const etaDate = new Date(year, month - 1, day);
+        const diffTime = etaDate - today; // Diferencia en milisegundos
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)); 
+        
+        // Si diffDays es negativo, significa que HOY es después de la fecha límite (ETA)
+        // Ejemplo: ETA fue hace 5 días (-5). delay = 5.
+        let delay = 0;
+        if (diffDays < 0) {
+           delay = Math.abs(diffDays);
+        }
+
+        return { 
+          ...item, 
+          payment: 'paid', 
+          paymentDate: todayStr,
+          paymentDelay: delay // Guardamos cuántos días tarde se pagó (0 si fue a tiempo)
+        };
       }
       return item;
     });
@@ -410,14 +445,11 @@ export default function App() {
   };
 
   const handleEdit = (item) => {
-    alert(`Modo Edición (Admin): Aquí se abriría el formulario con los datos de ${item.bl} para modificar.`);
+    alert(`Modo Edición (Admin): Modificar ${item.bl}.`);
   };
 
-  // Menú dinámico según Rol
   const NavItem = ({ id, icon: Icon, label }) => {
-    // Si eres 'Pagos', no ves 'Capturar'
     if (role === 'pagos' && id === 'capture') return null;
-
     return (
       <button
         onClick={() => { setActiveTab(id); setIsMobileMenuOpen(false); }}
@@ -433,8 +465,6 @@ export default function App() {
 
   return (
     <div className="flex h-screen bg-slate-100 font-sans text-slate-800">
-      
-      {/* Sidebar Desktop */}
       <aside className="w-64 bg-slate-900 text-white flex-shrink-0 hidden md:flex flex-col transition-all">
         <div className="p-6 border-b border-slate-800">
           <div className="flex items-center space-x-2">
@@ -443,24 +473,20 @@ export default function App() {
             </div>
             <span className="text-lg font-bold tracking-tight">AduanaSoft</span>
           </div>
-          <p className="text-xs text-slate-500 mt-2">v2.0 Roles & Security</p>
+          <p className="text-xs text-slate-500 mt-2">v2.1 Smart Payments</p>
         </div>
-        
         <nav className="flex-1 p-4">
           <p className="px-4 text-xs font-bold text-slate-500 uppercase mb-3">Menú</p>
           <NavItem id="dashboard" icon={LayoutDashboard} label="Dashboard" />
           <NavItem id="list" icon={TableIcon} label="Sábana Operativa" />
           <NavItem id="capture" icon={Plus} label="Capturar Ticket" />
         </nav>
-
-        {/* SELECTOR DE ROLES (DEMO) */}
         <div className="p-4 bg-slate-800 border-t border-slate-700">
           <label className="text-xs text-slate-400 uppercase font-bold mb-2 block">Simular Rol:</label>
           <select 
             value={role} 
             onChange={(e) => {
               setRole(e.target.value);
-              // Si cambia a Pagos y estaba en Captura, mover a Dashboard para evitar error visual
               if (e.target.value === 'pagos' && activeTab === 'capture') setActiveTab('dashboard');
             }}
             className="w-full bg-slate-900 text-white text-sm p-2 rounded border border-slate-600 focus:ring-blue-500 focus:border-blue-500 outline-none"
@@ -470,56 +496,56 @@ export default function App() {
             <option value="pagos">Pagos (Solo Lectura)</option>
           </select>
         </div>
-
         <div className="p-4 border-t border-slate-800 flex items-center space-x-3">
-          <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-blue-500 to-purple-500 flex items-center justify-center text-xs font-bold">
-            <User size={20} />
-          </div>
-          <div>
-            <p className="text-sm font-medium">Usuario Activo</p>
-            <RoleBadge role={role} />
-          </div>
+          <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-blue-500 to-purple-500 flex items-center justify-center text-xs font-bold"><User size={20} /></div>
+          <div><p className="text-sm font-medium">Usuario Activo</p><RoleBadge role={role} /></div>
         </div>
       </aside>
 
-      {/* Mobile Menu */}
       {isMobileMenuOpen && (
         <div className="fixed inset-0 z-50 bg-slate-900 text-white flex flex-col animate-fade-in">
-           <div className="p-6 flex justify-between items-center">
-              <span className="text-lg font-bold">Menú</span>
-              <button onClick={() => setIsMobileMenuOpen(false)}><X size={28} /></button>
-           </div>
+           <div className="p-6 flex justify-between items-center"><span className="text-lg font-bold">Menú</span><button onClick={() => setIsMobileMenuOpen(false)}><X size={28} /></button></div>
            <nav className="flex-1 p-6">
               <NavItem id="dashboard" icon={LayoutDashboard} label="Dashboard" />
               <NavItem id="list" icon={TableIcon} label="Sábana Operativa" />
               <NavItem id="capture" icon={Plus} label="Capturar Ticket" />
+              
+              {/* SELECTOR DE ROL MÓVIL (AÑADIDO) */}
+              <div className="mt-8 pt-6 border-t border-slate-700">
+                <label className="text-xs text-slate-400 uppercase font-bold mb-2 block">Simular Rol (Demo Móvil):</label>
+                <select 
+                  value={role} 
+                  onChange={(e) => {
+                    setRole(e.target.value);
+                    if (e.target.value === 'pagos' && activeTab === 'capture') setActiveTab('dashboard');
+                  }}
+                  className="w-full bg-slate-800 text-white text-sm p-3 rounded border border-slate-600 focus:ring-blue-500 outline-none"
+                >
+                  <option value="admin">Admin</option>
+                  <option value="ejecutivo">Ejecutivo</option>
+                  <option value="pagos">Pagos</option>
+                </select>
+                <div className="mt-4 flex items-center space-x-3">
+                  <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-blue-500 to-purple-500 flex items-center justify-center text-xs font-bold"><User size={16} /></div>
+                  <div className="text-sm">Rol actual: <RoleBadge role={role} /></div>
+                </div>
+              </div>
            </nav>
         </div>
       )}
 
-      {/* Main Content */}
       <main className="flex-1 flex flex-col overflow-hidden">
         <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-6 shadow-sm z-10">
-          <button onClick={() => setIsMobileMenuOpen(true)} className="md:hidden p-2 -ml-2 rounded hover:bg-slate-100">
-            <Menu className="text-slate-800" />
-          </button>
-          
+          <button onClick={() => setIsMobileMenuOpen(true)} className="md:hidden p-2 -ml-2 rounded hover:bg-slate-100"><Menu className="text-slate-800" /></button>
           <div className="text-xl font-bold text-slate-800 flex items-center gap-2">
             {activeTab === 'dashboard' && 'Visión General'}
             {activeTab === 'list' && 'Gestión y Pagos'}
             {activeTab === 'capture' && 'Alta de Documentos'}
-            <span className="hidden md:inline-flex ml-4 transform scale-90 origin-left">
-              <RoleBadge role={role} />
-            </span>
+            <span className="hidden md:inline-flex ml-4 transform scale-90 origin-left"><RoleBadge role={role} /></span>
           </div>
-          
           <div className="flex items-center space-x-4">
-             <div className="hidden lg:flex items-center px-3 py-1 bg-green-50 text-green-700 rounded-full border border-green-200 text-xs font-medium">
-                <DollarSign size={14} className="mr-1"/> USD: $20.54
-             </div>
-             <div className="w-8 h-8 bg-slate-100 rounded-full flex items-center justify-center text-slate-500 border border-slate-200">
-               <Shield size={16} />
-             </div>
+             <div className="hidden lg:flex items-center px-3 py-1 bg-green-50 text-green-700 rounded-full border border-green-200 text-xs font-medium"><DollarSign size={14} className="mr-1"/> USD: $20.54</div>
+             <div className="w-8 h-8 bg-slate-100 rounded-full flex items-center justify-center text-slate-500 border border-slate-200"><Shield size={16} /></div>
           </div>
         </header>
 
