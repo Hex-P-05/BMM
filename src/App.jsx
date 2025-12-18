@@ -18,10 +18,10 @@ import {
   Edit,
   Lock,
   Check,
-  TrendingUp,   // Nuevo
-  TrendingDown, // Nuevo
-  Activity,     // Nuevo
-  Bell          // Nuevo
+  TrendingUp,
+  TrendingDown,
+  Activity,
+  AlertCircle // Nuevo icono para el modal
 } from 'lucide-react';
 import { 
   BarChart, 
@@ -35,8 +35,8 @@ import {
   Pie,
   Cell,
   Legend,
-  AreaChart,    // Nuevo
-  Area          // Nuevo
+  AreaChart,
+  Area
 } from 'recharts';
 
 // --- UTILIDADES ---
@@ -130,7 +130,6 @@ const RoleBadge = ({ role }) => {
   );
 };
 
-// Componente de Tarjeta Mejorado
 const KPICard = ({ title, value, icon: Icon, colorClass, trend, trendValue, subtext }) => (
   <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5 flex flex-col justify-between hover:shadow-md transition-shadow relative overflow-hidden">
     <div className="flex justify-between items-start mb-4">
@@ -156,6 +155,74 @@ const KPICard = ({ title, value, icon: Icon, colorClass, trend, trendValue, subt
   </div>
 );
 
+// --- COMPONENTE MODAL DE SEGURIDAD ---
+const PaymentModal = ({ isOpen, onClose, onConfirm, item }) => {
+  if (!isOpen || !item) return null;
+
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 animate-fade-in">
+      {/* Backdrop oscuro */}
+      <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={onClose}></div>
+      
+      {/* Contenido del Modal */}
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md relative z-10 overflow-hidden transform transition-all scale-100">
+        <div className="bg-yellow-50 p-6 border-b border-yellow-100 flex items-start space-x-4">
+          <div className="p-3 bg-yellow-100 text-yellow-600 rounded-full flex-shrink-0">
+            <AlertCircle size={32} />
+          </div>
+          <div>
+            <h3 className="text-lg font-bold text-slate-800">¿Confirmar Pago?</h3>
+            <p className="text-sm text-slate-600 mt-1">
+              Estás a punto de registrar un pago en el sistema. Asegúrate de haber realizado la transferencia bancaria primero.
+            </p>
+          </div>
+        </div>
+
+        <div className="p-6 space-y-4">
+          <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
+            <div className="flex justify-between items-center mb-2">
+              <span className="text-xs font-bold text-slate-400 uppercase">Monto a Pagar</span>
+              <span className="text-xs font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded">MXN</span>
+            </div>
+            <p className="text-3xl font-bold text-slate-800">${item.amount.toLocaleString()}</p>
+          </div>
+
+          <div className="space-y-2 text-sm">
+            <div className="flex justify-between border-b border-slate-100 pb-2">
+              <span className="text-slate-500">Beneficiario:</span>
+              <span className="font-medium text-slate-800">{item.provider}</span>
+            </div>
+            <div className="flex justify-between border-b border-slate-100 pb-2">
+              <span className="text-slate-500">Cliente:</span>
+              <span className="font-medium text-slate-800">{item.client}</span>
+            </div>
+            <div className="flex justify-between border-b border-slate-100 pb-2">
+              <span className="text-slate-500">Referencia:</span>
+              <span className="font-mono font-medium text-slate-800 bg-slate-100 px-1 rounded">{item.concept}</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="p-6 bg-slate-50 border-t border-slate-100 flex space-x-3">
+          <button 
+            onClick={onClose}
+            className="flex-1 px-4 py-3 bg-white border border-slate-300 text-slate-700 font-bold rounded-xl hover:bg-slate-50 transition-colors"
+          >
+            Cancelar
+          </button>
+          <button 
+            onClick={onConfirm}
+            className="flex-1 px-4 py-3 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 shadow-lg shadow-blue-200 transition-all flex justify-center items-center"
+          >
+            <CheckCircle size={20} className="mr-2" />
+            Confirmar Transferencia
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // --- VISTAS ---
 
 const DashboardView = ({ data }) => {
@@ -176,7 +243,6 @@ const DashboardView = ({ data }) => {
     { name: 'Penalizado', value: danger },
   ];
 
-  // Datos simulados para gráfica de tendencia
   const performanceData = [
     { name: 'Lun', operaciones: 12, monto: 15000 },
     { name: 'Mar', operaciones: 19, monto: 22000 },
@@ -196,106 +262,46 @@ const DashboardView = ({ data }) => {
 
   return (
     <div className="space-y-6 animate-fade-in pb-8">
-      {/* 1. KPIs con Tendencias */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <KPICard 
-          title="Contenedores Activos" 
-          value={total} 
-          icon={Ship} 
-          colorClass="bg-blue-100 text-blue-600" 
-          trend="up" 
-          trendValue="+12%" 
-          subtext="vs mes pasado" 
-        />
-        <KPICard 
-          title="Alertas (Próximos)" 
-          value={warning} 
-          icon={Clock} 
-          colorClass="bg-yellow-100 text-yellow-600" 
-          trend="down" 
-          trendValue="-5%" 
-          subtext="mejoría en tiempos" 
-        />
-        <KPICard 
-          title="Críticos (Vencidos)" 
-          value={danger} 
-          icon={AlertTriangle} 
-          colorClass="bg-red-100 text-red-600" 
-          trend="up" 
-          trendValue="+2" 
-          subtext="requiere atención" 
-        />
-        <KPICard 
-          title="Cuentas por Cobrar" 
-          value={`$${(pendingMoney/1000).toFixed(1)}k`} 
-          icon={DollarSign} 
-          colorClass="bg-emerald-100 text-emerald-600" 
-          trend="up" 
-          trendValue="+8%" 
-          subtext="flujo de caja proyectado" 
-        />
+        <KPICard title="Contenedores Activos" value={total} icon={Ship} colorClass="bg-blue-100 text-blue-600" trend="up" trendValue="+12%" subtext="vs mes pasado" />
+        <KPICard title="Alertas (Próximos)" value={warning} icon={Clock} colorClass="bg-yellow-100 text-yellow-600" trend="down" trendValue="-5%" subtext="mejoría en tiempos" />
+        <KPICard title="Críticos (Vencidos)" value={danger} icon={AlertTriangle} colorClass="bg-red-100 text-red-600" trend="up" trendValue="+2" subtext="requiere atención" />
+        <KPICard title="Cuentas por Cobrar" value={`$${(pendingMoney/1000).toFixed(1)}k`} icon={DollarSign} colorClass="bg-emerald-100 text-emerald-600" trend="up" trendValue="+8%" subtext="flujo de caja proyectado" />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        
-        {/* 2. Gráfica Principal: Tendencia de Operaciones (Area Chart) */}
         <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 lg:col-span-2">
           <div className="flex justify-between items-center mb-6">
-            <div>
-              <h3 className="text-lg font-bold text-slate-800">Dinámica Semanal</h3>
-              <p className="text-xs text-slate-400">Volumen de operaciones y montos</p>
-            </div>
-            <select className="bg-slate-50 border border-slate-200 text-xs rounded-md p-1 outline-none text-slate-600">
-              <option>Últimos 7 días</option>
-              <option>Este Mes</option>
-            </select>
+            <div><h3 className="text-lg font-bold text-slate-800">Dinámica Semanal</h3><p className="text-xs text-slate-400">Volumen de operaciones y montos</p></div>
+            <select className="bg-slate-50 border border-slate-200 text-xs rounded-md p-1 outline-none text-slate-600"><option>Últimos 7 días</option><option>Este Mes</option></select>
           </div>
           <div className="h-72">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={performanceData}>
-                <defs>
-                  <linearGradient id="colorOps" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#2563EB" stopOpacity={0.1}/>
-                    <stop offset="95%" stopColor="#2563EB" stopOpacity={0}/>
-                  </linearGradient>
-                </defs>
+                <defs><linearGradient id="colorOps" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#2563EB" stopOpacity={0.1}/><stop offset="95%" stopColor="#2563EB" stopOpacity={0}/></linearGradient></defs>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                 <XAxis dataKey="name" tick={{fontSize: 12, fill: '#64748b'}} axisLine={false} tickLine={false} />
                 <YAxis tick={{fontSize: 12, fill: '#64748b'}} axisLine={false} tickLine={false} />
-                <Tooltip 
-                  contentStyle={{borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'}}
-                />
+                <Tooltip contentStyle={{borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'}} />
                 <Area type="monotone" dataKey="monto" stroke="#2563EB" strokeWidth={2} fillOpacity={1} fill="url(#colorOps)" name="Monto ($)" />
               </AreaChart>
             </ResponsiveContainer>
           </div>
         </div>
 
-        {/* 3. Feed de Actividad Reciente */}
         <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 flex flex-col">
-          <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center">
-            <Activity size={18} className="mr-2 text-blue-500"/> Actividad Reciente
-          </h3>
+          <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center"><Activity size={18} className="mr-2 text-blue-500"/> Actividad Reciente</h3>
           <div className="flex-1 overflow-y-auto pr-2 space-y-4">
             {recentActivities.map((act) => (
               <div key={act.id} className="flex items-start pb-4 border-b border-slate-50 last:border-0 last:pb-0">
-                <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 mr-3 flex-shrink-0 text-xs font-bold">
-                  {act.user.charAt(0)}
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-slate-700">{act.action}</p>
-                  <p className="text-xs text-slate-400">{act.details}</p>
-                  <p className="text-[10px] text-slate-300 mt-1">{act.time}</p>
-                </div>
+                <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 mr-3 flex-shrink-0 text-xs font-bold">{act.user.charAt(0)}</div>
+                <div><p className="text-sm font-medium text-slate-700">{act.action}</p><p className="text-xs text-slate-400">{act.details}</p><p className="text-[10px] text-slate-300 mt-1">{act.time}</p></div>
               </div>
             ))}
           </div>
-          <button className="mt-4 w-full py-2 text-xs text-blue-600 font-medium hover:bg-blue-50 rounded-lg transition-colors">
-            Ver todo el historial
-          </button>
+          <button className="mt-4 w-full py-2 text-xs text-blue-600 font-medium hover:bg-blue-50 rounded-lg transition-colors">Ver todo el historial</button>
         </div>
 
-        {/* 4. Gráficas Secundarias */}
         <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
           <h3 className="text-sm font-bold text-slate-500 uppercase mb-4">Volumen por Cliente</h3>
           <div className="h-48">
@@ -312,20 +318,14 @@ const DashboardView = ({ data }) => {
 
         <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 lg:col-span-2">
           <div className="flex items-start justify-between">
-            <div>
-              <h3 className="text-sm font-bold text-slate-500 uppercase mb-2">Salud de la Operación</h3>
-              <p className="text-2xl font-bold text-slate-800">92% <span className="text-sm font-normal text-slate-400">Eficiencia</span></p>
-            </div>
+            <div><h3 className="text-sm font-bold text-slate-500 uppercase mb-2">Salud de la Operación</h3><p className="text-2xl font-bold text-slate-800">92% <span className="text-sm font-normal text-slate-400">Eficiencia</span></p></div>
             <div className="h-48 w-full max-w-xs">
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Pie data={statusData} innerRadius={50} outerRadius={70} paddingAngle={5} dataKey="value">
-                    <Cell fill={COLORS.ok} />
-                    <Cell fill={COLORS.warning} />
-                    <Cell fill={COLORS.danger} />
+                    <Cell fill={COLORS.ok} /><Cell fill={COLORS.warning} /><Cell fill={COLORS.danger} />
                   </Pie>
-                  <Tooltip />
-                  <Legend verticalAlign="middle" align="right" layout="vertical" iconType="circle" />
+                  <Tooltip /><Legend verticalAlign="middle" align="right" layout="vertical" iconType="circle" />
                 </PieChart>
               </ResponsiveContainer>
             </div>
@@ -431,7 +431,7 @@ const CaptureForm = ({ onSave, onCancel, existingData, role }) => {
   );
 };
 
-const ListView = ({ data, onTogglePayment, role, onEdit }) => {
+const ListView = ({ data, onInitiatePayment, role, onEdit }) => {
   const [searchTerm, setSearchTerm] = useState('');
   
   const filteredData = data.filter(item => 
@@ -487,7 +487,6 @@ const ListView = ({ data, onTogglePayment, role, onEdit }) => {
                   </td>
                   <td className="p-4 text-slate-600">{formatDate(item.eta)}</td>
                   <td className="p-4 text-center">
-                    {/* Usamos el nuevo StatusBadge que recibe el item completo */}
                     <StatusBadge item={item} />
                   </td>
                   <td className="p-4 text-right font-medium">${item.amount.toLocaleString()}</td>
@@ -497,7 +496,7 @@ const ListView = ({ data, onTogglePayment, role, onEdit }) => {
                   <td className="p-4 flex justify-center space-x-2">
                     {canPay && item.payment === 'pending' && (
                       <button 
-                        onClick={() => onTogglePayment(item.id)}
+                        onClick={() => onInitiatePayment(item.id)} // Llama a la función que abre el modal
                         className="px-3 py-1 bg-emerald-50 text-emerald-600 border border-emerald-200 rounded hover:bg-emerald-100 text-xs font-bold flex items-center"
                       >
                         <DollarSign size={14} className="mr-1"/> Pagar
@@ -532,42 +531,57 @@ export default function App() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [role, setRole] = useState('admin');
 
+  // --- ESTADO DEL MODAL DE CONFIRMACIÓN ---
+  const [paymentConfirmation, setPaymentConfirmation] = useState({ isOpen: false, item: null });
+
   const handleSave = (newItem) => {
     const itemWithId = { ...newItem, id: Date.now() };
     setData([itemWithId, ...data]);
     setActiveTab('list');
   };
 
-  const togglePayment = (id) => {
+  // Paso 1: Solicitud de pago (Abre el modal)
+  const initiatePayment = (id) => {
+    const item = data.find(i => i.id === id);
+    if (item) {
+      setPaymentConfirmation({ isOpen: true, item });
+    }
+  };
+
+  // Paso 2: Ejecución Real (Al confirmar en el modal)
+  const executePayment = () => {
+    const { item } = paymentConfirmation;
+    if (!item) return;
+
     const today = new Date();
     today.setHours(0,0,0,0);
     const todayStr = today.toISOString().split('T')[0];
 
-    const updatedData = data.map(item => {
-      if (item.id === id && item.payment === 'pending') {
-        // --- LÓGICA DE DÍAS DE RETRASO AL PAGAR ---
-        const [year, month, day] = item.eta.split('-').map(Number);
+    const updatedData = data.map(d => {
+      if (d.id === item.id) {
+        // --- LÓGICA DE DÍAS DE RETRASO ---
+        const [year, month, day] = d.eta.split('-').map(Number);
         const etaDate = new Date(year, month - 1, day);
-        const diffTime = etaDate - today; // Diferencia en milisegundos
+        const diffTime = etaDate - today;
         const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)); 
         
-        // Si diffDays es negativo, significa que HOY es después de la fecha límite (ETA)
-        // Ejemplo: ETA fue hace 5 días (-5). delay = 5.
         let delay = 0;
         if (diffDays < 0) {
            delay = Math.abs(diffDays);
         }
 
         return { 
-          ...item, 
+          ...d, 
           payment: 'paid', 
           paymentDate: todayStr,
-          paymentDelay: delay // Guardamos cuántos días tarde se pagó (0 si fue a tiempo)
+          paymentDelay: delay 
         };
       }
-      return item;
+      return d;
     });
+
     setData(updatedData);
+    setPaymentConfirmation({ isOpen: false, item: null }); // Cerrar modal y limpiar
   };
 
   const handleEdit = (item) => {
@@ -590,7 +604,16 @@ export default function App() {
   };
 
   return (
-    <div className="flex h-screen bg-slate-100 font-sans text-slate-800">
+    <div className="flex h-screen bg-slate-100 font-sans text-slate-800 relative">
+      
+      {/* MODAL DE CONFIRMACIÓN (Global) */}
+      <PaymentModal 
+        isOpen={paymentConfirmation.isOpen}
+        item={paymentConfirmation.item}
+        onClose={() => setPaymentConfirmation({ isOpen: false, item: null })}
+        onConfirm={executePayment}
+      />
+
       <aside className="w-64 bg-slate-900 text-white flex-shrink-0 hidden md:flex flex-col transition-all">
         <div className="p-6 border-b border-slate-800">
           <div className="flex items-center space-x-2">
@@ -647,7 +670,6 @@ export default function App() {
               <NavItem id="list" icon={TableIcon} label="Sábana Operativa" />
               <NavItem id="capture" icon={Plus} label="Capturar Ticket" />
               
-              {/* SELECTOR DE ROL MÓVIL (AÑADIDO) */}
               <div className="mt-8 pt-6 border-t border-slate-700">
                 <label className="text-xs text-slate-400 uppercase font-bold mb-2 block">Simular Rol (Demo Móvil):</label>
                 <select 
@@ -689,7 +711,7 @@ export default function App() {
         <div className="flex-1 overflow-auto p-4 md:p-8">
           {activeTab === 'dashboard' && <DashboardView data={data} />}
           {activeTab === 'capture' && <CaptureForm onSave={handleSave} onCancel={() => setActiveTab('dashboard')} existingData={data} role={role} />}
-          {activeTab === 'list' && <ListView data={data} onTogglePayment={togglePayment} role={role} onEdit={handleEdit} />}
+          {activeTab === 'list' && <ListView data={data} onInitiatePayment={initiatePayment} role={role} onEdit={handleEdit} />}
         </div>
       </main>
     </div>
