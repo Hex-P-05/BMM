@@ -17,7 +17,11 @@ import {
   Shield,
   Edit,
   Lock,
-  Check
+  Check,
+  TrendingUp,   // Nuevo
+  TrendingDown, // Nuevo
+  Activity,     // Nuevo
+  Bell          // Nuevo
 } from 'lucide-react';
 import { 
   BarChart, 
@@ -30,7 +34,9 @@ import {
   PieChart,
   Pie,
   Cell,
-  Legend
+  Legend,
+  AreaChart,    // Nuevo
+  Area          // Nuevo
 } from 'recharts';
 
 // --- UTILIDADES ---
@@ -64,13 +70,9 @@ const calculateStatus = (etaString) => {
 
 // --- DATOS INICIALES ---
 const rawData = [
-  // Ejemplo: Pagado a tiempo (paymentDelay: 0)
   { id: 1, bl: 'HLCU12345678', provider: 'HAPAG', client: 'Importadora México S.A.', clientCode: 'IMP', reason: 'FLETE', container: 'MSKU987654', eta: addDays(45), payment: 'paid', paymentDate: '2025-06-10', paymentDelay: 0, amount: 15000, concept: 'HAPAG IMP 1 FLETE' },
-  // Ejemplo: Pagado con retraso (Simulamos que se pagó tarde)
   { id: 2, bl: 'MAEU87654321', provider: 'MAERSK', client: 'Logística Global', clientCode: 'LOG', reason: 'DEMORAS', container: 'TCLU123000', eta: addDays(-5), payment: 'paid', paymentDate: '2025-06-12', paymentDelay: 5, amount: 22500, concept: 'MAERSK LOG 1 DEMORAS' },
-  // Pendiente con ETA vencido (Riesgo)
   { id: 3, bl: 'COSU11223344', provider: 'COSCO', client: 'Textiles del Norte', clientCode: 'TEX', reason: 'GARANTÍA', container: 'MRKU554433', eta: addDays(-3), payment: 'pending', paymentDate: null, paymentDelay: 0, amount: 18000, concept: 'COSCO TEX 1 GARANTÍA' },
-  // Pendiente a tiempo
   { id: 4, bl: 'MSKU99887766', provider: 'ONE', client: 'Importadora México S.A.', clientCode: 'IMP', reason: 'ALMACENAJE', container: 'MSKU111222', eta: addDays(25), payment: 'pending', paymentDate: null, paymentDelay: 0, amount: 12000, concept: 'ONE IMP 2 ALMACENAJE' },
 ];
 
@@ -80,14 +82,12 @@ const initialData = rawData.map(item => ({
 }));
 
 const COLORS = {
-  ok: '#10B981', warning: '#F59E0B', danger: '#EF4444', expired: '#991B1B', primary: '#2563EB',
+  ok: '#10B981', warning: '#F59E0B', danger: '#EF4444', expired: '#991B1B', primary: '#2563EB', secondary: '#8b5cf6'
 };
 
 // --- COMPONENTES UI ---
 
-// Modificamos StatusBadge para recibir el objeto completo y decidir qué mostrar
 const StatusBadge = ({ item }) => {
-  // 1. Prioridad: Si está pagado, mostrar Verde Sólido con detalles
   if (item.payment === 'paid') {
     return (
       <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold text-white shadow-sm ${item.paymentDelay > 0 ? 'bg-green-700' : 'bg-green-600'}`}>
@@ -99,7 +99,6 @@ const StatusBadge = ({ item }) => {
     );
   }
 
-  // 2. Si no está pagado, mostrar el semáforo normal (Pendiente)
   const config = {
     ok: { color: 'bg-green-100 text-green-800', icon: CheckCircle, label: 'A Tiempo' },
     warning: { color: 'bg-yellow-100 text-yellow-800', icon: Clock, label: 'Alerta' },
@@ -131,11 +130,36 @@ const RoleBadge = ({ role }) => {
   );
 };
 
+// Componente de Tarjeta Mejorado
+const KPICard = ({ title, value, icon: Icon, colorClass, trend, trendValue, subtext }) => (
+  <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5 flex flex-col justify-between hover:shadow-md transition-shadow relative overflow-hidden">
+    <div className="flex justify-between items-start mb-4">
+      <div>
+        <p className="text-slate-500 text-xs uppercase font-bold tracking-wider">{title}</p>
+        <h3 className="text-3xl font-bold text-slate-800 mt-1">{value}</h3>
+      </div>
+      <div className={`p-3 rounded-xl ${colorClass} bg-opacity-10 text-opacity-100`}>
+        <Icon size={24} />
+      </div>
+    </div>
+    
+    <div className="flex items-center text-xs">
+      {trend === 'up' && <TrendingUp size={14} className="text-green-500 mr-1" />}
+      {trend === 'down' && <TrendingDown size={14} className="text-red-500 mr-1" />}
+      {trendValue && (
+        <span className={`font-bold mr-2 ${trend === 'up' ? 'text-green-600' : 'text-red-600'}`}>
+          {trendValue}
+        </span>
+      )}
+      <span className="text-slate-400">{subtext}</span>
+    </div>
+  </div>
+);
+
 // --- VISTAS ---
 
 const DashboardView = ({ data }) => {
   const total = data.length;
-  // Solo contamos en alerta/riesgo los que NO están pagados
   const warning = data.filter(i => i.status === 'warning' && i.payment === 'pending').length;
   const danger = data.filter(i => (i.status === 'danger' || i.status === 'expired') && i.payment === 'pending').length;
   const pendingMoney = data.filter(i => i.payment === 'pending').reduce((acc, curr) => acc + curr.amount, 0);
@@ -152,57 +176,159 @@ const DashboardView = ({ data }) => {
     { name: 'Penalizado', value: danger },
   ];
 
+  // Datos simulados para gráfica de tendencia
+  const performanceData = [
+    { name: 'Lun', operaciones: 12, monto: 15000 },
+    { name: 'Mar', operaciones: 19, monto: 22000 },
+    { name: 'Mié', operaciones: 15, monto: 18000 },
+    { name: 'Jue', operaciones: 25, monto: 35000 },
+    { name: 'Vie', operaciones: 32, monto: 45000 },
+    { name: 'Sáb', operaciones: 20, monto: 28000 },
+    { name: 'Dom', operaciones: 10, monto: 12000 },
+  ];
+
+  const recentActivities = [
+    { id: 1, user: 'Admin', action: 'Pago registrado', details: 'BL HLCU123...', time: 'Hace 5 min' },
+    { id: 2, user: 'Ejecutivo', action: 'Nueva captura', details: 'Cliente: Textil...', time: 'Hace 24 min' },
+    { id: 3, user: 'Sistema', action: 'Alerta generada', details: 'ETA vencido MAEU...', time: 'Hace 1 hora' },
+    { id: 4, user: 'Pagos', action: 'Cierre de día', details: 'Reporte generado', time: 'Ayer' },
+  ];
+
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="space-y-6 animate-fade-in pb-8">
+      {/* 1. KPIs con Tendencias */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex justify-between items-center">
-          <div><p className="text-slate-500 text-xs uppercase font-bold">Activos</p><h3 className="text-2xl font-bold text-slate-800">{total}</h3></div>
-          <div className="p-3 bg-blue-50 text-blue-600 rounded-lg"><Ship size={24}/></div>
-        </div>
-        <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex justify-between items-center">
-          <div><p className="text-slate-500 text-xs uppercase font-bold">Alerta (Pendientes)</p><h3 className="text-2xl font-bold text-slate-800">{warning}</h3></div>
-          <div className="p-3 bg-yellow-50 text-yellow-600 rounded-lg"><Clock size={24}/></div>
-        </div>
-        <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex justify-between items-center">
-          <div><p className="text-slate-500 text-xs uppercase font-bold">Críticos (Pendientes)</p><h3 className="text-2xl font-bold text-slate-800">{danger}</h3></div>
-          <div className="p-3 bg-red-50 text-red-600 rounded-lg"><AlertTriangle size={24}/></div>
-        </div>
-        <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex justify-between items-center">
-          <div><p className="text-slate-500 text-xs uppercase font-bold">Por Cobrar</p><h3 className="text-2xl font-bold text-slate-800">${pendingMoney.toLocaleString()}</h3></div>
-          <div className="p-3 bg-emerald-50 text-emerald-600 rounded-lg"><DollarSign size={24}/></div>
-        </div>
+        <KPICard 
+          title="Contenedores Activos" 
+          value={total} 
+          icon={Ship} 
+          colorClass="bg-blue-100 text-blue-600" 
+          trend="up" 
+          trendValue="+12%" 
+          subtext="vs mes pasado" 
+        />
+        <KPICard 
+          title="Alertas (Próximos)" 
+          value={warning} 
+          icon={Clock} 
+          colorClass="bg-yellow-100 text-yellow-600" 
+          trend="down" 
+          trendValue="-5%" 
+          subtext="mejoría en tiempos" 
+        />
+        <KPICard 
+          title="Críticos (Vencidos)" 
+          value={danger} 
+          icon={AlertTriangle} 
+          colorClass="bg-red-100 text-red-600" 
+          trend="up" 
+          trendValue="+2" 
+          subtext="requiere atención" 
+        />
+        <KPICard 
+          title="Cuentas por Cobrar" 
+          value={`$${(pendingMoney/1000).toFixed(1)}k`} 
+          icon={DollarSign} 
+          colorClass="bg-emerald-100 text-emerald-600" 
+          trend="up" 
+          trendValue="+8%" 
+          subtext="flujo de caja proyectado" 
+        />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        
+        {/* 2. Gráfica Principal: Tendencia de Operaciones (Area Chart) */}
         <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 lg:col-span-2">
-          <h3 className="text-lg font-bold text-slate-800 mb-4">Volumen por Cliente</h3>
-          <div className="h-64">
+          <div className="flex justify-between items-center mb-6">
+            <div>
+              <h3 className="text-lg font-bold text-slate-800">Dinámica Semanal</h3>
+              <p className="text-xs text-slate-400">Volumen de operaciones y montos</p>
+            </div>
+            <select className="bg-slate-50 border border-slate-200 text-xs rounded-md p-1 outline-none text-slate-600">
+              <option>Últimos 7 días</option>
+              <option>Este Mes</option>
+            </select>
+          </div>
+          <div className="h-72">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={performanceData}>
+                <defs>
+                  <linearGradient id="colorOps" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#2563EB" stopOpacity={0.1}/>
+                    <stop offset="95%" stopColor="#2563EB" stopOpacity={0}/>
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                <XAxis dataKey="name" tick={{fontSize: 12, fill: '#64748b'}} axisLine={false} tickLine={false} />
+                <YAxis tick={{fontSize: 12, fill: '#64748b'}} axisLine={false} tickLine={false} />
+                <Tooltip 
+                  contentStyle={{borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'}}
+                />
+                <Area type="monotone" dataKey="monto" stroke="#2563EB" strokeWidth={2} fillOpacity={1} fill="url(#colorOps)" name="Monto ($)" />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        {/* 3. Feed de Actividad Reciente */}
+        <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 flex flex-col">
+          <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center">
+            <Activity size={18} className="mr-2 text-blue-500"/> Actividad Reciente
+          </h3>
+          <div className="flex-1 overflow-y-auto pr-2 space-y-4">
+            {recentActivities.map((act) => (
+              <div key={act.id} className="flex items-start pb-4 border-b border-slate-50 last:border-0 last:pb-0">
+                <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 mr-3 flex-shrink-0 text-xs font-bold">
+                  {act.user.charAt(0)}
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-slate-700">{act.action}</p>
+                  <p className="text-xs text-slate-400">{act.details}</p>
+                  <p className="text-[10px] text-slate-300 mt-1">{act.time}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+          <button className="mt-4 w-full py-2 text-xs text-blue-600 font-medium hover:bg-blue-50 rounded-lg transition-colors">
+            Ver todo el historial
+          </button>
+        </div>
+
+        {/* 4. Gráficas Secundarias */}
+        <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+          <h3 className="text-sm font-bold text-slate-500 uppercase mb-4">Volumen por Cliente</h3>
+          <div className="h-48">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={clientData}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                <XAxis dataKey="name" tick={{fontSize: 10}} interval={0} />
-                <YAxis />
+                <XAxis dataKey="name" tick={{fontSize: 10}} interval={0} hide />
                 <Tooltip />
-                <Bar dataKey="count" fill={COLORS.primary} radius={[4, 4, 0, 0]} barSize={40} />
+                <Bar dataKey="count" fill={COLORS.secondary} radius={[4, 4, 4, 4]} barSize={20} />
               </BarChart>
             </ResponsiveContainer>
           </div>
         </div>
 
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
-          <h3 className="text-lg font-bold text-slate-800 mb-4">Estatus General</h3>
-          <div className="h-48">
-             <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie data={statusData} innerRadius={60} outerRadius={80} paddingAngle={5} dataKey="value">
-                  <Cell fill={COLORS.ok} />
-                  <Cell fill={COLORS.warning} />
-                  <Cell fill={COLORS.danger} />
-                </Pie>
-                <Tooltip />
-                <Legend verticalAlign="bottom" height={36}/>
-              </PieChart>
-            </ResponsiveContainer>
+        <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 lg:col-span-2">
+          <div className="flex items-start justify-between">
+            <div>
+              <h3 className="text-sm font-bold text-slate-500 uppercase mb-2">Salud de la Operación</h3>
+              <p className="text-2xl font-bold text-slate-800">92% <span className="text-sm font-normal text-slate-400">Eficiencia</span></p>
+            </div>
+            <div className="h-48 w-full max-w-xs">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie data={statusData} innerRadius={50} outerRadius={70} paddingAngle={5} dataKey="value">
+                    <Cell fill={COLORS.ok} />
+                    <Cell fill={COLORS.warning} />
+                    <Cell fill={COLORS.danger} />
+                  </Pie>
+                  <Tooltip />
+                  <Legend verticalAlign="middle" align="right" layout="vertical" iconType="circle" />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
           </div>
         </div>
       </div>
