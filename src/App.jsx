@@ -504,7 +504,18 @@ export default function App() {
 
       {isMobileMenuOpen && (
         <div className="fixed inset-0 z-50 bg-slate-900 text-white flex flex-col animate-fade-in">
-           <div className="p-6 flex justify-between items-center"><span className="text-lg font-bold">Menú</span><button onClick={() => setIsMobileMenuOpen(false)}><X size={28} /></button></div>
+           <div className="p-6 border-b border-slate-800 flex justify-between items-start">
+              <div>
+                <div className="flex items-center space-x-2">
+                  <div className="w-8 h-8 bg-blue-500 rounded-lg flex items-center justify-center">
+                    <Ship size={20} className="text-white" />
+                  </div>
+                  <span className="text-lg font-bold tracking-tight">AduanaSoft</span>
+                </div>
+                <p className="text-xs text-slate-500 mt-2">v2.1 Smart Payments</p>
+              </div>
+              <button onClick={() => setIsMobileMenuOpen(false)} className="p-1"><X size={28} /></button>
+           </div>
            <nav className="flex-1 p-6">
               <NavItem id="dashboard" icon={LayoutDashboard} label="Dashboard" />
               <NavItem id="list" icon={TableIcon} label="Sábana Operativa" />
