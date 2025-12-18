@@ -704,7 +704,7 @@ export default function App() {
           </div>
           <div className="flex items-center space-x-4">
              <div className="hidden lg:flex items-center px-3 py-1 bg-green-50 text-green-700 rounded-full border border-green-200 text-xs font-medium"><DollarSign size={14} className="mr-1"/> USD: $20.54</div>
-             <div className="w-8 h-8 bg-slate-100 rounded-full flex items-center justify-center text-slate-500 border border-slate-200"><Shield size={16} /></div>
+             {/* Removed Shield icon div here */}
           </div>
         </header>
 
