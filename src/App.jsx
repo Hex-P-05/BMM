@@ -5,7 +5,7 @@ import {
   LayoutDashboard, FileText, Table as TableIcon, AlertTriangle, CheckCircle, 
   Clock, Ship, DollarSign, Plus, Search, Menu, X, User, Edit, Lock, 
   TrendingUp, TrendingDown, Activity, AlertCircle, Calculator, Trash2, 
-  Download, Printer, Package, MapPin, Key, LogOut // <-- Agregué Key y LogOut
+  Download, Printer, Package, MapPin, Key, LogOut, Check // <--- AQUÍ FALTABA ESTE
 } from 'lucide-react';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
