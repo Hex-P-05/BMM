@@ -216,10 +216,11 @@ const PaymentModal = ({ isOpen, onClose, onConfirm, item }) => {
 // --- NUEVO COMPONENTE: GENERADOR DE COTIZACIONES ---
 // --- COMPONENTE: GENERADOR DE COTIZACIONES (VERSIÓN PDF MEMBRETADO) ---
 // --- COMPONENTE: GENERADOR DE COTIZACIONES (FINAL: MONEDAS MIXTAS) ---
+// --- COMPONENTE: GENERADOR DE COTIZACIONES (FINAL: MONEDA ÚNICA) ---
 const QuoteGenerator = ({ role }) => {
   if (role === 'pagos') return <div className="p-10 text-center text-red-500 font-bold">Acceso Denegado: Solo Admin y Revalidaciones pueden cotizar.</div>;
 
-  // 1. ESTADO: Agregamos las divisas individuales para cada costo
+  // 1. ESTADO
   const [quoteData, setQuoteData] = useState({
     clienteNombre: '',
     clienteReferencia: '',
@@ -234,14 +235,16 @@ const QuoteGenerator = ({ role }) => {
     diasAlmacenaje: 0,
     naviera: '',
     
-    // COSTOS (Monto y su Divisa correspondiente)
-    costoDemoras: 0,        divisaDemoras: 'USD',
-    costoAlmacenaje: 0,     divisaAlmacenaje: 'MXN',
-    costosOperativos: 0,    divisaOperativos: 'MXN',
-    apoyo: 0,               divisaApoyo: 'MXN',
-    impuestos: 0,           divisaImpuestos: 'MXN',
-    liberacion: 0,          divisaLiberacion: 'MXN',
-    transporte: 0,          divisaTransporte: 'MXN',
+    // COSTOS (Solo montos numéricos)
+    costoDemoras: 0,
+    costoAlmacenaje: 0,
+    costosOperativos: 0,
+    apoyo: 0,
+    impuestos: 0,
+    liberacion: 0,
+    transporte: 0,
+    
+    currency: 'MXN' // Moneda Global
   });
 
   const handleChange = (e) => {
@@ -252,33 +255,17 @@ const QuoteGenerator = ({ role }) => {
     });
   };
 
-  // 2. LÓGICA DE SUBTOTALES (Suma separada por moneda)
-  const calculateTotals = () => {
-    let totalMXN = 0;
-    let totalUSD = 0;
+  // 2. LÓGICA DE SUBTOTAL (Suma simple)
+  const subtotal = 
+    quoteData.costoDemoras + 
+    quoteData.costoAlmacenaje + 
+    quoteData.costosOperativos + 
+    quoteData.apoyo + 
+    quoteData.impuestos + 
+    quoteData.liberacion + 
+    quoteData.transporte;
 
-    // Lista de configuración para iterar fácil
-    const concepts = [
-      { amount: quoteData.costoDemoras, currency: quoteData.divisaDemoras },
-      { amount: quoteData.costoAlmacenaje, currency: quoteData.divisaAlmacenaje },
-      { amount: quoteData.costosOperativos, currency: quoteData.divisaOperativos },
-      { amount: quoteData.apoyo, currency: quoteData.divisaApoyo },
-      { amount: quoteData.impuestos, currency: quoteData.divisaImpuestos },
-      { amount: quoteData.liberacion, currency: quoteData.divisaLiberacion },
-      { amount: quoteData.transporte, currency: quoteData.divisaTransporte },
-    ];
-
-    concepts.forEach(item => {
-      if (item.currency === 'MXN') totalMXN += item.amount;
-      if (item.currency === 'USD') totalUSD += item.amount;
-    });
-
-    return { totalMXN, totalUSD };
-  };
-
-  const { totalMXN, totalUSD } = calculateTotals();
-
-  // 3. DEFINICIÓN DE FILAS PARA LA TABLA (Ahora leemos la divisa específica de cada fila)
+  // 3. DEFINICIÓN DE FILAS
   const tableRows = [
     { label: '提货单// BL', value: quoteData.bl, isMoney: false },
     { label: '容器 // CONTENEDOR', value: quoteData.contenedor, isMoney: false },
@@ -290,25 +277,24 @@ const QuoteGenerator = ({ role }) => {
     { label: '储存天數 // DIAS DE ALMACENAJE', value: quoteData.diasAlmacenaje, isMoney: false },
     { label: '航运公司// NAVIERA', value: quoteData.naviera, isMoney: false },
     
-    // Filas de Dinero (Pasamos el valor y SU divisa específica)
-    { label: '延误// DEMORAS', value: quoteData.costoDemoras, isMoney: true, currency: quoteData.divisaDemoras },
-    { label: '贮存// ALMACENAJE', value: quoteData.costoAlmacenaje, isMoney: true, currency: quoteData.divisaAlmacenaje },
-    { label: '營運成本// COSTOS OPERATIVOS', value: quoteData.costosOperativos, isMoney: true, currency: quoteData.divisaOperativos },
-    { label: '支援// APOYO', value: quoteData.apoyo, isMoney: true, currency: quoteData.divisaApoyo, labelClass: 'text-red-500 font-bold' },
-    { label: '税收// IMPUESTOS', value: quoteData.impuestos, isMoney: true, currency: quoteData.divisaImpuestos },
-    { label: '摆脱遗弃// LIBERACION DE ABANDONO', value: quoteData.liberacion, isMoney: true, currency: quoteData.divisaLiberacion },
-    { label: '運輸// TRANSPORTE', value: quoteData.transporte, isMoney: true, currency: quoteData.divisaTransporte },
+    // Filas de Dinero
+    { label: '延误// DEMORAS', value: quoteData.costoDemoras, isMoney: true },
+    { label: '贮存// ALMACENAJE', value: quoteData.costoAlmacenaje, isMoney: true },
+    { label: '營運成本// COSTOS OPERATIVOS', value: quoteData.costosOperativos, isMoney: true },
+    { label: '支援// APOYO', value: quoteData.apoyo, isMoney: true, labelClass: 'text-red-500 font-bold' },
+    { label: '税收// IMPUESTOS', value: quoteData.impuestos, isMoney: true },
+    { label: '摆脱遗弃// LIBERACION DE ABANDONO', value: quoteData.liberacion, isMoney: true },
+    { label: '運輸// TRANSPORTE', value: quoteData.transporte, isMoney: true },
   ];
 
-  // Configuración de campos para el Formulario (Para no repetir código HTML)
   const costFields = [
-    { id: 'costoDemoras', currId: 'divisaDemoras', label: 'Demoras' },
-    { id: 'costoAlmacenaje', currId: 'divisaAlmacenaje', label: 'Almacenaje' },
-    { id: 'costosOperativos', currId: 'divisaOperativos', label: 'Costos Operativos' },
-    { id: 'apoyo', currId: 'divisaApoyo', label: 'Apoyo' },
-    { id: 'impuestos', currId: 'divisaImpuestos', label: 'Impuestos' },
-    { id: 'liberacion', currId: 'divisaLiberacion', label: 'Liberación Abandono' },
-    { id: 'transporte', currId: 'divisaTransporte', label: 'Transporte' },
+    { id: 'costoDemoras', label: 'Demoras' },
+    { id: 'costoAlmacenaje', label: 'Almacenaje' },
+    { id: 'costosOperativos', label: 'Costos Operativos' },
+    { id: 'apoyo', label: 'Apoyo' },
+    { id: 'impuestos', label: 'Impuestos' },
+    { id: 'liberacion', label: 'Liberación Abandono' },
+    { id: 'transporte', label: 'Transporte' },
   ];
 
   return (
@@ -334,7 +320,6 @@ const QuoteGenerator = ({ role }) => {
 
         <div className="space-y-4">
           
-          {/* Datos Cliente */}
           <div className="bg-blue-50 p-4 rounded-lg border border-blue-100">
              <h4 className="text-xs font-bold text-blue-800 uppercase mb-3">Datos del Encabezado</h4>
              <div className="space-y-2">
@@ -346,7 +331,6 @@ const QuoteGenerator = ({ role }) => {
              </div>
           </div>
 
-          {/* Datos Operativos */}
           <div className="bg-slate-50 p-4 rounded-lg border border-slate-100">
             <h4 className="text-xs font-bold text-slate-500 uppercase mb-3">Datos Operativos</h4>
             <div className="grid grid-cols-2 gap-3">
@@ -370,7 +354,6 @@ const QuoteGenerator = ({ role }) => {
                 <input name="naviera" placeholder="Naviera" value={quoteData.naviera} onChange={handleChange} className="w-full p-2 border rounded text-sm" />
               </div>
 
-              {/* Días con etiquetas fuera (Corrección anterior) */}
               <div className="col-span-2 grid grid-cols-2 gap-3 mt-2">
                 <div>
                    <label className="text-xs font-bold text-slate-500 mb-1 block">Días Demoras</label>
@@ -390,38 +373,30 @@ const QuoteGenerator = ({ role }) => {
             </div>
           </div>
 
-          {/* --- COSTOS (NUEVO: SELECTOR INDIVIDUAL) --- */}
           <div className="bg-slate-50 p-4 rounded-lg border border-slate-100">
-            <h4 className="text-xs font-bold text-slate-500 uppercase mb-3">Costos Individuales</h4>
+            {/* SELECTOR GLOBAL DE MONEDA */}
+            <div className="flex justify-between items-center mb-3">
+               <h4 className="text-xs font-bold text-slate-500 uppercase">Costos</h4>
+               <select name="currency" value={quoteData.currency} onChange={handleChange} className="text-xs p-1 border rounded font-bold text-blue-600 bg-white shadow-sm outline-none">
+                 <option value="MXN">MXN (Pesos)</option>
+                 <option value="USD">USD (Dólares)</option>
+               </select>
+            </div>
             
             <div className="space-y-3">
               {costFields.map((field) => (
-                <div key={field.id}>
-                  <label className="text-xs font-bold text-slate-600 mb-1 block">{field.label}</label>
-                  <div className="flex shadow-sm rounded-md">
-                    {/* Selector de Moneda (Izquierda) */}
-                    <select 
-                      name={field.currId} 
-                      value={quoteData[field.currId]} 
-                      onChange={handleChange}
-                      className="rounded-l-md border border-r-0 border-slate-300 bg-slate-100 text-xs font-bold text-slate-700 py-2 px-2 focus:outline-none focus:ring-1 focus:ring-blue-500 hover:bg-slate-200 cursor-pointer w-20 text-center"
-                    >
-                      <option value="MXN">MXN</option>
-                      <option value="USD">USD</option>
-                    </select>
-                    
-                    {/* Input Numérico (Derecha) */}
-                    <div className="relative flex-grow">
-                      <span className="absolute left-3 top-2 text-xs text-slate-400 font-bold">$</span>
-                      <input 
-                        type="number" 
-                        name={field.id} 
-                        value={quoteData[field.id]} 
-                        onChange={handleChange} 
-                        placeholder="0.00"
-                        className="rounded-r-md border border-slate-300 w-full py-2 pl-6 pr-3 text-sm text-right font-mono focus:outline-none focus:ring-1 focus:ring-blue-500" 
-                      />
-                    </div>
+                <div key={field.id} className="flex items-center justify-between">
+                  <label className="text-xs font-medium text-slate-600 w-1/3">{field.label}</label>
+                  <div className="relative w-2/3">
+                    <span className="absolute left-3 top-2 text-xs text-slate-400 font-bold">$</span>
+                    <input 
+                      type="number" 
+                      name={field.id} 
+                      value={quoteData[field.id]} 
+                      onChange={handleChange} 
+                      placeholder="0.00"
+                      className="w-full p-2 pl-6 border rounded text-sm text-right font-mono focus:border-blue-500 outline-none" 
+                    />
                   </div>
                 </div>
               ))}
@@ -454,7 +429,6 @@ const QuoteGenerator = ({ role }) => {
               </div>
               <div className="text-right">
                 <h2 className="text-xl font-bold text-slate-400 uppercase tracking-widest">Cotización</h2>
-                <p className="text-sm font-bold text-slate-800 mt-1">Folio: <span className="text-red-600">QT-{new Date().getFullYear()}-{Math.floor(Math.random() * 1000)}</span></p>
                 <p className="text-xs text-slate-500 mt-1">Fecha: {formatDate(quoteData.fechaEmision)}</p>
               </div>
             </div>
@@ -486,8 +460,7 @@ const QuoteGenerator = ({ role }) => {
                   </div>
                   <div className="w-1/2 p-2 flex items-center justify-center bg-white">
                     <span className="font-bold text-slate-800">
-                      {/* Aquí mostramos la divisa específica del renglón */}
-                      {row.isMoney && <span className="text-[10px] mr-1 text-slate-500 font-normal">{row.currency}</span>}
+                      {row.isMoney && <span className="text-[10px] mr-1 text-slate-500 font-normal">{quoteData.currency}</span>}
                       {row.isMoney 
                         ? `$${row.value.toLocaleString(undefined, {minimumFractionDigits: 2})}` 
                         : (row.value || '-')}
@@ -496,30 +469,15 @@ const QuoteGenerator = ({ role }) => {
                 </div>
               ))}
 
-              {/* SUBTOTAL INTELIGENTE */}
               <div className="flex border-t-2 border-black bg-yellow-300 print:bg-yellow-300">
                 <div className="w-1/2 border-r border-black p-2 text-right flex items-center justify-end">
                    <span className="text-sm font-bold">SUBTOTAL</span>
                 </div>
                 <div className="w-1/2 p-2 text-center flex flex-col justify-center">
-                   {/* Si hay total en MXN, lo mostramos */}
-                   {totalMXN > 0 && (
-                     <span className="text-lg font-bold">
-                        <span className="text-xs mr-1 font-normal">MXN</span>
-                        ${totalMXN.toLocaleString(undefined, {minimumFractionDigits: 2})}
-                     </span>
-                   )}
-                   {/* Si hay total en USD, lo mostramos debajo */}
-                   {totalUSD > 0 && (
-                     <span className="text-lg font-bold text-blue-900">
-                        <span className="text-xs mr-1 font-normal">USD</span>
-                        ${totalUSD.toLocaleString(undefined, {minimumFractionDigits: 2})}
-                     </span>
-                   )}
-                   {/* Si ambos son 0 */}
-                   {totalMXN === 0 && totalUSD === 0 && (
-                     <span className="text-lg font-bold">$0.00</span>
-                   )}
+                   <span className="text-lg font-bold">
+                      <span className="text-xs mr-1 font-normal">{quoteData.currency}</span>
+                      ${subtotal.toLocaleString(undefined, {minimumFractionDigits: 2})}
+                   </span>
                 </div>
               </div>
             </div>
