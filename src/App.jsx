@@ -9,7 +9,7 @@ import {
   Clock, Ship, DollarSign, Plus, Search, Menu, X, User, Edit, Lock, 
   TrendingUp, TrendingDown, Activity, AlertCircle, Calculator, Trash2, 
   Download, Printer, Package, MapPin, Key, LogOut, Check, 
-  ChevronLeft, ChevronRight, ShieldAlert 
+  ChevronLeft, ChevronRight, ChevronDown, ChevronUp, ShieldAlert, Eye 
 } from 'lucide-react';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -44,12 +44,28 @@ const calculateStatus = (etaString) => {
   return 'ok';
 };
 
-// --- DATOS INICIALES (MOCKS) ---
+// --- DATOS INICIALES (MOCKS CON DESGLOSE DE COSTOS) ---
 const rawData = [
-  { id: 1, bl: 'HLCU12345678', provider: 'HAPAG', client: 'Importadora México S.A.', clientCode: 'IMP', reason: 'FLETE', container: 'MSKU987654', eta: addDays(45), freeDays: 7, editCount: 0, payment: 'paid', paymentDate: '2025-06-10', paymentDelay: 0, amount: 15000, concept: 'HAPAG IMP 1 FLETE', currency: 'MXN' },
-  { id: 2, bl: 'MAEU87654321', provider: 'MAERSK', client: 'Logística Global', clientCode: 'LOG', reason: 'DEMORAS', container: 'TCLU123000', eta: addDays(-5), freeDays: 14, editCount: 1, payment: 'paid', paymentDate: '2025-06-12', paymentDelay: 5, amount: 22500, concept: 'MAERSK LOG 1 DEMORAS', currency: 'USD' },
-  { id: 3, bl: 'COSU11223344', provider: 'COSCO', client: 'Textiles del Norte', clientCode: 'TEX', reason: 'GARANTÍA', container: 'MRKU554433', eta: addDays(-3), freeDays: 21, editCount: 2, payment: 'pending', paymentDate: null, paymentDelay: 0, amount: 18000, concept: 'COSCO TEX 1 GARANTÍA', currency: 'MXN' },
-  { id: 4, bl: 'MSKU99887766', provider: 'ONE', client: 'Importadora México S.A.', clientCode: 'IMP', reason: 'ALMACENAJE', container: 'MSKU111222', eta: addDays(25), freeDays: 7, editCount: 0, payment: 'pending', paymentDate: null, paymentDelay: 0, amount: 12000, concept: 'ONE IMP 2 ALMACENAJE', currency: 'MXN' },
+  { 
+    id: 1, bl: 'HLCU12345678', provider: 'HAPAG', client: 'Importadora México S.A.', clientCode: 'IMP', reason: 'FLETE', container: 'MSKU987654', eta: addDays(45), freeDays: 7, editCount: 0, payment: 'paid', paymentDate: '2025-06-10', paymentDelay: 0, currency: 'MXN', concept: 'HAPAG IMP 1 FLETE',
+    costDemoras: 0, costAlmacenaje: 0, costOperativos: 5000, costPortuarios: 2000, costApoyo: 0, costImpuestos: 1000, costLiberacion: 0, costTransporte: 7000,
+    amount: 15000 
+  },
+  { 
+    id: 2, bl: 'MAEU87654321', provider: 'MAERSK', client: 'Logística Global', clientCode: 'LOG', reason: 'DEMORAS', container: 'TCLU123000', eta: addDays(-5), freeDays: 14, editCount: 1, payment: 'paid', paymentDate: '2025-06-12', paymentDelay: 5, currency: 'USD', concept: 'MAERSK LOG 1 DEMORAS',
+    costDemoras: 15000, costAlmacenaje: 5000, costOperativos: 1000, costPortuarios: 0, costApoyo: 0, costImpuestos: 500, costLiberacion: 0, costTransporte: 1000,
+    amount: 22500 
+  },
+  { 
+    id: 3, bl: 'COSU11223344', provider: 'COSCO', client: 'Textiles del Norte', clientCode: 'TEX', reason: 'GARANTÍA', container: 'MRKU554433', eta: addDays(-3), freeDays: 21, editCount: 2, payment: 'pending', paymentDate: null, paymentDelay: 0, currency: 'MXN', concept: 'COSCO TEX 1 GARANTÍA',
+    costDemoras: 0, costAlmacenaje: 0, costOperativos: 0, costPortuarios: 0, costApoyo: 18000, costImpuestos: 0, costLiberacion: 0, costTransporte: 0,
+    amount: 18000 
+  },
+  { 
+    id: 4, bl: 'MSKU99887766', provider: 'ONE', client: 'Importadora México S.A.', clientCode: 'IMP', reason: 'ALMACENAJE', container: 'MSKU111222', eta: addDays(25), freeDays: 7, editCount: 0, payment: 'pending', paymentDate: null, paymentDelay: 0, currency: 'MXN', concept: 'ONE IMP 2 ALMACENAJE',
+    costDemoras: 0, costAlmacenaje: 10000, costOperativos: 500, costPortuarios: 500, costApoyo: 0, costImpuestos: 1000, costLiberacion: 0, costTransporte: 0,
+    amount: 12000 
+  },
 ];
 
 const NAVIERAS_DB = [
@@ -140,7 +156,7 @@ const KPICard = ({ title, value, icon: Icon, colorClass, trend, trendValue, subt
   </div>
 );
 
-// --- MODAL DE EDICIÓN ---
+// --- MODAL DE EDICIÓN ACTUALIZADO ---
 const EditModal = ({ isOpen, onClose, onSave, item, role }) => {
   if (!isOpen || !item) return null;
 
@@ -149,18 +165,39 @@ const EditModal = ({ isOpen, onClose, onSave, item, role }) => {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setEditData({ ...editData, [name]: value });
+    const val = name.startsWith('cost') ? (parseFloat(value) || 0) : value;
+    
+    // Si cambia un costo, recalculamos el total amount
+    if (name.startsWith('cost')) {
+        const newData = { ...editData, [name]: val };
+        // Recalcular total
+        const total = 
+            (newData.costDemoras || 0) + (newData.costAlmacenaje || 0) + (newData.costOperativos || 0) + 
+            (newData.costPortuarios || 0) + (newData.costApoyo || 0) + (newData.costImpuestos || 0) + 
+            (newData.costLiberacion || 0) + (newData.costTransporte || 0);
+        setEditData({ ...newData, amount: total });
+    } else {
+        setEditData({ ...editData, [name]: value });
+    }
   };
 
   const handleSave = () => {
     onSave(editData);
   };
 
+  // Lista de campos de costo para renderizar
+  const costInputs = [
+    { key: 'costDemoras', label: 'Demoras' }, { key: 'costAlmacenaje', label: 'Almacenaje' },
+    { key: 'costOperativos', label: 'Costos operativos' }, { key: 'costPortuarios', label: 'Gastos portuarios' },
+    { key: 'costApoyo', label: 'Apoyo' }, { key: 'costImpuestos', label: 'Impuestos' },
+    { key: 'costLiberacion', label: 'Liberación abandono' }, { key: 'costTransporte', label: 'Transporte' },
+  ];
+
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 animate-fade-in">
       <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={onClose}></div>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl relative z-10 overflow-hidden">
-        <div className="bg-blue-50 p-6 border-b border-blue-100 flex justify-between items-center">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl relative z-10 overflow-hidden max-h-[90vh] overflow-y-auto">
+        <div className="bg-blue-50 p-6 border-b border-blue-100 flex justify-between items-center sticky top-0 z-20">
           <div>
              <h3 className="text-lg font-bold text-slate-800 flex items-center">
                 <Edit size={20} className="mr-2 text-blue-600"/> Editar contenedor
@@ -183,11 +220,7 @@ const EditModal = ({ isOpen, onClose, onSave, item, role }) => {
              <label className="text-xs font-bold text-slate-500 mb-1 block">Contenedor</label>
              <input disabled name="container" value={editData.container} onChange={handleChange} className="w-full p-2 border rounded bg-slate-100 text-slate-500 cursor-not-allowed" />
           </div>
-          <div className="col-span-2">
-             <label className="text-xs font-bold text-slate-500 mb-1 block">Cliente</label>
-             <input disabled name="client" value={editData.client} onChange={handleChange} className="w-full p-2 border rounded bg-slate-100 text-slate-500 cursor-not-allowed" />
-          </div>
-
+          
           <div className="col-span-1">
              <label className="text-xs font-bold text-slate-700 mb-1 block flex items-center">
                 Fecha ETA 
@@ -205,16 +238,30 @@ const EditModal = ({ isOpen, onClose, onSave, item, role }) => {
           </div>
 
           <div className="col-span-2 border-t pt-4 mt-2">
-             <label className="text-xs font-bold text-slate-500 mb-1 block">Monto y divisa</label>
-             <div className="flex gap-2">
-                <input disabled value={editData.currency} className="w-1/4 p-2 border rounded bg-slate-100 text-slate-500 text-center" />
-                <input disabled value={editData.amount} className="w-3/4 p-2 border rounded bg-slate-100 text-slate-500" />
+             <div className="flex justify-between items-center mb-2">
+                <label className="text-xs font-bold text-slate-500 uppercase">Desglose de costos</label>
+                <span className="text-xs font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded border border-blue-100">Total: ${editData.amount.toLocaleString()}</span>
              </div>
-             {isRestricted && <p className="text-[10px] text-red-400 mt-1 italic">* Para modificar montos o datos fiscales contacte a un Administrador.</p>}
+             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                {costInputs.map(field => (
+                    <div key={field.key}>
+                        <label className="text-[10px] font-medium text-slate-500 mb-1 block">{field.label}</label>
+                        <input 
+                            disabled={isRestricted} // Bloqueado si no es admin
+                            type="number" 
+                            name={field.key} 
+                            value={editData[field.key]} 
+                            onChange={handleChange} 
+                            className={`w-full p-2 border rounded text-xs text-right outline-none ${isRestricted ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'focus:ring-2 focus:ring-blue-500'}`} 
+                        />
+                    </div>
+                ))}
+             </div>
+             {isRestricted && <p className="text-[10px] text-red-400 mt-3 italic">* Para modificar montos o datos fiscales contacte a un Administrador.</p>}
           </div>
         </div>
 
-        <div className="p-4 bg-slate-50 border-t flex justify-end gap-3">
+        <div className="p-4 bg-slate-50 border-t flex justify-end gap-3 sticky bottom-0 z-20">
            <button onClick={onClose} className="px-4 py-2 text-slate-600 hover:bg-slate-200 rounded text-sm font-bold">Cancelar</button>
            <button onClick={handleSave} className="px-4 py-2 bg-blue-600 text-white rounded shadow hover:bg-blue-700 text-sm font-bold">Guardar cambios</button>
         </div>
@@ -447,15 +494,31 @@ const DashboardView = ({ data }) => {
   );
 };
 
+// --- FORMULARIO DE CAPTURA ACTUALIZADO CON DESGLOSE DE COSTOS ---
 const CaptureForm = ({ onSave, onCancel, existingData, role }) => {
   if (role === 'pagos') return <div className="p-10 text-center text-red-500 font-bold">Acceso denegado: Rol no autorizado para capturas.</div>;
 
   const [formData, setFormData] = useState({
-    bl: '', provider: '', rfc: '', address: '', client: '', reason: 'GARANTÍA', container: '', eta: '', amount: '', currency: 'MXN',
-    freeDays: 7 
+    bl: '', provider: '', rfc: '', address: '', client: '', reason: 'GARANTÍA', container: '', eta: '', currency: 'MXN',
+    freeDays: 7,
+    // Costos individuales
+    costDemoras: 0, costAlmacenaje: 0, costOperativos: 0, costPortuarios: 0,
+    costApoyo: 0, costImpuestos: 0, costLiberacion: 0, costTransporte: 0
   });
+  const [totalAmount, setTotalAmount] = useState(0);
+  
   const [generatedConcept, setGeneratedConcept] = useState('');
   const [clientConsecutive, setClientConsecutive] = useState(1);
+
+  // Recalcular total cuando cambian los costos
+  useEffect(() => {
+    const sum = 
+      (parseFloat(formData.costDemoras) || 0) + (parseFloat(formData.costAlmacenaje) || 0) +
+      (parseFloat(formData.costOperativos) || 0) + (parseFloat(formData.costPortuarios) || 0) +
+      (parseFloat(formData.costApoyo) || 0) + (parseFloat(formData.costImpuestos) || 0) +
+      (parseFloat(formData.costLiberacion) || 0) + (parseFloat(formData.costTransporte) || 0);
+    setTotalAmount(sum);
+  }, [formData]);
 
   useEffect(() => {
     const code = formData.client ? formData.client.substring(0, 3).toUpperCase() : 'XXX';
@@ -480,7 +543,7 @@ const CaptureForm = ({ onSave, onCancel, existingData, role }) => {
     onSave({ 
       ...formData, 
       clientCode: formData.client.substring(0, 3).toUpperCase(),
-      amount: parseFloat(formData.amount), 
+      amount: totalAmount, // Guardamos el total calculado
       status: calculatedStatus, 
       payment: 'pending',
       paymentDate: null,
@@ -490,6 +553,14 @@ const CaptureForm = ({ onSave, onCancel, existingData, role }) => {
     });
   };
   const handleChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value });
+
+  // Lista de campos para el map
+  const costFieldsInputs = [
+    { name: 'costDemoras', label: 'Demoras' }, { name: 'costAlmacenaje', label: 'Almacenaje' },
+    { name: 'costOperativos', label: 'Costos operativos' }, { name: 'costPortuarios', label: 'Gastos portuarios' },
+    { name: 'costApoyo', label: 'Apoyo' }, { name: 'costImpuestos', label: 'Impuestos' },
+    { name: 'costLiberacion', label: 'Liberación abandono' }, { name: 'costTransporte', label: 'Transporte' },
+  ];
 
   return (
     <div className="max-w-4xl mx-auto animate-fade-in">
@@ -513,13 +584,45 @@ const CaptureForm = ({ onSave, onCancel, existingData, role }) => {
             </div>
             <div className="mt-3 p-3 bg-slate-800 text-green-400 font-mono text-sm rounded flex justify-between items-center shadow-inner"><span className="flex items-center"><FileText size={14} className="mr-2"/> {generatedConcept}</span><span className="text-xs text-slate-500 bg-slate-900 px-2 py-1 rounded border border-slate-700">Consecutivo #{clientConsecutive}</span></div>
           </div>
+          
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="col-span-2"><label className="text-sm font-bold text-slate-700">BL (master)</label><input required name="bl" className="w-full p-2 border rounded uppercase font-mono outline-none" onChange={handleChange} placeholder="HLCU..." /></div>
             <div><label className="text-sm font-medium text-slate-700">Contenedor</label><input required name="container" className="w-full p-2 border rounded uppercase outline-none" onChange={handleChange} placeholder="MSKU..." /></div>
             <div><label className="text-sm font-medium text-slate-700">Fecha ETA</label><input required name="eta" type="date" className="w-full p-2 border rounded outline-none" onChange={handleChange} /></div>
             <div><label className="text-sm font-medium text-slate-700">Días libres</label><input required name="freeDays" type="number" value={formData.freeDays} className="w-full p-2 border rounded outline-none" onChange={handleChange} /></div>
-            <div className="col-span-2"><label className="text-sm font-medium text-slate-700">Monto y divisa</label><div className="flex space-x-2"><select name="currency" value={formData.currency} onChange={handleChange} className="w-1/3 p-2 border rounded font-bold text-slate-700 bg-slate-50 outline-none"><option value="MXN">MXN (Pesos)</option><option value="USD">USD (Dólares)</option></select><div className="relative w-2/3"><span className="absolute left-3 top-2 text-slate-400 font-bold">$</span><input required name="amount" type="number" className="w-full pl-6 p-2 border rounded font-bold text-slate-700 outline-none" onChange={handleChange} placeholder="0.00" /></div></div></div>
+            
+            {/* SECCIÓN DE COSTOS DESGLOSADOS */}
+            <div className="col-span-2 border-t pt-4">
+               <div className="flex justify-between items-center mb-3">
+                  <label className="text-sm font-bold text-slate-700">Desglose de costos</label>
+                  <select name="currency" value={formData.currency} onChange={handleChange} className="text-xs p-1 border rounded font-bold text-blue-600 bg-white"><option value="MXN">MXN (Pesos)</option><option value="USD">USD (Dólares)</option></select>
+               </div>
+               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  {costFieldsInputs.map(field => (
+                      <div key={field.name}>
+                          <label className="text-xs font-medium text-slate-500 mb-1 block">{field.label}</label>
+                          <div className="relative">
+                             <span className="absolute left-2 top-1.5 text-xs text-slate-400">$</span>
+                             <input 
+                                type="number" 
+                                name={field.name} 
+                                className="w-full pl-5 p-1.5 border rounded text-sm text-right outline-none focus:border-blue-500" 
+                                onChange={handleChange} 
+                                placeholder="0" 
+                             />
+                          </div>
+                      </div>
+                  ))}
+               </div>
+               <div className="mt-4 flex justify-end">
+                  <div className="bg-slate-100 px-4 py-2 rounded-lg border border-slate-200">
+                     <span className="text-xs text-slate-500 mr-2 uppercase font-bold">Total a registrar:</span>
+                     <span className="text-lg font-bold text-slate-800">${totalAmount.toLocaleString()} <span className="text-xs font-normal text-slate-500">{formData.currency}</span></span>
+                  </div>
+               </div>
+            </div>
           </div>
+
           <div className="flex justify-end space-x-3 pt-4 border-t"><button type="button" onClick={onCancel} className="px-4 py-2 border rounded text-slate-600 hover:bg-slate-50 font-medium">Cancelar</button><button type="submit" className="px-6 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 flex items-center shadow-lg shadow-blue-200 font-bold transition-all transform hover:-translate-y-0.5"><Lock size={16} className="mr-2" /> Dar de alta</button></div>
         </form>
       </div>
@@ -527,11 +630,22 @@ const CaptureForm = ({ onSave, onCancel, existingData, role }) => {
   );
 };
 
+// --- LISTVIEW (SÁBANA) CON ACORDEÓN ---
 const ListView = ({ data, onInitiatePayment, role, onEdit }) => {
   const [searchTerm, setSearchTerm] = useState('');
+  const [expandedRow, setExpandedRow] = useState(null); // Estado para controlar qué fila está expandida
+
   const filteredData = data.filter(item => item.bl.toLowerCase().includes(searchTerm.toLowerCase()) || item.client.toLowerCase().includes(searchTerm.toLowerCase()) || item.container.toLowerCase().includes(searchTerm.toLowerCase()));
   const canPay = role === 'admin' || role === 'pagos';
   const canSeeEdit = role === 'admin' || role === 'ejecutivo';
+
+  const toggleRow = (id) => {
+    if (expandedRow === id) {
+        setExpandedRow(null);
+    } else {
+        setExpandedRow(id);
+    }
+  };
 
   return (
     <div className="space-y-4 animate-fade-in">
@@ -539,22 +653,64 @@ const ListView = ({ data, onInitiatePayment, role, onEdit }) => {
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
-            <thead><tr className="bg-slate-50 border-b border-slate-200 text-xs font-bold text-slate-500 uppercase"><th className="p-4">Concepto</th><th className="p-4">BL / Contenedor</th><th className="p-4">ETA / Días libres</th><th className="p-4 text-center">Estatus</th><th className="p-4 text-right">Monto</th><th className="p-4 text-center">Pagado el</th><th className="p-4 text-center">Acciones</th></tr></thead>
-            <tbody className="divide-y divide-slate-100 text-sm">
-              {filteredData.map((item) => (
-                <tr key={item.id} className="hover:bg-slate-50">
-                  <td className="p-4"><div className="font-bold text-slate-700">{item.client}</div><div className="inline-block mt-1 px-2 py-0.5 bg-slate-100 border rounded text-xs font-mono text-slate-600">{item.concept}</div></td>
-                  <td className="p-4"><div className="font-mono font-medium">{item.bl}</div><div className="text-xs text-slate-500">{item.container}</div></td>
-                  <td className="p-4"><div className="text-slate-600">{formatDate(item.eta)}</div><div className="text-[10px] text-slate-400">{item.freeDays} días libres</div></td>
-                  <td className="p-4 text-center"><StatusBadge item={item} /></td>
-                  <td className="p-4 text-right font-medium"><span className="text-[10px] text-slate-400 mr-1 font-bold align-top">{item.currency || 'MXN'}</span>${item.amount.toLocaleString()}</td>
-                  <td className="p-4 text-center text-xs text-slate-500">{item.payment === 'paid' ? formatDate(item.paymentDate) : '-'}</td>
-                  <td className="p-4 flex justify-center space-x-2">
-                    {canPay && item.payment === 'pending' && (<button onClick={() => onInitiatePayment(item.id)} className="px-3 py-1 bg-emerald-50 text-emerald-600 border border-emerald-200 rounded hover:bg-emerald-100 text-xs font-bold flex items-center"><DollarSign size={14} className="mr-1"/> Pagar</button>)}
-                    {item.payment === 'paid' && (<span className="px-3 py-1 bg-slate-50 text-slate-400 rounded text-xs font-bold border border-slate-200 cursor-not-allowed">Completado</span>)}
-                    {canSeeEdit && (<button onClick={() => onEdit(item)} className={`p-1.5 rounded transition-colors ${role === 'ejecutivo' && item.editCount >= 2 ? 'text-slate-300 cursor-not-allowed' : 'text-slate-400 hover:text-blue-600 hover:bg-blue-50'}`} title={role === 'ejecutivo' && item.editCount >= 2 ? "Edición bloqueada por el sistema" : "Editar contenedor"}>{role === 'ejecutivo' && item.editCount >= 2 ? <ShieldAlert size={16} /> : <Edit size={16} />}</button>)}
-                  </td>
+            <thead>
+                <tr className="bg-slate-50 border-b border-slate-200 text-xs font-bold text-slate-500 uppercase">
+                    <th className="p-4 w-10"></th> {/* Espacio para el chevron */}
+                    <th className="p-4">Concepto</th>
+                    <th className="p-4">BL / Contenedor</th>
+                    <th className="p-4">ETA / Días libres</th>
+                    <th className="p-4 text-center">Estatus</th>
+                    <th className="p-4 text-right">Monto total</th>
+                    <th className="p-4 text-center">Pagado el</th>
+                    <th className="p-4 text-center">Acciones</th>
                 </tr>
+            </thead>
+            <tbody className="text-sm">
+              {filteredData.map((item) => (
+                <React.Fragment key={item.id}>
+                    {/* FILA PRINCIPAL (RESUMEN) */}
+                    <tr className={`hover:bg-slate-50 border-b border-slate-100 transition-colors ${expandedRow === item.id ? 'bg-blue-50/50' : ''}`}>
+                        <td className="p-4 text-center cursor-pointer" onClick={() => toggleRow(item.id)}>
+                            {expandedRow === item.id ? <ChevronUp size={18} className="text-slate-400"/> : <ChevronDown size={18} className="text-slate-400"/>}
+                        </td>
+                        <td className="p-4"><div className="font-bold text-slate-700">{item.client}</div><div className="inline-block mt-1 px-2 py-0.5 bg-slate-100 border rounded text-xs font-mono text-slate-600">{item.concept}</div></td>
+                        <td className="p-4"><div className="font-mono font-medium">{item.bl}</div><div className="text-xs text-slate-500">{item.container}</div></td>
+                        <td className="p-4"><div className="text-slate-600">{formatDate(item.eta)}</div><div className="text-[10px] text-slate-400">{item.freeDays} días libres</div></td>
+                        <td className="p-4 text-center"><StatusBadge item={item} /></td>
+                        <td className="p-4 text-right font-medium"><span className="text-[10px] text-slate-400 mr-1 font-bold align-top">{item.currency || 'MXN'}</span>${item.amount.toLocaleString()}</td>
+                        <td className="p-4 text-center text-xs text-slate-500">{item.payment === 'paid' ? formatDate(item.paymentDate) : '-'}</td>
+                        <td className="p-4 flex justify-center space-x-2">
+                            {canPay && item.payment === 'pending' && (<button onClick={() => onInitiatePayment(item.id)} className="px-3 py-1 bg-emerald-50 text-emerald-600 border border-emerald-200 rounded hover:bg-emerald-100 text-xs font-bold flex items-center"><DollarSign size={14} className="mr-1"/> Pagar</button>)}
+                            {item.payment === 'paid' && (<span className="px-3 py-1 bg-slate-50 text-slate-400 rounded text-xs font-bold border border-slate-200 cursor-not-allowed">Completado</span>)}
+                            {canSeeEdit && (<button onClick={() => onEdit(item)} className={`p-1.5 rounded transition-colors ${role === 'ejecutivo' && item.editCount >= 2 ? 'text-slate-300 cursor-not-allowed' : 'text-slate-400 hover:text-blue-600 hover:bg-blue-50'}`} title={role === 'ejecutivo' && item.editCount >= 2 ? "Edición bloqueada por el sistema" : "Editar contenedor"}>{role === 'ejecutivo' && item.editCount >= 2 ? <ShieldAlert size={16} /> : <Edit size={16} />}</button>)}
+                        </td>
+                    </tr>
+                    
+                    {/* FILA EXPANDIDA (DETALLE) */}
+                    {expandedRow === item.id && (
+                        <tr className="bg-slate-50 animate-fade-in">
+                            <td colSpan="8" className="p-4 border-b border-slate-200 shadow-inner">
+                                <div className="grid grid-cols-2 md:grid-cols-4 gap-y-4 gap-x-8 px-8">
+                                    {[
+                                        { l: 'Demoras', v: item.costDemoras }, { l: 'Almacenaje', v: item.costAlmacenaje },
+                                        { l: 'Costos operativos', v: item.costOperativos }, { l: 'Gastos portuarios', v: item.costPortuarios },
+                                        { l: 'Apoyo', v: item.costApoyo }, { l: 'Impuestos', v: item.costImpuestos },
+                                        { l: 'Liberación abandono', v: item.costLiberacion }, { l: 'Transporte', v: item.costTransporte }
+                                    ].map((cost, idx) => (
+                                        <div key={idx} className="flex justify-between border-b border-slate-200 pb-1">
+                                            <span className="text-xs text-slate-500 font-medium">{cost.l}</span>
+                                            <span className="text-xs font-bold text-slate-700 font-mono">${(cost.v || 0).toLocaleString()}</span>
+                                        </div>
+                                    ))}
+                                    <div className="col-span-2 md:col-start-4 pt-2 flex justify-between items-center">
+                                        <span className="text-sm font-bold text-slate-800 uppercase">Total calculado:</span>
+                                        <span className="text-lg font-bold text-blue-600 font-mono">${item.amount.toLocaleString()} <span className="text-xs text-slate-400">{item.currency}</span></span>
+                                    </div>
+                                </div>
+                            </td>
+                        </tr>
+                    )}
+                </React.Fragment>
               ))}
             </tbody>
           </table>
