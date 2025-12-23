@@ -220,6 +220,7 @@ const PaymentModal = ({ isOpen, onClose, onConfirm, item }) => {
 // --- COMPONENTE: GENERADOR DE COTIZACIONES (FINAL: MONEDAS MIXTAS) ---
 // --- COMPONENTE: GENERADOR DE COTIZACIONES (FINAL: MONEDA ÚNICA) ---
 // --- COMPONENTE: GENERADOR DE COTIZACIONES (CON GASTOS PORTUARIOS) ---
+// --- COMPONENTE: GENERADOR DE COTIZACIONES (VERSIÓN COMPACTA) ---
 const QuoteGenerator = ({ role }) => {
   if (role === 'pagos') return <div className="p-10 text-center text-red-500 font-bold">Acceso Denegado: Solo Admin y Revalidaciones pueden cotizar.</div>;
 
@@ -267,44 +268,35 @@ const QuoteGenerator = ({ role }) => {
     quoteData.liberacion + 
     quoteData.transporte;
 
-  // --- FUNCIÓN NUEVA: DESCARGA PDF AUTOMÁTICA ---
   const handleDownloadPDF = async () => {
-    const element = document.getElementById('invoice-content'); // Capturamos por ID
-    
+    const element = document.getElementById('invoice-content');
     if(!element) return;
 
     try {
-      // 1. Generamos el canvas (la "foto")
       const canvas = await html2canvas(element, {
-        scale: 2, // Mejor calidad
-        useCORS: true, // Para evitar errores de imágenes externas
+        scale: 2,
+        useCORS: true,
         logging: false,
         backgroundColor: '#ffffff'
       });
 
-      // 2. Calculamos dimensiones para A4
       const imgData = canvas.toDataURL('image/png');
       const pdf = new jsPDF('p', 'mm', 'a4');
       const pdfWidth = pdf.internal.pageSize.getWidth();
       const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
 
-      // 3. Agregamos la imagen al PDF
       pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
 
-      // 4. GENERAMOS EL NOMBRE BASADO EN LA REFERENCIA
-      // Si no hay referencia, usa un default. Limpiamos caracteres raros por si acaso.
       const cleanRef = quoteData.clienteReferencia.replace(/[^a-zA-Z0-9-_]/g, '');
       const fileName = cleanRef ? `${cleanRef}.pdf` : `Cotizacion_AduanaSoft_${Date.now()}.pdf`;
 
-      pdf.save(fileName); // <--- ESTO DESCARGA AUTOMÁTICO
-
+      pdf.save(fileName);
     } catch (error) {
       console.error("Error al generar PDF:", error);
-      alert("Hubo un error al generar el PDF. Intenta de nuevo.");
+      alert("Hubo un error al generar el PDF.");
     }
   };
 
-  // ... (Definición de tableRows y costFields igual que antes) ...
   const tableRows = [
     { label: '提货单// BL', value: quoteData.bl, isMoney: false },
     { label: '容器 // CONTENEDOR', value: quoteData.contenedor, isMoney: false },
@@ -344,21 +336,21 @@ const QuoteGenerator = ({ role }) => {
         <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center border-b pb-2">
           <Edit size={18} className="mr-2 text-blue-600"/> Editar Cotización
         </h3>
-
+        {/* ... (Contenido del formulario idéntico a la versión anterior) ... */}
         <div className="space-y-4">
-           {/* ... (Aquí va todo tu formulario de inputs IGUAL que en la versión anterior) ... */}
+           {/* Datos Encabezado */}
            <div className="bg-blue-50 p-4 rounded-lg border border-blue-100">
              <h4 className="text-xs font-bold text-blue-800 uppercase mb-3">Datos del Encabezado</h4>
              <div className="space-y-2">
                 <input name="clienteNombre" placeholder="Razón Social Cliente" value={quoteData.clienteNombre} onChange={handleChange} className="w-full p-2 border rounded text-sm" />
                 <div className="grid grid-cols-2 gap-2">
-                   <input name="clienteReferencia" placeholder="Referencia (Nombre del PDF)" value={quoteData.clienteReferencia} onChange={handleChange} className="p-2 border rounded text-sm font-bold text-slate-700" />
+                   <input name="clienteReferencia" placeholder="Referencia (Nombre PDF)" value={quoteData.clienteReferencia} onChange={handleChange} className="p-2 border rounded text-sm font-bold text-slate-700" />
                    <input type="date" name="fechaEmision" value={quoteData.fechaEmision} onChange={handleChange} className="p-2 border rounded text-sm" />
                 </div>
              </div>
           </div>
           
-          {/* ... (Pega aquí los bloques de 'Datos Operativos' y 'Costos' que ya tenías) ... */}
+          {/* Datos Operativos */}
            <div className="bg-slate-50 p-4 rounded-lg border border-slate-100">
             <h4 className="text-xs font-bold text-slate-500 uppercase mb-3">Datos Operativos</h4>
             <div className="grid grid-cols-2 gap-3">
@@ -390,6 +382,7 @@ const QuoteGenerator = ({ role }) => {
             </div>
           </div>
 
+          {/* Costos */}
           <div className="bg-slate-50 p-4 rounded-lg border border-slate-100">
             <div className="flex justify-between items-center mb-3">
                <h4 className="text-xs font-bold text-slate-500 uppercase">Costos</h4>
@@ -413,10 +406,8 @@ const QuoteGenerator = ({ role }) => {
         </div>
       </div>
 
-      {/* PANEL DERECHO: VISTA PREVIA (CON ID PARA CAPTURA) */}
+      {/* PANEL DERECHO: VISTA PREVIA COMPACTA */}
       <div className="lg:w-2/3 bg-slate-200 rounded-xl p-8 overflow-y-auto flex flex-col items-center shadow-inner relative">
-        
-        {/* BOTÓN DESCARGA MEJORADO */}
         <div className="absolute top-4 right-4 z-10">
           <button 
             onClick={handleDownloadPDF} 
@@ -426,58 +417,60 @@ const QuoteGenerator = ({ role }) => {
           </button>
         </div>
 
-        {/* --- ÁREA QUE SE VA A IMPRIMIR (Con ID invoice-content) --- */}
+        {/* --- ÁREA IMPRESIÓN COMPACTA --- */}
         <div 
           id="invoice-content" 
           className="bg-white w-[210mm] min-h-[297mm] p-12 shadow-2xl text-slate-900 font-sans border border-slate-300 relative flex flex-col justify-between"
         >
-          {/* ... (Contenido de la hoja idéntico a la versión anterior) ... */}
           <div>
-            <div className="flex justify-between items-start border-b-2 border-slate-800 pb-6 mb-8">
+            {/* ENCABEZADO (Menos margen inferior) */}
+            <div className="flex justify-between items-start border-b-2 border-slate-800 pb-4 mb-4">
               <div className="flex items-center">
-                <div className="w-16 h-16 bg-blue-900 text-white rounded flex items-center justify-center mr-4">
-                  <Ship size={32} />
+                <div className="w-14 h-14 bg-blue-900 text-white rounded flex items-center justify-center mr-4">
+                  <Ship size={28} />
                 </div>
                 <div>
-                  <h1 className="text-2xl font-bold text-slate-800 tracking-tight uppercase">AduanaSoft</h1>
-                  <p className="text-xs text-slate-500 font-bold tracking-widest uppercase">Logística & Despacho</p>
-                  <p className="text-[10px] text-slate-400 mt-1">Av. Puerto Interior 55, Manzanillo, Colima.<br/>RFC: ADU20250101-XM3</p>
+                  <h1 className="text-xl font-bold text-slate-800 tracking-tight uppercase">AduanaSoft</h1>
+                  <p className="text-[10px] text-slate-500 font-bold tracking-widest uppercase">Logística & Despacho</p>
+                  <p className="text-[9px] text-slate-400 mt-1">Av. Puerto Interior 55, Manzanillo, Colima.<br/>RFC: ADU20250101-XM3</p>
                 </div>
               </div>
               <div className="text-right">
-                <h2 className="text-xl font-bold text-slate-400 uppercase tracking-widest">Cotización</h2>
-                <p className="text-xs text-slate-500 mt-1">Fecha: {formatDate(quoteData.fechaEmision)}</p>
+                <h2 className="text-lg font-bold text-slate-400 uppercase tracking-widest">Cotización</h2>
+                <p className="text-[10px] text-slate-500 mt-1">Fecha: {formatDate(quoteData.fechaEmision)}</p>
               </div>
             </div>
 
-            <div className="mb-6 bg-slate-50 p-4 rounded border border-slate-100">
-               <div className="grid grid-cols-2 gap-4 text-sm">
+            {/* DATOS CLIENTE (Más compacto) */}
+            <div className="mb-4 bg-slate-50 p-3 rounded border border-slate-100">
+               <div className="grid grid-cols-2 gap-4 text-xs">
                   <div>
-                    <span className="block text-[10px] font-bold text-slate-400 uppercase">Cliente / Razón Social</span>
+                    <span className="block text-[9px] font-bold text-slate-400 uppercase">Cliente / Razón Social</span>
                     <span className="font-bold text-slate-800 uppercase">{quoteData.clienteNombre || 'CLIENTE MOSTRADOR'}</span>
                   </div>
                   <div>
-                    <span className="block text-[10px] font-bold text-slate-400 uppercase">Referencia</span>
+                    <span className="block text-[9px] font-bold text-slate-400 uppercase">Referencia</span>
                     <span className="font-bold text-slate-800 uppercase">{quoteData.clienteReferencia || 'S/N'}</span>
                   </div>
                </div>
             </div>
 
+            {/* TABLA (Renglones delgados) */}
             <div className="border-2 border-black">
-              <div className="bg-blue-100 border-b border-black py-2 text-center">
-                <h2 className="text-lg font-bold text-red-600 tracking-wide uppercase">价格 // COTIZACION</h2>
+              <div className="bg-blue-100 border-b border-black py-1 text-center">
+                <h2 className="text-base font-bold text-red-600 tracking-wide uppercase">价格 // COTIZACION</h2>
               </div>
               
               {tableRows.map((row, index) => (
-                <div key={index} className={`flex border-b border-black last:border-0 text-sm ${row.className || ''}`}>
-                  <div className="w-1/2 border-r border-black p-2 flex items-center justify-end text-right bg-white">
-                    <span className={`font-medium uppercase text-xs ${row.labelClass || 'text-black'}`}>
+                <div key={index} className={`flex border-b border-black last:border-0 text-xs ${row.className || ''}`}>
+                  <div className="w-1/2 border-r border-black py-1 px-2 flex items-center justify-end text-right bg-white">
+                    <span className={`font-medium uppercase text-[11px] ${row.labelClass || 'text-black'}`}>
                       {row.label}
                     </span>
                   </div>
-                  <div className="w-1/2 p-2 flex items-center justify-center bg-white">
+                  <div className="w-1/2 py-1 px-2 flex items-center justify-center bg-white">
                     <span className="font-bold text-slate-800">
-                      {row.isMoney && <span className="text-[10px] mr-1 text-slate-500 font-normal">{quoteData.currency}</span>}
+                      {row.isMoney && <span className="text-[9px] mr-1 text-slate-500 font-normal">{quoteData.currency}</span>}
                       {row.isMoney 
                         ? `$${row.value.toLocaleString(undefined, {minimumFractionDigits: 2})}` 
                         : (row.value || '-')}
@@ -487,12 +480,12 @@ const QuoteGenerator = ({ role }) => {
               ))}
 
               <div className="flex border-t-2 border-black bg-yellow-300">
-                <div className="w-1/2 border-r border-black p-2 text-right flex items-center justify-end">
+                <div className="w-1/2 border-r border-black py-1 px-2 text-right flex items-center justify-end">
                    <span className="text-sm font-bold">SUBTOTAL</span>
                 </div>
-                <div className="w-1/2 p-2 text-center flex flex-col justify-center">
-                   <span className="text-lg font-bold">
-                      <span className="text-xs mr-1 font-normal">{quoteData.currency}</span>
+                <div className="w-1/2 py-1 px-2 text-center flex flex-col justify-center">
+                   <span className="text-base font-bold">
+                      <span className="text-[10px] mr-1 font-normal">{quoteData.currency}</span>
                       ${subtotal.toLocaleString(undefined, {minimumFractionDigits: 2})}
                    </span>
                 </div>
@@ -500,8 +493,9 @@ const QuoteGenerator = ({ role }) => {
             </div>
           </div>
 
-          <div className="mt-8 border-t border-slate-300 pt-4">
-             <div className="flex justify-between items-end text-[10px] text-slate-400">
+          {/* FOOTER (Menos margen superior) */}
+          <div className="mt-4 border-t border-slate-300 pt-2">
+             <div className="flex justify-between items-end text-[9px] text-slate-400">
                 <div className="max-w-[60%]">
                    <p className="font-bold uppercase text-slate-600 mb-1">Términos y Condiciones</p>
                    <p>1. Esta cotización tiene una vigencia de 7 días naturales.</p>
