@@ -215,17 +215,15 @@ const PaymentModal = ({ isOpen, onClose, onConfirm, item }) => {
 
 // --- NUEVO COMPONENTE: GENERADOR DE COTIZACIONES ---
 // --- COMPONENTE: GENERADOR DE COTIZACIONES (VERSIÓN PDF MEMBRETADO) ---
+// --- COMPONENTE: GENERADOR DE COTIZACIONES (FINAL: MONEDAS MIXTAS) ---
 const QuoteGenerator = ({ role }) => {
   if (role === 'pagos') return <div className="p-10 text-center text-red-500 font-bold">Acceso Denegado: Solo Admin y Revalidaciones pueden cotizar.</div>;
 
-  // 1. ESTADO: Agregamos datos del CLIENTE para el membrete
+  // 1. ESTADO: Agregamos las divisas individuales para cada costo
   const [quoteData, setQuoteData] = useState({
-    // Datos del Cliente (Para el membrete)
     clienteNombre: '',
     clienteReferencia: '',
     fechaEmision: new Date().toISOString().split('T')[0],
-    
-    // Datos de la Tabla (La imagen que mandaste)
     bl: '',
     contenedor: '',
     eta: '',
@@ -235,15 +233,15 @@ const QuoteGenerator = ({ role }) => {
     diasDemoras: 0,
     diasAlmacenaje: 0,
     naviera: '',
-    // Costos
-    costoDemoras: 0,
-    costoAlmacenaje: 0,
-    costosOperativos: 0,
-    apoyo: 0,
-    impuestos: 0,
-    liberacion: 0,
-    transporte: 0,
-    currency: 'MXN'
+    
+    // COSTOS (Monto y su Divisa correspondiente)
+    costoDemoras: 0,        divisaDemoras: 'USD',
+    costoAlmacenaje: 0,     divisaAlmacenaje: 'MXN',
+    costosOperativos: 0,    divisaOperativos: 'MXN',
+    apoyo: 0,               divisaApoyo: 'MXN',
+    impuestos: 0,           divisaImpuestos: 'MXN',
+    liberacion: 0,          divisaLiberacion: 'MXN',
+    transporte: 0,          divisaTransporte: 'MXN',
   });
 
   const handleChange = (e) => {
@@ -254,65 +252,81 @@ const QuoteGenerator = ({ role }) => {
     });
   };
 
-  // Cálculo del Subtotal
-  const subtotal = 
-    quoteData.costoDemoras + 
-    quoteData.costoAlmacenaje + 
-    quoteData.costosOperativos + 
-    quoteData.apoyo + 
-    quoteData.impuestos + 
-    quoteData.liberacion + 
-    quoteData.transporte;
+  // 2. LÓGICA DE SUBTOTALES (Suma separada por moneda)
+  const calculateTotals = () => {
+    let totalMXN = 0;
+    let totalUSD = 0;
 
-  // Filas de la tabla (Idénticas a tu imagen)
+    // Lista de configuración para iterar fácil
+    const concepts = [
+      { amount: quoteData.costoDemoras, currency: quoteData.divisaDemoras },
+      { amount: quoteData.costoAlmacenaje, currency: quoteData.divisaAlmacenaje },
+      { amount: quoteData.costosOperativos, currency: quoteData.divisaOperativos },
+      { amount: quoteData.apoyo, currency: quoteData.divisaApoyo },
+      { amount: quoteData.impuestos, currency: quoteData.divisaImpuestos },
+      { amount: quoteData.liberacion, currency: quoteData.divisaLiberacion },
+      { amount: quoteData.transporte, currency: quoteData.divisaTransporte },
+    ];
+
+    concepts.forEach(item => {
+      if (item.currency === 'MXN') totalMXN += item.amount;
+      if (item.currency === 'USD') totalUSD += item.amount;
+    });
+
+    return { totalMXN, totalUSD };
+  };
+
+  const { totalMXN, totalUSD } = calculateTotals();
+
+  // 3. DEFINICIÓN DE FILAS PARA LA TABLA (Ahora leemos la divisa específica de cada fila)
   const tableRows = [
     { label: '提货单// BL', value: quoteData.bl, isMoney: false },
     { label: '容器 // CONTENEDOR', value: quoteData.contenedor, isMoney: false },
     { label: '预计到达时间// ETA', value: formatDate(quoteData.eta), isMoney: false },
-    { label: '交货日期// FECHA DE ENTREGA', value: formatDate(quoteData.fechaEntrega), isMoney: false, className: 'bg-green-100 print:bg-green-100' }, // print:bg asegura que el color salga en el PDF
+    { label: '交货日期// FECHA DE ENTREGA', value: formatDate(quoteData.fechaEntrega), isMoney: false, className: 'bg-green-100 print:bg-green-100' },
     { label: '卸货港 // PUERTO', value: quoteData.puerto, isMoney: false },
     { label: '码头 // TERMINAL', value: quoteData.terminal, isMoney: false },
     { label: '延誤數日// DIAS DE DEMORAS', value: quoteData.diasDemoras, isMoney: false },
     { label: '储存天數 // DIAS DE ALMACENAJE', value: quoteData.diasAlmacenaje, isMoney: false },
     { label: '航运公司// NAVIERA', value: quoteData.naviera, isMoney: false },
-    { label: '延误// DEMORAS', value: quoteData.costoDemoras, isMoney: true },
-    { label: '贮存// ALMACENAJE', value: quoteData.costoAlmacenaje, isMoney: true },
-    { label: '營運成本// COSTOS OPERATIVOS', value: quoteData.costosOperativos, isMoney: true },
-    { label: '支援// APOYO', value: quoteData.apoyo, isMoney: true, labelClass: 'text-red-500 font-bold' },
-    { label: '税收// IMPUESTOS', value: quoteData.impuestos, isMoney: true },
-    { label: '摆脱遗弃// LIBERACION DE ABANDONO', value: quoteData.liberacion, isMoney: true },
-    { label: '運輸// TRANSPORTE', value: quoteData.transporte, isMoney: true },
+    
+    // Filas de Dinero (Pasamos el valor y SU divisa específica)
+    { label: '延误// DEMORAS', value: quoteData.costoDemoras, isMoney: true, currency: quoteData.divisaDemoras },
+    { label: '贮存// ALMACENAJE', value: quoteData.costoAlmacenaje, isMoney: true, currency: quoteData.divisaAlmacenaje },
+    { label: '營運成本// COSTOS OPERATIVOS', value: quoteData.costosOperativos, isMoney: true, currency: quoteData.divisaOperativos },
+    { label: '支援// APOYO', value: quoteData.apoyo, isMoney: true, currency: quoteData.divisaApoyo, labelClass: 'text-red-500 font-bold' },
+    { label: '税收// IMPUESTOS', value: quoteData.impuestos, isMoney: true, currency: quoteData.divisaImpuestos },
+    { label: '摆脱遗弃// LIBERACION DE ABANDONO', value: quoteData.liberacion, isMoney: true, currency: quoteData.divisaLiberacion },
+    { label: '運輸// TRANSPORTE', value: quoteData.transporte, isMoney: true, currency: quoteData.divisaTransporte },
+  ];
+
+  // Configuración de campos para el Formulario (Para no repetir código HTML)
+  const costFields = [
+    { id: 'costoDemoras', currId: 'divisaDemoras', label: 'Demoras' },
+    { id: 'costoAlmacenaje', currId: 'divisaAlmacenaje', label: 'Almacenaje' },
+    { id: 'costosOperativos', currId: 'divisaOperativos', label: 'Costos Operativos' },
+    { id: 'apoyo', currId: 'divisaApoyo', label: 'Apoyo' },
+    { id: 'impuestos', currId: 'divisaImpuestos', label: 'Impuestos' },
+    { id: 'liberacion', currId: 'divisaLiberacion', label: 'Liberación Abandono' },
+    { id: 'transporte', currId: 'divisaTransporte', label: 'Transporte' },
   ];
 
   return (
     <div className="flex flex-col lg:flex-row gap-6 h-full animate-fade-in pb-8">
       
-      {/* --- ESTILOS DE IMPRESIÓN (EL TRUCO MÁGICO) --- */}
       <style>
         {`
           @media print {
-            /* Ocultar todo lo que NO sea la hoja de cotización */
             body * { visibility: hidden; }
             .printable-area, .printable-area * { visibility: visible; }
-            .printable-area { 
-              position: absolute; 
-              left: 0; 
-              top: 0; 
-              width: 100%; 
-              margin: 0; 
-              padding: 0;
-              box-shadow: none;
-              border: none;
-            }
-            /* Ocultar botones y scrollbars */
+            .printable-area { position: absolute; left: 0; top: 0; width: 100%; margin: 0; padding: 0; box-shadow: none; border: none; }
             .no-print { display: none !important; }
-            /* Forzar colores de fondo (para que salga el verde y amarillo) */
             * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
           }
         `}
       </style>
 
-      {/* --- PANEL IZQUIERDO: FORMULARIO (NO SE IMPRIME) --- */}
+      {/* --- PANEL IZQUIERDO: FORMULARIO --- */}
       <div className="lg:w-1/3 bg-white p-6 rounded-xl shadow-sm border border-slate-200 overflow-y-auto no-print">
         <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center border-b pb-2">
           <Edit size={18} className="mr-2 text-blue-600"/> Editar Cotización
@@ -320,7 +334,7 @@ const QuoteGenerator = ({ role }) => {
 
         <div className="space-y-4">
           
-          {/* 1. Datos del Cliente (Para el Membrete) */}
+          {/* Datos Cliente */}
           <div className="bg-blue-50 p-4 rounded-lg border border-blue-100">
              <h4 className="text-xs font-bold text-blue-800 uppercase mb-3">Datos del Encabezado</h4>
              <div className="space-y-2">
@@ -332,99 +346,103 @@ const QuoteGenerator = ({ role }) => {
              </div>
           </div>
 
-          {/* 2. Datos Operativos (Tabla) */}
+          {/* Datos Operativos */}
           <div className="bg-slate-50 p-4 rounded-lg border border-slate-100">
             <h4 className="text-xs font-bold text-slate-500 uppercase mb-3">Datos Operativos</h4>
             <div className="grid grid-cols-2 gap-3">
-              <input name="bl" placeholder="BL Master" value={quoteData.bl} onChange={handleChange} className="p-2 border rounded text-sm uppercase" />
-              <input name="contenedor" placeholder="Contenedor" value={quoteData.contenedor} onChange={handleChange} className="p-2 border rounded text-sm uppercase" />
+              <div className="col-span-2 grid grid-cols-2 gap-3">
+                 <input name="bl" placeholder="BL Master" value={quoteData.bl} onChange={handleChange} className="p-2 border rounded text-sm uppercase" />
+                 <input name="contenedor" placeholder="Contenedor" value={quoteData.contenedor} onChange={handleChange} className="p-2 border rounded text-sm uppercase" />
+              </div>
               
               <div className="col-span-1">
-                <label className="text-[10px] text-slate-400 font-bold">ETA</label>
+                <label className="text-[10px] text-slate-400 font-bold block mb-1">ETA</label>
                 <input type="date" name="eta" value={quoteData.eta} onChange={handleChange} className="w-full p-2 border rounded text-sm" />
               </div>
               <div className="col-span-1">
-                <label className="text-[10px] text-green-600 font-bold">ENTREGA</label>
+                <label className="text-[10px] text-green-600 font-bold block mb-1">ENTREGA</label>
                 <input type="date" name="fechaEntrega" value={quoteData.fechaEntrega} onChange={handleChange} className="w-full p-2 border rounded text-sm bg-green-50 border-green-200" />
               </div>
 
               <input name="puerto" placeholder="Puerto" value={quoteData.puerto} onChange={handleChange} className="p-2 border rounded text-sm" />
               <input name="terminal" placeholder="Terminal" value={quoteData.terminal} onChange={handleChange} className="p-2 border rounded text-sm" />
-              
               <div className="col-span-2">
                 <input name="naviera" placeholder="Naviera" value={quoteData.naviera} onChange={handleChange} className="w-full p-2 border rounded text-sm" />
               </div>
 
-              <div className="relative">
-                 <span className="absolute right-2 top-2 text-[10px] text-slate-400">Días</span>
-                 <input type="number" name="diasDemoras" placeholder="Días Demoras" value={quoteData.diasDemoras} onChange={handleChange} className="w-full p-2 border rounded text-sm" />
-              </div>
-              <div className="relative">
-                 <span className="absolute right-2 top-2 text-[10px] text-slate-400">Días</span>
-                 <input type="number" name="diasAlmacenaje" placeholder="Días Almacenaje" value={quoteData.diasAlmacenaje} onChange={handleChange} className="w-full p-2 border rounded text-sm" />
+              {/* Días con etiquetas fuera (Corrección anterior) */}
+              <div className="col-span-2 grid grid-cols-2 gap-3 mt-2">
+                <div>
+                   <label className="text-xs font-bold text-slate-500 mb-1 block">Días Demoras</label>
+                   <div className="flex items-center">
+                     <input type="number" name="diasDemoras" value={quoteData.diasDemoras} onChange={handleChange} className="w-full p-2 border border-r-0 rounded-l text-sm text-center focus:ring-2 focus:ring-blue-500 outline-none" />
+                     <span className="bg-slate-200 border border-slate-300 rounded-r px-2 py-2 text-xs text-slate-600 font-bold">Días</span>
+                   </div>
+                </div>
+                <div>
+                   <label className="text-xs font-bold text-slate-500 mb-1 block">Días Almacenaje</label>
+                   <div className="flex items-center">
+                     <input type="number" name="diasAlmacenaje" value={quoteData.diasAlmacenaje} onChange={handleChange} className="w-full p-2 border border-r-0 rounded-l text-sm text-center focus:ring-2 focus:ring-blue-500 outline-none" />
+                     <span className="bg-slate-200 border border-slate-300 rounded-r px-2 py-2 text-xs text-slate-600 font-bold">Días</span>
+                   </div>
+                </div>
               </div>
             </div>
           </div>
 
-          {/* 3. Costos */}
+          {/* --- COSTOS (NUEVO: SELECTOR INDIVIDUAL) --- */}
           <div className="bg-slate-50 p-4 rounded-lg border border-slate-100">
-            <div className="flex justify-between items-center mb-3">
-               <h4 className="text-xs font-bold text-slate-500 uppercase">Costos</h4>
-               <select name="currency" value={quoteData.currency} onChange={handleChange} className="text-xs p-1 border rounded font-bold text-blue-600 bg-white"><option>MXN</option><option>USD</option></select>
-            </div>
+            <h4 className="text-xs font-bold text-slate-500 uppercase mb-3">Costos Individuales</h4>
             
-            <div className="space-y-2">
-              {/* Mapeamos solo los campos de dinero */}
-              {[
-                { k: 'costoDemoras', l: 'Demoras' },
-                { k: 'costoAlmacenaje', l: 'Almacenaje' },
-                { k: 'costosOperativos', l: 'Costos Operativos' },
-                { k: 'apoyo', l: 'Apoyo' },
-                { k: 'impuestos', l: 'Impuestos' },
-                { k: 'liberacion', l: 'Liberación Abandono' },
-                { k: 'transporte', l: 'Transporte' },
-              ].map((field) => (
-                <div key={field.k} className="flex items-center justify-between">
-                  <label className="text-xs font-medium text-slate-600">{field.l}</label>
-                  <div className="relative w-1/2">
-                    <span className="absolute left-2 top-1.5 text-xs text-slate-400">$</span>
-                    <input 
-                      type="number" 
-                      name={field.k} 
-                      value={quoteData[field.k]} 
-                      onChange={handleChange} 
-                      className="w-full p-1 pl-4 border rounded text-sm text-right font-mono focus:border-blue-500 outline-none" 
-                    />
+            <div className="space-y-3">
+              {costFields.map((field) => (
+                <div key={field.id}>
+                  <label className="text-xs font-bold text-slate-600 mb-1 block">{field.label}</label>
+                  <div className="flex shadow-sm rounded-md">
+                    {/* Selector de Moneda (Izquierda) */}
+                    <select 
+                      name={field.currId} 
+                      value={quoteData[field.currId]} 
+                      onChange={handleChange}
+                      className="rounded-l-md border border-r-0 border-slate-300 bg-slate-100 text-xs font-bold text-slate-700 py-2 px-2 focus:outline-none focus:ring-1 focus:ring-blue-500 hover:bg-slate-200 cursor-pointer w-20 text-center"
+                    >
+                      <option value="MXN">MXN</option>
+                      <option value="USD">USD</option>
+                    </select>
+                    
+                    {/* Input Numérico (Derecha) */}
+                    <div className="relative flex-grow">
+                      <span className="absolute left-3 top-2 text-xs text-slate-400 font-bold">$</span>
+                      <input 
+                        type="number" 
+                        name={field.id} 
+                        value={quoteData[field.id]} 
+                        onChange={handleChange} 
+                        placeholder="0.00"
+                        className="rounded-r-md border border-slate-300 w-full py-2 pl-6 pr-3 text-sm text-right font-mono focus:outline-none focus:ring-1 focus:ring-blue-500" 
+                      />
+                    </div>
                   </div>
                 </div>
               ))}
             </div>
           </div>
+
         </div>
       </div>
 
-      {/* --- PANEL DERECHO: VISTA PREVIA & PDF (ÁREA IMPRIMIBLE) --- */}
+      {/* --- PANEL DERECHO: VISTA PREVIA --- */}
       <div className="lg:w-2/3 bg-slate-200 rounded-xl p-8 overflow-y-auto flex flex-col items-center shadow-inner relative">
-        
-        {/* Botón Flotante para Descargar */}
         <div className="absolute top-4 right-4 no-print z-10">
-          <button 
-            onClick={() => window.print()} 
-            className="bg-blue-600 text-white px-4 py-2 rounded-lg shadow-lg text-sm font-bold flex items-center hover:bg-blue-700 transition-transform transform hover:-translate-y-1"
-          >
+          <button onClick={() => window.print()} className="bg-blue-600 text-white px-4 py-2 rounded-lg shadow-lg text-sm font-bold flex items-center hover:bg-blue-700 transition-transform transform hover:-translate-y-1">
             <Printer size={16} className="mr-2" /> Guardar como PDF
           </button>
         </div>
 
-        {/* --- HOJA A4 MEMBRETADA (printable-area) --- */}
-        {/* Nota: max-w-[21cm] simula el ancho real de una hoja carta/A4 */}
         <div className="printable-area bg-white w-full max-w-[21cm] min-h-[29.7cm] p-12 shadow-2xl text-slate-900 font-sans border border-slate-300 relative flex flex-col justify-between">
-          
           <div>
-            {/* 1. MEMBRETE / ENCABEZADO */}
             <div className="flex justify-between items-start border-b-2 border-slate-800 pb-6 mb-8">
               <div className="flex items-center">
-                {/* Logo Simulado */}
                 <div className="w-16 h-16 bg-blue-900 text-white rounded flex items-center justify-center mr-4">
                   <Ship size={32} />
                 </div>
@@ -434,7 +452,6 @@ const QuoteGenerator = ({ role }) => {
                   <p className="text-[10px] text-slate-400 mt-1">Av. Puerto Interior 55, Manzanillo, Colima.<br/>RFC: ADU20250101-XM3</p>
                 </div>
               </div>
-              
               <div className="text-right">
                 <h2 className="text-xl font-bold text-slate-400 uppercase tracking-widest">Cotización</h2>
                 <p className="text-sm font-bold text-slate-800 mt-1">Folio: <span className="text-red-600">QT-{new Date().getFullYear()}-{Math.floor(Math.random() * 1000)}</span></p>
@@ -442,7 +459,6 @@ const QuoteGenerator = ({ role }) => {
               </div>
             </div>
 
-            {/* 2. DATOS DEL CLIENTE */}
             <div className="mb-6 bg-slate-50 p-4 rounded border border-slate-100">
                <div className="grid grid-cols-2 gap-4 text-sm">
                   <div>
@@ -456,14 +472,11 @@ const QuoteGenerator = ({ role }) => {
                </div>
             </div>
 
-            {/* 3. TABLA PRINCIPAL (ESTILO IMAGEN) */}
             <div className="border-2 border-black">
-              {/* Título Tabla */}
               <div className="bg-blue-100 border-b border-black py-2 text-center print:bg-blue-100">
                 <h2 className="text-lg font-bold text-red-600 tracking-wide uppercase">价格 // COTIZACION</h2>
               </div>
-
-              {/* Cuerpo Tabla */}
+              
               {tableRows.map((row, index) => (
                 <div key={index} className={`flex border-b border-black last:border-0 text-sm ${row.className || ''}`}>
                   <div className="w-1/2 border-r border-black p-2 flex items-center justify-end text-right bg-white">
@@ -473,7 +486,8 @@ const QuoteGenerator = ({ role }) => {
                   </div>
                   <div className="w-1/2 p-2 flex items-center justify-center bg-white">
                     <span className="font-bold text-slate-800">
-                      {row.isMoney && <span className="text-[10px] mr-1 text-slate-500 font-normal">{quoteData.currency}</span>}
+                      {/* Aquí mostramos la divisa específica del renglón */}
+                      {row.isMoney && <span className="text-[10px] mr-1 text-slate-500 font-normal">{row.currency}</span>}
                       {row.isMoney 
                         ? `$${row.value.toLocaleString(undefined, {minimumFractionDigits: 2})}` 
                         : (row.value || '-')}
@@ -482,29 +496,41 @@ const QuoteGenerator = ({ role }) => {
                 </div>
               ))}
 
-              {/* Subtotal */}
+              {/* SUBTOTAL INTELIGENTE */}
               <div className="flex border-t-2 border-black bg-yellow-300 print:bg-yellow-300">
-                <div className="w-1/2 border-r border-black p-2 text-right">
+                <div className="w-1/2 border-r border-black p-2 text-right flex items-center justify-end">
                    <span className="text-sm font-bold">SUBTOTAL</span>
                 </div>
-                <div className="w-1/2 p-2 text-center">
-                   <span className="text-lg font-bold">
-                      <span className="text-xs mr-1 font-normal">{quoteData.currency}</span>
-                      ${subtotal.toLocaleString(undefined, {minimumFractionDigits: 2})}
-                   </span>
+                <div className="w-1/2 p-2 text-center flex flex-col justify-center">
+                   {/* Si hay total en MXN, lo mostramos */}
+                   {totalMXN > 0 && (
+                     <span className="text-lg font-bold">
+                        <span className="text-xs mr-1 font-normal">MXN</span>
+                        ${totalMXN.toLocaleString(undefined, {minimumFractionDigits: 2})}
+                     </span>
+                   )}
+                   {/* Si hay total en USD, lo mostramos debajo */}
+                   {totalUSD > 0 && (
+                     <span className="text-lg font-bold text-blue-900">
+                        <span className="text-xs mr-1 font-normal">USD</span>
+                        ${totalUSD.toLocaleString(undefined, {minimumFractionDigits: 2})}
+                     </span>
+                   )}
+                   {/* Si ambos son 0 */}
+                   {totalMXN === 0 && totalUSD === 0 && (
+                     <span className="text-lg font-bold">$0.00</span>
+                   )}
                 </div>
               </div>
             </div>
           </div>
 
-          {/* 4. FOOTER / PIE DE PÁGINA */}
           <div className="mt-8 border-t border-slate-300 pt-4">
              <div className="flex justify-between items-end text-[10px] text-slate-400">
                 <div className="max-w-[60%]">
                    <p className="font-bold uppercase text-slate-600 mb-1">Términos y Condiciones</p>
                    <p>1. Esta cotización tiene una vigencia de 7 días naturales.</p>
                    <p>2. Precios sujetos a cambios sin previo aviso por parte de la naviera.</p>
-                   <p>3. El pago debe realizarse en la moneda indicada o al tipo de cambio FIX del día.</p>
                 </div>
                 <div className="text-right">
                    <p className="mb-4">__________________________<br/>Firma de Conformidad</p>
