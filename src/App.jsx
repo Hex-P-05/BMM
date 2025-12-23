@@ -625,15 +625,35 @@ const DashboardView = ({ data }) => {
   );
 };
 
+// --- DATOS MOCK DE NAVIERAS (Pon esto arriba del componente o en un archivo aparte) ---
+const NAVIERAS_DB = [
+  { id: '1', nombre: 'HAPAG-LLOYD', rfc: 'HPL990202ABC', direccion: 'Calle Hamburgo 15, Juárez, CDMX' },
+  { id: '2', nombre: 'MAERSK MEXICO', rfc: 'MAE980101XYZ', direccion: 'Av. Paseo de la Reforma 222, CDMX' },
+  { id: '3', nombre: 'COSCO SHIPPING', rfc: 'COS000303QWE', direccion: 'Blvd. Manuel Ávila Camacho 40, Edo Mex' },
+  { id: '4', nombre: 'MSC MEXICO', rfc: 'MSC112233R55', direccion: 'Av. Ejército Nacional 843, CDMX' },
+  { id: '5', nombre: 'ONE (OCEAN NETWORK)', rfc: 'ONE223344T88', direccion: 'Insurgentes Sur 1458, CDMX' },
+];
+
 const CaptureForm = ({ onSave, onCancel, existingData, role }) => {
   if (role === 'pagos') return <div className="p-10 text-center text-red-500 font-bold">Acceso Denegado: Rol no autorizado para capturas.</div>;
 
+  // 1. Agregamos rfc y dirección al estado inicial
   const [formData, setFormData] = useState({
-    bl: '', provider: '', client: '', reason: 'GARANTÍA', container: '', eta: '', amount: ''
+    bl: '', 
+    provider: '', 
+    rfc: '',        // Nuevo campo
+    address: '',    // Nuevo campo
+    client: '', 
+    reason: 'GARANTÍA', 
+    container: '', 
+    eta: '', 
+    amount: ''
   });
+  
   const [generatedConcept, setGeneratedConcept] = useState('');
   const [clientConsecutive, setClientConsecutive] = useState(1);
 
+  // Tu useEffect original (lo dejé intacto para que siga generando el concepto)
   useEffect(() => {
     const code = formData.client ? formData.client.substring(0, 3).toUpperCase() : 'XXX';
     const matches = existingData.filter(item => item.client.trim().toLowerCase() === formData.client.trim().toLowerCase());
@@ -643,6 +663,32 @@ const CaptureForm = ({ onSave, onCancel, existingData, role }) => {
     const reasonStr = formData.reason.toUpperCase();
     setGeneratedConcept(`${providerStr} ${code} ${nextNum} ${reasonStr}`);
   }, [formData.provider, formData.client, formData.reason, existingData]);
+
+  // --- LÓGICA NUEVA: MANEJO DE NAVIERA ---
+  const handleNavieraChange = (e) => {
+    const nombreSeleccionado = e.target.value;
+    
+    // Buscamos si existe en nuestra "Base de Datos"
+    const naviera = NAVIERAS_DB.find(n => n.nombre === nombreSeleccionado);
+
+    if (naviera) {
+      // Si existe, autocompletamos RFC y Dirección
+      setFormData({
+        ...formData,
+        provider: naviera.nombre,
+        rfc: naviera.rfc,
+        address: naviera.direccion
+      });
+    } else {
+      // Si eligió "Otra" o limpió, solo actualizamos el nombre y limpiamos lo demás
+      setFormData({
+        ...formData,
+        provider: nombreSeleccionado,
+        rfc: '',
+        address: ''
+      });
+    }
+  };
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -667,51 +713,113 @@ const CaptureForm = ({ onSave, onCancel, existingData, role }) => {
         <div className="p-6 border-b border-slate-100 bg-slate-50 flex justify-between items-center">
           <div>
             <h2 className="text-xl font-bold text-slate-800 flex items-center">
-              <FileText className="mr-2 text-blue-600" /> Nueva Captura
+              <FileText className="mr-2 text-blue-600" /> Nueva Captura de Ticket
             </h2>
-            <p className="text-slate-500 text-sm">Los cambios se bloquearán al guardar.</p>
+            <p className="text-slate-500 text-sm">Los datos fiscales se autocompletarán al seleccionar naviera.</p>
           </div>
         </div>
         
         <form onSubmit={handleSubmit} className="p-8 space-y-6">
+          
+          {/* SECCIÓN 1: DATOS FISCALES Y CONCEPTO */}
           <div className="bg-slate-50 p-4 rounded-lg border border-slate-200">
-            <h3 className="text-xs font-bold text-slate-500 uppercase mb-3">Generador de Concepto</h3>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <input required name="provider" placeholder="Empresa (Naviera)" className="p-2 border rounded text-sm" onChange={handleChange} />
-              <input required name="client" placeholder="Cliente" className="p-2 border rounded text-sm" onChange={handleChange} />
-              <select name="reason" className="p-2 border rounded text-sm bg-white" onChange={handleChange}>
-                <option>GARANTÍA</option><option>FLETE</option><option>ALMACENAJE</option><option>DEMORAS</option>
-              </select>
+            <h3 className="text-xs font-bold text-slate-500 uppercase mb-3 flex items-center">
+              <Ship size={14} className="mr-1"/> Datos de la Naviera & Concepto
+            </h3>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+              {/* SELECTOR DE NAVIERA (MEJORADO) */}
+              <div>
+                <label className="text-xs font-medium text-slate-600 mb-1 block">Naviera / Proveedor</label>
+                <select 
+                  required 
+                  name="provider" 
+                  className="w-full p-2 border rounded text-sm bg-white focus:ring-2 focus:ring-blue-500 outline-none" 
+                  onChange={handleNavieraChange}
+                  value={formData.provider}
+                >
+                  <option value="">-- Selecciona Naviera --</option>
+                  {NAVIERAS_DB.map(nav => (
+                    <option key={nav.id} value={nav.nombre}>{nav.nombre}</option>
+                  ))}
+                  <option value="OTRA">OTRA (Manual)</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="text-xs font-medium text-slate-600 mb-1 block">Cliente</label>
+                <input required name="client" placeholder="Nombre del Cliente" className="w-full p-2 border rounded text-sm focus:ring-2 focus:ring-blue-500 outline-none" onChange={handleChange} />
+              </div>
             </div>
-            <div className="mt-3 p-3 bg-slate-800 text-green-400 font-mono text-sm rounded flex justify-between">
-              <span>{generatedConcept}</span>
-              <span className="text-xs text-slate-500">Consecutivo #{clientConsecutive}</span>
+
+            {/* NUEVOS CAMPOS: RFC Y DIRECCIÓN (Autocompletables pero Editables) */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+               <div>
+                  <label className="text-xs font-medium text-slate-600 mb-1 block">RFC (Emisor)</label>
+                  <input 
+                    name="rfc" 
+                    value={formData.rfc} 
+                    onChange={handleChange} 
+                    placeholder="Autocompletado..." 
+                    className="w-full p-2 border rounded text-sm bg-white font-mono text-slate-600 focus:border-blue-400 outline-none" 
+                  />
+               </div>
+               <div className="md:col-span-2">
+                  <label className="text-xs font-medium text-slate-600 mb-1 block">Dirección Fiscal</label>
+                  <input 
+                    name="address" 
+                    value={formData.address} 
+                    onChange={handleChange} 
+                    placeholder="Autocompletado..." 
+                    className="w-full p-2 border rounded text-sm bg-white text-slate-600 focus:border-blue-400 outline-none" 
+                  />
+               </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+               {/* Este input ahora es solo visual si eligieron "OTRA", o podrías ocultarlo. 
+                   Por ahora dejamos el selector de motivo */}
+               <div className="md:col-span-3">
+                  <label className="text-xs font-medium text-slate-600 mb-1 block">Motivo del Ticket</label>
+                  <select name="reason" className="w-full p-2 border rounded text-sm bg-white outline-none" onChange={handleChange}>
+                    <option>GARANTÍA</option><option>FLETE</option><option>ALMACENAJE</option><option>DEMORAS</option>
+                  </select>
+               </div>
+            </div>
+
+            <div className="mt-3 p-3 bg-slate-800 text-green-400 font-mono text-sm rounded flex justify-between items-center shadow-inner">
+              <span className="flex items-center"><FileText size={14} className="mr-2"/> {generatedConcept}</span>
+              <span className="text-xs text-slate-500 bg-slate-900 px-2 py-1 rounded border border-slate-700">Consecutivo #{clientConsecutive}</span>
             </div>
           </div>
 
+          {/* SECCIÓN 2: DATOS OPERATIVOS (Igual que antes) */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="col-span-2">
               <label className="text-sm font-bold text-slate-700">BL (Master)</label>
-              <input required name="bl" className="w-full p-2 border rounded uppercase font-mono" onChange={handleChange} />
+              <input required name="bl" className="w-full p-2 border rounded uppercase font-mono focus:ring-2 focus:ring-blue-500 outline-none" onChange={handleChange} placeholder="HLCU..." />
             </div>
             <div>
               <label className="text-sm font-medium text-slate-700">Contenedor</label>
-              <input required name="container" className="w-full p-2 border rounded uppercase" onChange={handleChange} />
+              <input required name="container" className="w-full p-2 border rounded uppercase focus:ring-2 focus:ring-blue-500 outline-none" onChange={handleChange} placeholder="MSKU..." />
             </div>
             <div>
               <label className="text-sm font-medium text-slate-700">Fecha ETA</label>
-              <input required name="eta" type="date" className="w-full p-2 border rounded" onChange={handleChange} />
+              <input required name="eta" type="date" className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 outline-none" onChange={handleChange} />
             </div>
             <div className="col-span-2">
-              <label className="text-sm font-medium text-slate-700">Monto (MXN)</label>
-              <input required name="amount" type="number" className="w-full p-2 border rounded font-bold" onChange={handleChange} />
+              <label className="text-sm font-medium text-slate-700">Monto a Pagar (MXN)</label>
+              <div className="relative">
+                <span className="absolute left-3 top-2 text-slate-400 font-bold">$</span>
+                <input required name="amount" type="number" className="w-full pl-6 p-2 border rounded font-bold text-slate-700 focus:ring-2 focus:ring-blue-500 outline-none" onChange={handleChange} placeholder="0.00" />
+              </div>
             </div>
           </div>
 
           <div className="flex justify-end space-x-3 pt-4 border-t">
-            <button type="button" onClick={onCancel} className="px-4 py-2 border rounded text-slate-600">Cancelar</button>
-            <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 flex items-center">
-              <Lock size={16} className="mr-2" /> Guardar y Bloquear
+            <button type="button" onClick={onCancel} className="px-4 py-2 border rounded text-slate-600 hover:bg-slate-50 font-medium">Cancelar</button>
+            <button type="submit" className="px-6 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 flex items-center shadow-lg shadow-blue-200 font-bold transition-all transform hover:-translate-y-0.5">
+              <Lock size={16} className="mr-2" /> Guardar Ticket
             </button>
           </div>
         </form>
