@@ -1,11 +1,14 @@
 import React, { useState, useMemo, useEffect } from 'react';
+// --- LIBRERÍAS PARA PDF ---
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas'; 
+// --------------------------
+
 import { 
   LayoutDashboard, FileText, Table as TableIcon, AlertTriangle, CheckCircle, 
   Clock, Ship, DollarSign, Plus, Search, Menu, X, User, Edit, Lock, 
   TrendingUp, TrendingDown, Activity, AlertCircle, Calculator, Trash2, 
-  Download, Printer, Package, MapPin, Key, LogOut, Check // <--- AQUÍ FALTABA ESTE
+  Download, Printer, Package, MapPin, Key, LogOut, Check // <--- YA ESTÁ EL CHECK AQUÍ
 } from 'lucide-react';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -78,7 +81,7 @@ const StatusBadge = ({ item }) => {
     );
   }
   const config = {
-    ok: { color: 'bg-green-100 text-green-800', icon: CheckCircle, label: 'A Tiempo' },
+    ok: { color: 'bg-green-100 text-green-800', icon: CheckCircle, label: 'A tiempo' },
     warning: { color: 'bg-yellow-100 text-yellow-800', icon: Clock, label: 'Alerta' },
     danger: { color: 'bg-red-100 text-red-800', icon: AlertTriangle, label: 'Urgente' },
     expired: { color: 'bg-red-800 text-white', icon: AlertTriangle, label: 'Vencido' },
@@ -143,7 +146,7 @@ const PaymentModal = ({ isOpen, onClose, onConfirm, item }) => {
             <AlertCircle size={32} />
           </div>
           <div>
-            <h3 className="text-lg font-bold text-slate-800">¿Confirmar Pago?</h3>
+            <h3 className="text-lg font-bold text-slate-800">¿Confirmar pago?</h3>
             <p className="text-sm text-slate-600 mt-1">
               Estás a punto de registrar un pago en el sistema. Asegúrate de haber realizado la transferencia bancaria primero.
             </p>
@@ -152,7 +155,7 @@ const PaymentModal = ({ isOpen, onClose, onConfirm, item }) => {
         <div className="p-6 space-y-4">
           <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
             <div className="flex justify-between items-center mb-2">
-              <span className="text-xs font-bold text-slate-400 uppercase">Monto a Pagar</span>
+              <span className="text-xs font-bold text-slate-400 uppercase">Monto a pagar</span>
               <span className="text-xs font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded">{item.currency || 'MXN'}</span>
             </div>
             <p className="text-3xl font-bold text-slate-800">${item.amount.toLocaleString()}</p>
@@ -179,7 +182,6 @@ const PaymentModal = ({ isOpen, onClose, onConfirm, item }) => {
   );
 };
 
-// --- PANTALLA DE LOGIN (NUEVO COMPONENTE) ---
 const LoginView = ({ onLogin }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -189,7 +191,6 @@ const LoginView = ({ onLogin }) => {
     e.preventDefault();
     setError('');
 
-    // SIMULACIÓN DE ROLES (Esto es lo que tu Backend hará real después)
     if (email === 'admin@aduanasoft.com' && password === 'admin') {
       onLogin('admin');
     } else if (email === 'operaciones@aduanasoft.com' && password === 'ops') {
@@ -205,7 +206,6 @@ const LoginView = ({ onLogin }) => {
     <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden flex flex-col md:flex-row">
         
-        {/* Lado del Formulario */}
         <div className="p-8 w-full">
           <div className="flex items-center space-x-2 mb-8 justify-center">
             <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center">
@@ -219,7 +219,7 @@ const LoginView = ({ onLogin }) => {
 
           <form onSubmit={handleLogin} className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Correo Electrónico</label>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Correo electrónico</label>
               <div className="relative">
                 <User className="absolute left-3 top-2.5 text-slate-400" size={18} />
                 <input 
@@ -255,7 +255,7 @@ const LoginView = ({ onLogin }) => {
             )}
 
             <button type="submit" className="w-full bg-blue-600 text-white font-bold py-2.5 rounded-lg hover:bg-blue-700 transition-colors shadow-lg shadow-blue-200">
-              Iniciar Sesión
+              Iniciar sesión
             </button>
           </form>
 
@@ -270,12 +270,8 @@ const LoginView = ({ onLogin }) => {
   );
 };
 
-// ... (QuoteGenerator se mantiene igual, OMITIDO PARA AHORRAR ESPACIO PERO DEBES TENERLO) ...
-// PEGA AQUÍ EL COMPONENTE QuoteGenerator QUE YA TIENES (el último que te pasé con el PDF automático)
 const QuoteGenerator = ({ role }) => {
-  // ... (Usa el código anterior de QuoteGenerator aquí) ...
-  // Por brevedad, si quieres que te lo repita completo dime, pero asumo que ya lo tienes.
-  if (role === 'pagos') return <div className="p-10 text-center text-red-500 font-bold">Acceso Denegado: Solo Admin y Revalidaciones pueden cotizar.</div>;
+  if (role === 'pagos') return <div className="p-10 text-center text-red-500 font-bold">Acceso denegado: Solo admin y revalidaciones pueden cotizar.</div>;
 
   const [quoteData, setQuoteData] = useState({
     clienteNombre: '',
@@ -361,31 +357,31 @@ const QuoteGenerator = ({ role }) => {
   const costFields = [
     { id: 'costoDemoras', label: 'Demoras' },
     { id: 'costoAlmacenaje', label: 'Almacenaje' },
-    { id: 'costosOperativos', label: 'Costos Operativos' },
-    { id: 'costoGastosPortuarios', label: 'Gastos Portuarios' },
+    { id: 'costosOperativos', label: 'Costos operativos' },
+    { id: 'costoGastosPortuarios', label: 'Gastos portuarios' },
     { id: 'apoyo', label: 'Apoyo' },
     { id: 'impuestos', label: 'Impuestos' },
-    { id: 'liberacion', label: 'Liberación Abandono' },
+    { id: 'liberacion', label: 'Liberación abandono' },
     { id: 'transporte', label: 'Transporte' },
   ];
 
   return (
     <div className="flex flex-col lg:flex-row gap-6 h-full animate-fade-in pb-8">
       <div className="lg:w-1/3 bg-white p-6 rounded-xl shadow-sm border border-slate-200 overflow-y-auto">
-        <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center border-b pb-2"><Edit size={18} className="mr-2 text-blue-600"/> Editar Cotización</h3>
+        <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center border-b pb-2"><Edit size={18} className="mr-2 text-blue-600"/> Editar cotización</h3>
         <div className="space-y-4">
            <div className="bg-blue-50 p-4 rounded-lg border border-blue-100">
-             <h4 className="text-xs font-bold text-blue-800 uppercase mb-3">Datos del Encabezado</h4>
+             <h4 className="text-xs font-bold text-blue-800 uppercase mb-3">Datos del encabezado</h4>
              <div className="space-y-2">
-                <input name="clienteNombre" placeholder="Razón Social Cliente" value={quoteData.clienteNombre} onChange={handleChange} className="w-full p-2 border rounded text-sm" />
+                <input name="clienteNombre" placeholder="Razón social cliente" value={quoteData.clienteNombre} onChange={handleChange} className="w-full p-2 border rounded text-sm" />
                 <div className="grid grid-cols-2 gap-2">
-                   <input name="clienteReferencia" placeholder="Referencia (Nombre PDF)" value={quoteData.clienteReferencia} onChange={handleChange} className="p-2 border rounded text-sm font-bold text-slate-700" />
+                   <input name="clienteReferencia" placeholder="Referencia (nombre PDF)" value={quoteData.clienteReferencia} onChange={handleChange} className="p-2 border rounded text-sm font-bold text-slate-700" />
                    <input type="date" name="fechaEmision" value={quoteData.fechaEmision} onChange={handleChange} className="p-2 border rounded text-sm" />
                 </div>
              </div>
           </div>
            <div className="bg-slate-50 p-4 rounded-lg border border-slate-100">
-            <h4 className="text-xs font-bold text-slate-500 uppercase mb-3">Datos Operativos</h4>
+            <h4 className="text-xs font-bold text-slate-500 uppercase mb-3">Datos operativos</h4>
             <div className="grid grid-cols-2 gap-3">
               <div className="col-span-2 grid grid-cols-2 gap-3">
                  <input name="bl" placeholder="BL Master" value={quoteData.bl} onChange={handleChange} className="p-2 border rounded text-sm uppercase" />
@@ -404,11 +400,11 @@ const QuoteGenerator = ({ role }) => {
               <div className="col-span-2"><input name="naviera" placeholder="Naviera" value={quoteData.naviera} onChange={handleChange} className="w-full p-2 border rounded text-sm" /></div>
               <div className="col-span-2 grid grid-cols-2 gap-3 mt-2">
                 <div>
-                   <label className="text-xs font-bold text-slate-500 mb-1 block">Días Demoras</label>
+                   <label className="text-xs font-bold text-slate-500 mb-1 block">Días demoras</label>
                    <div className="flex items-center"><input type="number" name="diasDemoras" value={quoteData.diasDemoras} onChange={handleChange} className="w-full p-2 border border-r-0 rounded-l text-sm text-center outline-none" /><span className="bg-slate-200 border border-slate-300 rounded-r px-2 py-2 text-xs text-slate-600 font-bold">Días</span></div>
                 </div>
                 <div>
-                   <label className="text-xs font-bold text-slate-500 mb-1 block">Días Almacenaje</label>
+                   <label className="text-xs font-bold text-slate-500 mb-1 block">Días almacenaje</label>
                    <div className="flex items-center"><input type="number" name="diasAlmacenaje" value={quoteData.diasAlmacenaje} onChange={handleChange} className="w-full p-2 border border-r-0 rounded-l text-sm text-center outline-none" /><span className="bg-slate-200 border border-slate-300 rounded-r px-2 py-2 text-xs text-slate-600 font-bold">Días</span></div>
                 </div>
               </div>
@@ -445,13 +441,13 @@ const QuoteGenerator = ({ role }) => {
             <div className="flex justify-between items-start border-b-2 border-slate-800 pb-4 mb-4">
               <div className="flex items-center">
                 <div className="w-14 h-14 bg-blue-900 text-white rounded flex items-center justify-center mr-4"><Ship size={28} /></div>
-                <div><h1 className="text-xl font-bold text-slate-800 tracking-tight uppercase">AduanaSoft</h1><p className="text-[10px] text-slate-500 font-bold tracking-widest uppercase">Logística & Despacho</p><p className="text-[9px] text-slate-400 mt-1">Av. Puerto Interior 55, Manzanillo, Colima.<br/>RFC: ADU20250101-XM3</p></div>
+                <div><h1 className="text-xl font-bold text-slate-800 tracking-tight uppercase">AduanaSoft</h1><p className="text-[10px] text-slate-500 font-bold tracking-widest uppercase">Logística y despacho</p><p className="text-[9px] text-slate-400 mt-1">Av. Puerto Interior 55, Manzanillo, Colima.<br/>RFC: ADU20250101-XM3</p></div>
               </div>
               <div className="text-right"><h2 className="text-lg font-bold text-slate-400 uppercase tracking-widest">Cotización</h2><p className="text-[10px] text-slate-500 mt-1">Fecha: {formatDate(quoteData.fechaEmision)}</p></div>
             </div>
             <div className="mb-4 bg-slate-50 p-3 rounded border border-slate-100">
                <div className="grid grid-cols-2 gap-4 text-xs">
-                  <div><span className="block text-[9px] font-bold text-slate-400 uppercase">Cliente / Razón Social</span><span className="font-bold text-slate-800 uppercase">{quoteData.clienteNombre || 'CLIENTE MOSTRADOR'}</span></div>
+                  <div><span className="block text-[9px] font-bold text-slate-400 uppercase">Cliente / razón social</span><span className="font-bold text-slate-800 uppercase">{quoteData.clienteNombre || 'CLIENTE MOSTRADOR'}</span></div>
                   <div><span className="block text-[9px] font-bold text-slate-400 uppercase">Referencia</span><span className="font-bold text-slate-800 uppercase">{quoteData.clienteReferencia || 'S/N'}</span></div>
                </div>
             </div>
@@ -471,8 +467,8 @@ const QuoteGenerator = ({ role }) => {
           </div>
           <div className="mt-4 border-t border-slate-300 pt-2">
              <div className="flex justify-between items-end text-[9px] text-slate-400">
-                <div className="max-w-[60%]"><p className="font-bold uppercase text-slate-600 mb-1">Términos y Condiciones</p><p>1. Esta cotización tiene una vigencia de 7 días naturales.</p><p>2. Precios sujetos a cambios sin previo aviso por parte de la naviera.</p></div>
-                <div className="text-right"><p className="mb-4">__________________________<br/>Firma de Conformidad</p><p>AduanaSoft v2.2 | Página 1 de 1</p></div>
+                <div className="max-w-[60%]"><p className="font-bold uppercase text-slate-600 mb-1">Términos y condiciones</p><p>1. Esta cotización tiene una vigencia de 7 días naturales.</p><p>2. Precios sujetos a cambios sin previo aviso por parte de la naviera.</p></div>
+                <div className="text-right"><p className="mb-4">__________________________<br/>Firma de conformidad</p><p>AduanaSoft v2.2 | Página 1 de 1</p></div>
              </div>
           </div>
         </div>
@@ -481,14 +477,7 @@ const QuoteGenerator = ({ role }) => {
   );
 };
 
-// ... (DashboardView, CaptureForm, ListView SE MANTIENEN IGUALES) ...
-// (AQUÍ PEGA TUS COMPONENTES DashboardView, CaptureForm Y ListView TAL CUAL LOS TIENES)
-
-// --- COMPONENTES UI PRINCIPALES (Omitidos por espacio, pero deben estar aquí: DashboardView, CaptureForm, ListView) ---
-// --- RECUERDA NO BORRAR DashboardView, CaptureForm ni ListView ---
-
 const DashboardView = ({ data }) => {
-  // ... Pega aquí tu DashboardView original ...
   const total = data.length;
   const warning = data.filter(i => i.status === 'warning' && i.payment === 'pending').length;
   const danger = data.filter(i => (i.status === 'danger' || i.status === 'expired') && i.payment === 'pending').length;
@@ -501,7 +490,7 @@ const DashboardView = ({ data }) => {
   }, [data]);
 
   const statusData = [
-    { name: 'A Tiempo', value: total - warning - danger },
+    { name: 'A tiempo', value: total - warning - danger },
     { name: 'Riesgo', value: warning },
     { name: 'Penalizado', value: danger },
   ];
@@ -526,17 +515,17 @@ const DashboardView = ({ data }) => {
   return (
     <div className="space-y-6 animate-fade-in pb-8">
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <KPICard title="Contenedores Activos" value={total} icon={Ship} colorClass="bg-blue-100 text-blue-600" trend="up" trendValue="+12%" subtext="vs mes pasado" />
-        <KPICard title="Alertas (Próximos)" value={warning} icon={Clock} colorClass="bg-yellow-100 text-yellow-600" trend="down" trendValue="-5%" subtext="mejoría en tiempos" />
-        <KPICard title="Críticos (Vencidos)" value={danger} icon={AlertTriangle} colorClass="bg-red-100 text-red-600" trend="up" trendValue="+2" subtext="requiere atención" />
-        <KPICard title="Cuentas por Cobrar" value={`$${(pendingMoney/1000).toFixed(1)}k`} icon={DollarSign} colorClass="bg-emerald-100 text-emerald-600" trend="up" trendValue="+8%" subtext="flujo de caja proyectado" />
+        <KPICard title="Contenedores activos" value={total} icon={Ship} colorClass="bg-blue-100 text-blue-600" trend="up" trendValue="+12%" subtext="vs mes pasado" />
+        <KPICard title="Alertas (próximos)" value={warning} icon={Clock} colorClass="bg-yellow-100 text-yellow-600" trend="down" trendValue="-5%" subtext="mejoría en tiempos" />
+        <KPICard title="Críticos (vencidos)" value={danger} icon={AlertTriangle} colorClass="bg-red-100 text-red-600" trend="up" trendValue="+2" subtext="requiere atención" />
+        <KPICard title="Cuentas por cobrar" value={`$${(pendingMoney/1000).toFixed(1)}k`} icon={DollarSign} colorClass="bg-emerald-100 text-emerald-600" trend="up" trendValue="+8%" subtext="flujo de caja proyectado" />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 lg:col-span-2">
           <div className="flex justify-between items-center mb-6">
-            <div><h3 className="text-lg font-bold text-slate-800">Dinámica Semanal</h3><p className="text-xs text-slate-400">Volumen de operaciones y montos</p></div>
-            <select className="bg-slate-50 border border-slate-200 text-xs rounded-md p-1 outline-none text-slate-600"><option>Últimos 7 días</option><option>Este Mes</option></select>
+            <div><h3 className="text-lg font-bold text-slate-800">Dinámica semanal</h3><p className="text-xs text-slate-400">Volumen de operaciones y montos</p></div>
+            <select className="bg-slate-50 border border-slate-200 text-xs rounded-md p-1 outline-none text-slate-600"><option>Últimos 7 días</option><option>Este mes</option></select>
           </div>
           <div className="h-72">
             <ResponsiveContainer width="100%" height="100%">
@@ -553,7 +542,7 @@ const DashboardView = ({ data }) => {
         </div>
 
         <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 flex flex-col">
-          <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center"><Activity size={18} className="mr-2 text-blue-500"/> Actividad Reciente</h3>
+          <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center"><Activity size={18} className="mr-2 text-blue-500"/> Actividad reciente</h3>
           <div className="flex-1 overflow-y-auto pr-2 space-y-4">
             {recentActivities.map((act) => (
               <div key={act.id} className="flex items-start pb-4 border-b border-slate-50 last:border-0 last:pb-0">
@@ -566,7 +555,7 @@ const DashboardView = ({ data }) => {
         </div>
 
         <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
-          <h3 className="text-sm font-bold text-slate-500 uppercase mb-4">Volumen por Cliente</h3>
+          <h3 className="text-sm font-bold text-slate-500 uppercase mb-4">Volumen por cliente</h3>
           <div className="h-48">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={clientData}>
@@ -581,7 +570,7 @@ const DashboardView = ({ data }) => {
 
         <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 lg:col-span-2">
           <div className="flex items-start justify-between">
-            <div><h3 className="text-sm font-bold text-slate-500 uppercase mb-2">Salud de la Operación</h3><p className="text-2xl font-bold text-slate-800">92% <span className="text-sm font-normal text-slate-400">Eficiencia</span></p></div>
+            <div><h3 className="text-sm font-bold text-slate-500 uppercase mb-2">Salud de la operación</h3><p className="text-2xl font-bold text-slate-800">92% <span className="text-sm font-normal text-slate-400">Eficiencia</span></p></div>
             <div className="h-48 w-full max-w-xs">
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
@@ -600,7 +589,7 @@ const DashboardView = ({ data }) => {
 };
 
 const CaptureForm = ({ onSave, onCancel, existingData, role }) => {
-  if (role === 'pagos') return <div className="p-10 text-center text-red-500 font-bold">Acceso Denegado: Rol no autorizado para capturas.</div>;
+  if (role === 'pagos') return <div className="p-10 text-center text-red-500 font-bold">Acceso denegado: Rol no autorizado para capturas.</div>;
 
   const [formData, setFormData] = useState({
     bl: '', 
@@ -671,7 +660,7 @@ const CaptureForm = ({ onSave, onCancel, existingData, role }) => {
         <div className="p-6 border-b border-slate-100 bg-slate-50 flex justify-between items-center">
           <div>
             <h2 className="text-xl font-bold text-slate-800 flex items-center">
-              <FileText className="mr-2 text-blue-600" /> Nueva Captura de Ticket
+              <FileText className="mr-2 text-blue-600" /> Nueva captura de ticket
             </h2>
             <p className="text-slate-500 text-sm">Los datos fiscales se autocompletarán al seleccionar naviera.</p>
           </div>
@@ -680,12 +669,12 @@ const CaptureForm = ({ onSave, onCancel, existingData, role }) => {
         <form onSubmit={handleSubmit} className="p-8 space-y-6">
           <div className="bg-slate-50 p-4 rounded-lg border border-slate-200">
             <h3 className="text-xs font-bold text-slate-500 uppercase mb-3 flex items-center">
-              <Ship size={14} className="mr-1"/> Datos de la Naviera & Concepto
+              <Ship size={14} className="mr-1"/> Datos de la naviera y concepto
             </h3>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
               <div>
-                <label className="text-xs font-medium text-slate-600 mb-1 block">Naviera / Proveedor</label>
+                <label className="text-xs font-medium text-slate-600 mb-1 block">Naviera / proveedor</label>
                 <select 
                   required 
                   name="provider" 
@@ -693,7 +682,7 @@ const CaptureForm = ({ onSave, onCancel, existingData, role }) => {
                   onChange={handleNavieraChange}
                   value={formData.provider}
                 >
-                  <option value="">-- Selecciona Naviera --</option>
+                  <option value="">-- Selecciona naviera --</option>
                   {NAVIERAS_DB.map(nav => (
                     <option key={nav.id} value={nav.nombre}>{nav.nombre}</option>
                   ))}
@@ -703,24 +692,24 @@ const CaptureForm = ({ onSave, onCancel, existingData, role }) => {
 
               <div>
                 <label className="text-xs font-medium text-slate-600 mb-1 block">Cliente</label>
-                <input required name="client" placeholder="Nombre del Cliente" className="w-full p-2 border rounded text-sm focus:ring-2 focus:ring-blue-500 outline-none" onChange={handleChange} />
+                <input required name="client" placeholder="Nombre del cliente" className="w-full p-2 border rounded text-sm focus:ring-2 focus:ring-blue-500 outline-none" onChange={handleChange} />
               </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
                <div>
-                  <label className="text-xs font-medium text-slate-600 mb-1 block">RFC (Emisor)</label>
+                  <label className="text-xs font-medium text-slate-600 mb-1 block">RFC (emisor)</label>
                   <input name="rfc" value={formData.rfc} onChange={handleChange} placeholder="Autocompletado..." className="w-full p-2 border rounded text-sm bg-white font-mono text-slate-600 focus:border-blue-400 outline-none" />
                </div>
                <div className="md:col-span-2">
-                  <label className="text-xs font-medium text-slate-600 mb-1 block">Dirección Fiscal</label>
+                  <label className="text-xs font-medium text-slate-600 mb-1 block">Dirección fiscal</label>
                   <input name="address" value={formData.address} onChange={handleChange} placeholder="Autocompletado..." className="w-full p-2 border rounded text-sm bg-white text-slate-600 focus:border-blue-400 outline-none" />
                </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                <div className="md:col-span-3">
-                  <label className="text-xs font-medium text-slate-600 mb-1 block">Motivo del Ticket</label>
+                  <label className="text-xs font-medium text-slate-600 mb-1 block">Motivo del ticket</label>
                   <select name="reason" className="w-full p-2 border rounded text-sm bg-white outline-none" onChange={handleChange}>
                     <option>GARANTÍA</option><option>FLETE</option><option>ALMACENAJE</option><option>DEMORAS</option>
                   </select>
@@ -735,7 +724,7 @@ const CaptureForm = ({ onSave, onCancel, existingData, role }) => {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="col-span-2">
-              <label className="text-sm font-bold text-slate-700">BL (Master)</label>
+              <label className="text-sm font-bold text-slate-700">BL (master)</label>
               <input required name="bl" className="w-full p-2 border rounded uppercase font-mono focus:ring-2 focus:ring-blue-500 outline-none" onChange={handleChange} placeholder="HLCU..." />
             </div>
             <div>
@@ -748,7 +737,7 @@ const CaptureForm = ({ onSave, onCancel, existingData, role }) => {
             </div>
             
             <div className="col-span-2">
-              <label className="text-sm font-medium text-slate-700">Monto y Divisa</label>
+              <label className="text-sm font-medium text-slate-700">Monto y divisa</label>
               <div className="flex space-x-2">
                 <select name="currency" value={formData.currency} onChange={handleChange} className="w-1/3 p-2 border rounded font-bold text-slate-700 bg-slate-50 focus:ring-2 focus:ring-blue-500 outline-none">
                   <option value="MXN">MXN (Pesos)</option>
@@ -765,7 +754,7 @@ const CaptureForm = ({ onSave, onCancel, existingData, role }) => {
           <div className="flex justify-end space-x-3 pt-4 border-t">
             <button type="button" onClick={onCancel} className="px-4 py-2 border rounded text-slate-600 hover:bg-slate-50 font-medium">Cancelar</button>
             <button type="submit" className="px-6 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 flex items-center shadow-lg shadow-blue-200 font-bold transition-all transform hover:-translate-y-0.5">
-              <Lock size={16} className="mr-2" /> Guardar Ticket
+              <Lock size={16} className="mr-2" /> Guardar ticket
             </button>
           </div>
         </form>
@@ -789,7 +778,7 @@ const ListView = ({ data, onInitiatePayment, role, onEdit }) => {
   return (
     <div className="space-y-4 animate-fade-in">
       <div className="flex justify-between items-center bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-        <h2 className="text-xl font-bold text-slate-800">Sábana Operativa</h2>
+        <h2 className="text-xl font-bold text-slate-800">Sábana operativa</h2>
         <div className="relative w-72">
           <Search className="absolute left-3 top-2.5 text-slate-400" size={18} />
           <input 
@@ -811,7 +800,7 @@ const ListView = ({ data, onInitiatePayment, role, onEdit }) => {
                 <th className="p-4">ETA</th>
                 <th className="p-4 text-center">Estatus</th>
                 <th className="p-4 text-right">Monto</th>
-                <th className="p-4 text-center">Pagado El</th>
+                <th className="p-4 text-center">Pagado el</th>
                 <th className="p-4 text-center">Acciones</th>
               </tr>
             </thead>
@@ -871,14 +860,10 @@ const ListView = ({ data, onInitiatePayment, role, onEdit }) => {
   );
 };
 
-// --- APP PRINCIPAL MODIFICADA CON LOGOUT ---
-
 export default function App() {
-  // 1. Estado de autenticación
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [role, setRole] = useState('admin');
 
-  // Si no está logueado, mostrar Login
   const handleLogin = (userRole) => {
     setRole(userRole);
     setIsLoggedIn(true);
@@ -886,15 +871,12 @@ export default function App() {
 
   const handleLogout = () => {
     setIsLoggedIn(false);
-    setActiveTab('dashboard'); // Reset tab
+    setActiveTab('dashboard');
   };
-
-  // -----------------------------------------------------------------------
 
   const [activeTab, setActiveTab] = useState('dashboard');
   const [data, setData] = useState(initialData);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-
   const [paymentConfirmation, setPaymentConfirmation] = useState({ isOpen: false, item: null });
 
   const handleSave = (newItem) => {
@@ -945,7 +927,7 @@ export default function App() {
   };
 
   const handleEdit = (item) => {
-    alert(`Modo Edición (Admin): Modificar ${item.bl}.`);
+    alert(`Modo edición (Admin): Modificar ${item.bl}.`);
   };
 
   const NavItem = ({ id, icon: Icon, label }) => {
@@ -963,21 +945,18 @@ export default function App() {
     );
   };
 
-  // --- RENDERIZADO CONDICIONAL ---
   if (!isLoggedIn) {
     return <LoginView onLogin={handleLogin} />;
   }
 
   return (
     <div className="flex h-screen bg-slate-100 font-sans text-slate-800 relative">
-      
       <PaymentModal 
         isOpen={paymentConfirmation.isOpen}
         item={paymentConfirmation.item}
         onClose={() => setPaymentConfirmation({ isOpen: false, item: null })}
         onConfirm={executePayment}
       />
-
       <aside className="w-64 bg-slate-900 text-white flex-shrink-0 hidden md:flex flex-col transition-all">
         <div className="p-6 border-b border-slate-800">
           <div className="flex items-center space-x-2">
@@ -990,34 +969,27 @@ export default function App() {
         </div>
         <nav className="flex-1 p-4">
           <p className="px-4 text-xs font-bold text-slate-500 uppercase mb-3">Menú</p>
-          <NavItem id="dashboard" icon={LayoutDashboard} label="Dashboard" />
-          <NavItem id="list" icon={TableIcon} label="Sábana Operativa" />
-          <NavItem id="capture" icon={Plus} label="Capturar Ticket" />
-          
+          <NavItem id="dashboard" icon={LayoutDashboard} label="Visión general" />
+          <NavItem id="list" icon={TableIcon} label="Sábana operativa" />
+          <NavItem id="capture" icon={Plus} label="Capturar ticket" />
           {(role === 'admin' || role === 'ejecutivo') && (
             <div className="mt-6">
               <p className="px-4 text-xs font-bold text-slate-500 uppercase mb-3">Comercial</p>
-              <NavItem id="quotes" icon={Calculator} label="Cotizaciones" />
+              <NavItem id="quotes" icon={Calculator} label="Generador de cotizaciones" />
             </div>
           )}
         </nav>
-        
-        {/* FOOTER DEL SIDEBAR CON LOGOUT */}
         <div className="p-4 border-t border-slate-800">
           <div className="flex items-center space-x-3 mb-4">
             <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-blue-500 to-purple-500 flex items-center justify-center text-xs font-bold"><User size={20} /></div>
-            <div><p className="text-sm font-medium">Usuario Activo</p><RoleBadge role={role} /></div>
+            <div><p className="text-sm font-medium">Usuario activo</p><RoleBadge role={role} /></div>
           </div>
-          <button 
-            onClick={handleLogout}
-            className="w-full flex items-center justify-center px-4 py-2 bg-slate-800 hover:bg-red-900/30 text-slate-400 hover:text-red-400 rounded-lg transition-colors text-xs font-bold"
-          >
-            <LogOut size={14} className="mr-2" /> Cerrar Sesión
+          <button onClick={handleLogout} className="w-full flex items-center justify-center px-4 py-2 bg-slate-800 hover:bg-red-900/30 text-slate-400 hover:text-red-400 rounded-lg transition-colors text-xs font-bold">
+            <LogOut size={14} className="mr-2" /> Cerrar sesión
           </button>
         </div>
       </aside>
 
-      {/* MENÚ MÓVIL (Ttambién con Logout) */}
       {isMobileMenuOpen && (
         <div className="fixed inset-0 z-50 bg-slate-900 text-white flex flex-col animate-fade-in">
            <div className="p-6 border-b border-slate-800 flex justify-between items-start">
@@ -1032,23 +1004,19 @@ export default function App() {
               <button onClick={() => setIsMobileMenuOpen(false)} className="p-1"><X size={28} /></button>
            </div>
            <nav className="flex-1 p-6">
-              <NavItem id="dashboard" icon={LayoutDashboard} label="Dashboard" />
-              <NavItem id="list" icon={TableIcon} label="Sábana Operativa" />
-              <NavItem id="capture" icon={Plus} label="Capturar Ticket" />
+              <NavItem id="dashboard" icon={LayoutDashboard} label="Visión general" />
+              <NavItem id="list" icon={TableIcon} label="Sábana operativa" />
+              <NavItem id="capture" icon={Plus} label="Capturar ticket" />
               {(role === 'admin' || role === 'ejecutivo') && (
-                <NavItem id="quotes" icon={Calculator} label="Cotizaciones" />
+                <NavItem id="quotes" icon={Calculator} label="Generador de cotizaciones" />
               )}
-              
               <div className="mt-8 pt-6 border-t border-slate-700">
                 <div className="flex items-center space-x-3 mb-6">
                   <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-blue-500 to-purple-500 flex items-center justify-center text-xs font-bold"><User size={16} /></div>
                   <div className="text-sm">Rol actual: <RoleBadge role={role} /></div>
                 </div>
-                <button 
-                  onClick={handleLogout}
-                  className="w-full flex items-center justify-center px-4 py-3 bg-red-600 text-white rounded-lg font-bold"
-                >
-                  <LogOut size={18} className="mr-2" /> Cerrar Sesión
+                <button onClick={handleLogout} className="w-full flex items-center justify-center px-4 py-3 bg-red-600 text-white rounded-lg font-bold">
+                  <LogOut size={18} className="mr-2" /> Cerrar sesión
                 </button>
               </div>
            </nav>
@@ -1059,10 +1027,10 @@ export default function App() {
         <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-6 shadow-sm z-10">
           <button onClick={() => setIsMobileMenuOpen(true)} className="md:hidden p-2 -ml-2 rounded hover:bg-slate-100"><Menu className="text-slate-800" /></button>
           <div className="text-xl font-bold text-slate-800 flex items-center gap-2">
-            {activeTab === 'dashboard' && 'Visión General'}
-            {activeTab === 'list' && 'Gestión y Pagos'}
-            {activeTab === 'capture' && 'Alta de Documentos'}
-            {activeTab === 'quotes' && 'Generador de Cotizaciones'}
+            {activeTab === 'dashboard' && 'Visión general'}
+            {activeTab === 'list' && 'Gestión y pagos'}
+            {activeTab === 'capture' && 'Alta de documentos'}
+            {activeTab === 'quotes' && 'Generador de cotizaciones'}
             <span className="hidden md:inline-flex ml-4 transform scale-90 origin-left"><RoleBadge role={role} /></span>
           </div>
           <div className="flex items-center space-x-4">
