@@ -1,0 +1,131 @@
+// CONEXIÓN A LA BASE DE DATOS
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// --- 1. USUARIOS Y ROLES ---
+enum Role {
+  ADMIN
+  REVALIDACIONES // Antes 'Ejecutivo'. Solo captura y edita ETA/Días Libres (max 2 veces)
+  PAGOS          // Solo ve y paga.
+}
+
+model User {
+  id        Int      @id @default(autoincrement())
+  email     String   @unique
+  password  String   // Recuerda hashear esto con bcrypt
+  name      String
+  role      Role     @default(REVALIDACIONES)
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  
+  // Relaciones (Auditoría: saber quién hizo qué)
+  ticketsCreated Ticket[] @relation("CreatedBy")
+  paymentsMade   Ticket[] @relation("PaidBy")
+  logs           AuditLog[]
+}
+
+// --- 2. CATÁLOGOS (Para listas desplegables) ---
+model ShippingLine { // Navieras
+  id      Int      @id @default(autoincrement())
+  name    String   @unique
+  tickets Ticket[]
+}
+
+model Client { // Clientes Frecuentes
+  id      Int      @id @default(autoincrement())
+  name    String   @unique
+  rfc     String?
+  tickets Ticket[]
+  quotes  Quote[]
+}
+
+// --- 3. OPERACIÓN PRINCIPAL (TICKETS) ---
+model Ticket {
+  id              Int          @id @default(autoincrement())
+  // Campos de Captura
+  bl              String       // Master Bill of Lading
+  containerNumber String
+  
+  // Relaciones con catálogos
+  shippingLineId  Int
+  shippingLine    ShippingLine @relation(fields: [shippingLineId], references: [id])
+  clientId        Int
+  client          Client       @relation(fields: [clientId], references: [id])
+  
+  reason          String       // Motivo (Flete, Garantía, etc.)
+  concept         String       // Generado: Empresa + Cliente + Consecutivo + Motivo
+  amount          Decimal      @db.Decimal(10, 2)
+  
+  // Campos Editables por Revalidaciones (con restricciones)
+  eta             DateTime     // Fecha llegada
+  freeDays        Int          @default(7) // Días libres
+  etaEditCount    Int          @default(0) // Contador: Max 2 ediciones permitidas
+  
+  // Estado del Pago
+  isPaid          Boolean      @default(false)
+  paymentDate     DateTime?
+  paymentDelay    Int          @default(0) // Días de retraso calculados al pagar
+  
+  // Auditoría de Registro
+  createdById     Int
+  createdBy       User         @relation("CreatedBy", fields: [createdById], references: [id])
+  paidById        Int?
+  paidBy          User?        @relation("PaidBy", fields: [paidById], references: [id])
+  
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+}
+
+// --- 4. BITÁCORA DE AUDITORÍA (El "Chismoso") ---
+model AuditLog {
+  id        Int      @id @default(autoincrement())
+  action    String   // Ej: "EDIT_ETA", "REGISTER_PAYMENT"
+  details   String   // Ej: "Cambió ETA de 10/05 a 12/05"
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id])
+  timestamp DateTime @default(now())
+}
+
+// --- 5. COTIZACIONES (Módulo Independiente) ---
+model Quote {
+  id           Int      @id @default(autoincrement())
+  folio        String   @unique // Ej: COT-2025-001
+  
+  // Datos Cliente (Puede ser de catálogo o manual)
+  clientId     Int?
+  client       Client?  @relation(fields: [clientId], references: [id])
+  clientName   String   // Se guarda texto fijo por si borran el cliente del catálogo
+  attention    String?
+  
+  // Fechas
+  date         DateTime @default(now())
+  expiration   DateTime
+  
+  // Datos Logísticos
+  reference    String?
+  origin       String?
+  destination  String?
+  customs      String?
+  regime       String?
+  commodity    String?
+  weight       String?
+  packages     String?
+  
+  // Moneda
+  currency     String   @default("MXN") // MXN, USD
+  exchangeRate Decimal  @db.Decimal(10, 4)
+  
+  // Servicios (Guardado como JSON para flexibilidad total)
+  // Ejemplo: [{ description: "Flete", quantity: 1, price: 5000 }]
+  items        Json     
+  
+  total        Decimal  @db.Decimal(12, 2)
+  
+  createdAt    DateTime @default(now())
+}

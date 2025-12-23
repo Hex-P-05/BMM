@@ -21,10 +21,12 @@ import {
   TrendingDown,
   Activity,
   AlertCircle,
-  Calculator, // Icono para Cotizaciones
-  Trash2,     // Para borrar items
-  Download,   // Para descargar PDF
-  Printer     // Para imprimir
+  Calculator, 
+  Trash2,     
+  Download,   
+  Printer,
+  Package,
+  MapPin
 } from 'lucide-react';
 import { 
   BarChart, 
@@ -213,7 +215,6 @@ const PaymentModal = ({ isOpen, onClose, onConfirm, item }) => {
 
 // --- NUEVO COMPONENTE: GENERADOR DE COTIZACIONES ---
 const QuoteGenerator = ({ role }) => {
-  // Seguridad: El rol de 'pagos' no debería hacer cotizaciones (opcional, ajusta según necesidad)
   if (role === 'pagos') return <div className="p-10 text-center text-red-500 font-bold">Acceso Denegado: Solo Admin y Revalidaciones pueden cotizar.</div>;
 
   const [clientInfo, setClientInfo] = useState({
@@ -221,9 +222,16 @@ const QuoteGenerator = ({ role }) => {
     attention: '',
     date: new Date().toISOString().split('T')[0],
     expiration: addDays(15),
+    reference: '', 
     origin: '',
     destination: '',
-    commodity: ''
+    customs: '',   
+    regime: '',    
+    commodity: '',
+    weight: '',    
+    packages: '',  
+    exchangeRate: '20.50',
+    currency: 'MXN' // Nuevo campo para la divisa
   });
 
   const [items, setItems] = useState([
@@ -251,13 +259,11 @@ const QuoteGenerator = ({ role }) => {
     setClientInfo({ ...clientInfo, [e.target.name]: e.target.value });
   };
 
-  // Cálculos
   const subtotal = items.reduce((acc, item) => acc + (item.quantity * item.price), 0);
   const iva = subtotal * 0.16;
   const total = subtotal + iva;
 
   const handleDownload = () => {
-    // Aquí iría la lógica real con jsPDF o similar
     alert("Simulación: Descargando PDF 'Cotización_" + (clientInfo.name || 'Cliente') + ".pdf' con membrete...");
   };
 
@@ -270,29 +276,66 @@ const QuoteGenerator = ({ role }) => {
         </h3>
         
         <div className="space-y-4 mb-6">
-          <div>
-            <label className="block text-xs font-bold text-slate-500 mb-1">Cliente / Razón Social</label>
-            <input name="name" value={clientInfo.name} onChange={handleClientChange} className="w-full p-2 border rounded text-sm focus:ring-2 focus:ring-blue-500 outline-none" placeholder="Ej. Importadora SA" />
-          </div>
-          <div>
-            <label className="block text-xs font-bold text-slate-500 mb-1">Atención A</label>
-            <input name="attention" value={clientInfo.attention} onChange={handleClientChange} className="w-full p-2 border rounded text-sm focus:ring-2 focus:ring-blue-500 outline-none" placeholder="Ej. Lic. Juan Pérez" />
-          </div>
-          <div className="grid grid-cols-2 gap-2">
-            <div>
-              <label className="block text-xs font-bold text-slate-500 mb-1">Fecha Emisión</label>
-              <input type="date" name="date" value={clientInfo.date} onChange={handleClientChange} className="w-full p-2 border rounded text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
+          <div className="bg-slate-50 p-3 rounded-lg border border-slate-100">
+            <h4 className="text-xs font-bold text-slate-500 uppercase mb-2">Información General</h4>
+            <div className="space-y-3">
+              <div>
+                <label className="block text-xs font-medium text-slate-600 mb-1">Cliente / Razón Social</label>
+                <input name="name" value={clientInfo.name} onChange={handleClientChange} className="w-full p-2 border rounded text-sm focus:ring-2 focus:ring-blue-500 outline-none" placeholder="Ej. Importadora SA" />
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-xs font-medium text-slate-600 mb-1">Atención A</label>
+                  <input name="attention" value={clientInfo.attention} onChange={handleClientChange} className="w-full p-2 border rounded text-sm focus:outline-none" placeholder="Lic. Pérez" />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-600 mb-1">Referencia</label>
+                  <input name="reference" value={clientInfo.reference} onChange={handleClientChange} className="w-full p-2 border rounded text-sm focus:outline-none" placeholder="REF-001" />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-xs font-medium text-slate-600 mb-1">Fecha Emisión</label>
+                  <input type="date" name="date" value={clientInfo.date} onChange={handleClientChange} className="w-full p-2 border rounded text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-600 mb-1">Vencimiento</label>
+                  <input type="date" name="expiration" value={clientInfo.expiration} onChange={handleClientChange} className="w-full p-2 border rounded text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-xs font-medium text-slate-600 mb-1">Divisa</label>
+                  <select name="currency" value={clientInfo.currency} onChange={handleClientChange} className="w-full p-2 border rounded text-sm focus:outline-none bg-white">
+                    <option value="MXN">Pesos (MXN)</option>
+                    <option value="USD">Dólares (USD)</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-600 mb-1">Tipo Cambio</label>
+                  <input name="exchangeRate" value={clientInfo.exchangeRate} onChange={handleClientChange} className="w-full p-2 border rounded text-sm focus:outline-none" placeholder="20.50" />
+                </div>
+              </div>
             </div>
-            <div>
-              <label className="block text-xs font-bold text-slate-500 mb-1">Vencimiento</label>
-              <input type="date" name="expiration" value={clientInfo.expiration} onChange={handleClientChange} className="w-full p-2 border rounded text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
-            </div>
           </div>
-          <div>
-            <label className="block text-xs font-bold text-slate-500 mb-1">Ruta / Logística</label>
-            <input name="origin" value={clientInfo.origin} onChange={handleClientChange} className="w-full p-2 border rounded text-sm mb-2 focus:ring-2 focus:ring-blue-500 outline-none" placeholder="Origen (Ej. Shanghai, CN)" />
-            <input name="destination" value={clientInfo.destination} onChange={handleClientChange} className="w-full p-2 border rounded text-sm mb-2 focus:ring-2 focus:ring-blue-500 outline-none" placeholder="Destino (Ej. Manzanillo, MX)" />
-            <input name="commodity" value={clientInfo.commodity} onChange={handleClientChange} className="w-full p-2 border rounded text-sm focus:ring-2 focus:ring-blue-500 outline-none" placeholder="Mercancía (Ej. Textiles)" />
+
+          <div className="bg-slate-50 p-3 rounded-lg border border-slate-100">
+            <h4 className="text-xs font-bold text-slate-500 uppercase mb-2">Logística y Mercancía</h4>
+            <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-2">
+                <input name="origin" value={clientInfo.origin} onChange={handleClientChange} className="w-full p-2 border rounded text-sm focus:outline-none" placeholder="Origen" />
+                <input name="destination" value={clientInfo.destination} onChange={handleClientChange} className="w-full p-2 border rounded text-sm focus:outline-none" placeholder="Destino" />
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <input name="customs" value={clientInfo.customs} onChange={handleClientChange} className="w-full p-2 border rounded text-sm focus:outline-none" placeholder="Aduana (Ej. 470)" />
+                <input name="regime" value={clientInfo.regime} onChange={handleClientChange} className="w-full p-2 border rounded text-sm focus:outline-none" placeholder="Régimen (IMPO)" />
+              </div>
+              <input name="commodity" value={clientInfo.commodity} onChange={handleClientChange} className="w-full p-2 border rounded text-sm focus:outline-none" placeholder="Descripción Mercancía" />
+              <div className="grid grid-cols-2 gap-2">
+                <input name="weight" value={clientInfo.weight} onChange={handleClientChange} className="w-full p-2 border rounded text-sm focus:outline-none" placeholder="Peso Bruto (Kg)" />
+                <input name="packages" value={clientInfo.packages} onChange={handleClientChange} className="w-full p-2 border rounded text-sm focus:outline-none" placeholder="Bultos" />
+              </div>
+            </div>
           </div>
         </div>
 
@@ -347,7 +390,7 @@ const QuoteGenerator = ({ role }) => {
         <div className="bg-white w-full max-w-[21cm] min-h-[29.7cm] p-12 shadow-2xl text-slate-800 text-sm relative">
           
           {/* HEADER / MEMBRETE */}
-          <div className="flex justify-between items-start border-b-2 border-blue-600 pb-6 mb-8">
+          <div className="flex justify-between items-start border-b-2 border-blue-600 pb-6 mb-6">
             <div>
               <div className="flex items-center text-blue-700 mb-2">
                 <Ship size={32} className="mr-2" />
@@ -365,28 +408,52 @@ const QuoteGenerator = ({ role }) => {
             </div>
           </div>
 
-          {/* DATOS CLIENTE */}
-          <div className="grid grid-cols-2 gap-8 mb-8 bg-slate-50 p-4 rounded-lg border border-slate-100">
-            <div>
-              <h4 className="text-xs font-bold text-slate-400 uppercase mb-2">Cliente</h4>
-              <p className="font-bold text-lg text-slate-800">{clientInfo.name || '---'}</p>
-              <p className="text-slate-600 mt-1"><span className="font-semibold">Atn:</span> {clientInfo.attention || '---'}</p>
+          {/* DATOS DEL EMBARQUE (Diseño tipo tabla) */}
+          <div className="mb-8">
+            <div className="bg-slate-100 px-4 py-2 border-l-4 border-blue-600 mb-2">
+              <h4 className="text-xs font-bold text-slate-600 uppercase">Información del Cliente</h4>
             </div>
-            <div>
-              <h4 className="text-xs font-bold text-slate-400 uppercase mb-2">Datos Logísticos</h4>
-              <div className="grid grid-cols-2 gap-2 text-xs">
-                <div>
-                  <p className="text-slate-500">Origen:</p>
-                  <p className="font-semibold text-slate-700">{clientInfo.origin || '---'}</p>
-                </div>
-                <div>
-                  <p className="text-slate-500">Destino:</p>
-                  <p className="font-semibold text-slate-700">{clientInfo.destination || '---'}</p>
-                </div>
-                <div className="col-span-2 mt-2">
-                  <p className="text-slate-500">Mercancía:</p>
-                  <p className="font-semibold text-slate-700">{clientInfo.commodity || '---'}</p>
-                </div>
+            <div className="grid grid-cols-2 gap-4 mb-4 px-2">
+              <p><span className="font-bold text-slate-500 text-xs uppercase block">Cliente:</span> {clientInfo.name || '---'}</p>
+              <p><span className="font-bold text-slate-500 text-xs uppercase block">Atención:</span> {clientInfo.attention || '---'}</p>
+            </div>
+
+            <div className="bg-slate-100 px-4 py-2 border-l-4 border-blue-600 mb-2">
+              <h4 className="text-xs font-bold text-slate-600 uppercase">Detalles del Embarque</h4>
+            </div>
+            <div className="grid grid-cols-4 gap-4 px-2 text-xs">
+              <div>
+                <span className="font-bold text-slate-500 block">Referencia:</span>
+                {clientInfo.reference || '---'}
+              </div>
+              <div>
+                <span className="font-bold text-slate-500 block">Aduana:</span>
+                {clientInfo.customs || '---'}
+              </div>
+              <div>
+                <span className="font-bold text-slate-500 block">Régimen:</span>
+                {clientInfo.regime || '---'}
+              </div>
+              <div>
+                <span className="font-bold text-slate-500 block">Divisa / TC:</span>
+                {clientInfo.currency} / ${clientInfo.exchangeRate}
+              </div>
+              
+              <div className="col-span-2 mt-2">
+                <span className="font-bold text-slate-500 block">Origen - Destino:</span>
+                {clientInfo.origin || '---'} {' -> '} {clientInfo.destination || '---'}
+              </div>
+              <div className="mt-2">
+                <span className="font-bold text-slate-500 block">Peso Bruto:</span>
+                {clientInfo.weight ? `${clientInfo.weight} Kg` : '---'}
+              </div>
+              <div className="mt-2">
+                <span className="font-bold text-slate-500 block">Bultos:</span>
+                {clientInfo.packages || '---'}
+              </div>
+              <div className="col-span-4 mt-2 border-t pt-2 border-slate-100">
+                <span className="font-bold text-slate-500 block">Mercancía:</span>
+                {clientInfo.commodity || '---'}
               </div>
             </div>
           </div>
@@ -396,13 +463,13 @@ const QuoteGenerator = ({ role }) => {
             <table className="w-full text-left">
               <thead>
                 <tr className="bg-slate-800 text-white text-xs uppercase">
-                  <th className="py-2 px-3 rounded-tl-lg">Descripción</th>
-                  <th className="py-2 px-3 text-center">Cantidad</th>
+                  <th className="py-2 px-3 rounded-tl-lg">Descripción del Concepto</th>
+                  <th className="py-2 px-3 text-center">Cant.</th>
                   <th className="py-2 px-3 text-right">Precio Unit.</th>
-                  <th className="py-2 px-3 text-right rounded-tr-lg">Total</th>
+                  <th className="py-2 px-3 text-right rounded-tr-lg">Importe</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-200">
+              <tbody className="divide-y divide-slate-200 text-sm">
                 {items.map((item) => (
                   <tr key={item.id}>
                     <td className="py-3 px-3">{item.description || '---'}</td>
@@ -427,7 +494,7 @@ const QuoteGenerator = ({ role }) => {
                 <span className="font-medium">${iva.toLocaleString()}</span>
               </div>
               <div className="flex justify-between py-3">
-                <span className="text-lg font-bold text-slate-800">Total (MXN)</span>
+                <span className="text-lg font-bold text-slate-800">Total ({clientInfo.currency})</span>
                 <span className="text-lg font-bold text-blue-600">${total.toLocaleString()}</span>
               </div>
             </div>
@@ -718,7 +785,7 @@ const ListView = ({ data, onInitiatePayment, role, onEdit }) => {
                   <td className="p-4 flex justify-center space-x-2">
                     {canPay && item.payment === 'pending' && (
                       <button 
-                        onClick={() => onInitiatePayment(item.id)}
+                        onClick={() => onInitiatePayment(item.id)} // Llama a la función que abre el modal
                         className="px-3 py-1 bg-emerald-50 text-emerald-600 border border-emerald-200 rounded hover:bg-emerald-100 text-xs font-bold flex items-center"
                       >
                         <DollarSign size={14} className="mr-1"/> Pagar
@@ -803,7 +870,7 @@ export default function App() {
     });
 
     setData(updatedData);
-    setPaymentConfirmation({ isOpen: false, item: null });
+    setPaymentConfirmation({ isOpen: false, item: null }); // Cerrar modal y limpiar
   };
 
   const handleEdit = (item) => {
@@ -866,7 +933,6 @@ export default function App() {
             value={role} 
             onChange={(e) => {
               setRole(e.target.value);
-              // Si cambia a Pagos, sacarlo de módulos prohibidos
               if (e.target.value === 'pagos' && (activeTab === 'capture' || activeTab === 'quotes')) {
                 setActiveTab('dashboard');
               }
