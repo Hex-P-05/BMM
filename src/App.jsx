@@ -912,7 +912,13 @@ const ListView = ({ data, onInitiatePayment, role, onEdit }) => {
                   <td className="p-4 text-center">
                     <StatusBadge item={item} />
                   </td>
-                  <td className="p-4 text-right font-medium">${item.amount.toLocaleString()}</td>
+                  <td className="p-4 text-right font-medium">
+                    {/* Muestra la moneda en pequeño y gris antes del monto */}
+                    <span className="text-[10px] text-slate-400 mr-1 font-bold align-top">
+                      {item.currency || 'MXN'}
+                    </span>
+                    ${item.amount.toLocaleString()}
+                  </td>
                   <td className="p-4 text-center text-xs text-slate-500">
                     {item.payment === 'paid' ? formatDate(item.paymentDate) : '-'}
                   </td>
