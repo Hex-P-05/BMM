@@ -1,4 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
+import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
 import { 
   LayoutDashboard, 
   FileText, 
@@ -235,17 +237,15 @@ const QuoteGenerator = ({ role }) => {
     diasDemoras: 0,
     diasAlmacenaje: 0,
     naviera: '',
-    
-    // COSTOS
+    // Costos
     costoDemoras: 0,
     costoAlmacenaje: 0,
     costosOperativos: 0,
-    costoGastosPortuarios: 0, // <--- NUEVO CAMPO
+    costoGastosPortuarios: 0,
     apoyo: 0,
     impuestos: 0,
     liberacion: 0,
     transporte: 0,
-    
     currency: 'MXN'
   });
 
@@ -257,34 +257,68 @@ const QuoteGenerator = ({ role }) => {
     });
   };
 
-  // 2. LÓGICA DE SUBTOTAL
   const subtotal = 
     quoteData.costoDemoras + 
     quoteData.costoAlmacenaje + 
     quoteData.costosOperativos + 
-    quoteData.costoGastosPortuarios + // <--- SUMA NUEVA
+    quoteData.costoGastosPortuarios +
     quoteData.apoyo + 
     quoteData.impuestos + 
     quoteData.liberacion + 
     quoteData.transporte;
 
-  // 3. DEFINICIÓN DE FILAS
+  // --- FUNCIÓN NUEVA: DESCARGA PDF AUTOMÁTICA ---
+  const handleDownloadPDF = async () => {
+    const element = document.getElementById('invoice-content'); // Capturamos por ID
+    
+    if(!element) return;
+
+    try {
+      // 1. Generamos el canvas (la "foto")
+      const canvas = await html2canvas(element, {
+        scale: 2, // Mejor calidad
+        useCORS: true, // Para evitar errores de imágenes externas
+        logging: false,
+        backgroundColor: '#ffffff'
+      });
+
+      // 2. Calculamos dimensiones para A4
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+
+      // 3. Agregamos la imagen al PDF
+      pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+
+      // 4. GENERAMOS EL NOMBRE BASADO EN LA REFERENCIA
+      // Si no hay referencia, usa un default. Limpiamos caracteres raros por si acaso.
+      const cleanRef = quoteData.clienteReferencia.replace(/[^a-zA-Z0-9-_]/g, '');
+      const fileName = cleanRef ? `${cleanRef}.pdf` : `Cotizacion_AduanaSoft_${Date.now()}.pdf`;
+
+      pdf.save(fileName); // <--- ESTO DESCARGA AUTOMÁTICO
+
+    } catch (error) {
+      console.error("Error al generar PDF:", error);
+      alert("Hubo un error al generar el PDF. Intenta de nuevo.");
+    }
+  };
+
+  // ... (Definición de tableRows y costFields igual que antes) ...
   const tableRows = [
     { label: '提货单// BL', value: quoteData.bl, isMoney: false },
     { label: '容器 // CONTENEDOR', value: quoteData.contenedor, isMoney: false },
     { label: '预计到达时间// ETA', value: formatDate(quoteData.eta), isMoney: false },
-    { label: '交货日期// FECHA DE ENTREGA', value: formatDate(quoteData.fechaEntrega), isMoney: false, className: 'bg-green-100 print:bg-green-100' },
+    { label: '交货日期// FECHA DE ENTREGA', value: formatDate(quoteData.fechaEntrega), isMoney: false, className: 'bg-green-100' },
     { label: '卸货港 // PUERTO', value: quoteData.puerto, isMoney: false },
     { label: '码头 // TERMINAL', value: quoteData.terminal, isMoney: false },
     { label: '延誤數日// DIAS DE DEMORAS', value: quoteData.diasDemoras, isMoney: false },
     { label: '储存天數 // DIAS DE ALMACENAJE', value: quoteData.diasAlmacenaje, isMoney: false },
     { label: '航运公司// NAVIERA', value: quoteData.naviera, isMoney: false },
-    
-    // Filas de Dinero
     { label: '延误// DEMORAS', value: quoteData.costoDemoras, isMoney: true },
     { label: '贮存// ALMACENAJE', value: quoteData.costoAlmacenaje, isMoney: true },
     { label: '營運成本// COSTOS OPERATIVOS', value: quoteData.costosOperativos, isMoney: true },
-    { label: '港口费用// GASTOS PORTUARIOS', value: quoteData.costoGastosPortuarios, isMoney: true }, // <--- RENGLÓN NUEVO EN TABLA
+    { label: '港口费用// GASTOS PORTUARIOS', value: quoteData.costoGastosPortuarios, isMoney: true },
     { label: '支援// APOYO', value: quoteData.apoyo, isMoney: true, labelClass: 'text-red-500 font-bold' },
     { label: '税收// IMPUESTOS', value: quoteData.impuestos, isMoney: true },
     { label: '摆脱遗弃// LIBERACION DE ABANDONO', value: quoteData.liberacion, isMoney: true },
@@ -295,7 +329,7 @@ const QuoteGenerator = ({ role }) => {
     { id: 'costoDemoras', label: 'Demoras' },
     { id: 'costoAlmacenaje', label: 'Almacenaje' },
     { id: 'costosOperativos', label: 'Costos Operativos' },
-    { id: 'costoGastosPortuarios', label: 'Gastos Portuarios' }, // <--- INPUT NUEVO
+    { id: 'costoGastosPortuarios', label: 'Gastos Portuarios' },
     { id: 'apoyo', label: 'Apoyo' },
     { id: 'impuestos', label: 'Impuestos' },
     { id: 'liberacion', label: 'Liberación Abandono' },
@@ -305,45 +339,33 @@ const QuoteGenerator = ({ role }) => {
   return (
     <div className="flex flex-col lg:flex-row gap-6 h-full animate-fade-in pb-8">
       
-      <style>
-        {`
-          @media print {
-            body * { visibility: hidden; }
-            .printable-area, .printable-area * { visibility: visible; }
-            .printable-area { position: absolute; left: 0; top: 0; width: 100%; margin: 0; padding: 0; box-shadow: none; border: none; }
-            .no-print { display: none !important; }
-            * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
-          }
-        `}
-      </style>
-
-      {/* --- PANEL IZQUIERDO: FORMULARIO --- */}
-      <div className="lg:w-1/3 bg-white p-6 rounded-xl shadow-sm border border-slate-200 overflow-y-auto no-print">
+      {/* PANEL IZQUIERDO: FORMULARIO */}
+      <div className="lg:w-1/3 bg-white p-6 rounded-xl shadow-sm border border-slate-200 overflow-y-auto">
         <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center border-b pb-2">
           <Edit size={18} className="mr-2 text-blue-600"/> Editar Cotización
         </h3>
 
         <div className="space-y-4">
-          
-          <div className="bg-blue-50 p-4 rounded-lg border border-blue-100">
+           {/* ... (Aquí va todo tu formulario de inputs IGUAL que en la versión anterior) ... */}
+           <div className="bg-blue-50 p-4 rounded-lg border border-blue-100">
              <h4 className="text-xs font-bold text-blue-800 uppercase mb-3">Datos del Encabezado</h4>
              <div className="space-y-2">
                 <input name="clienteNombre" placeholder="Razón Social Cliente" value={quoteData.clienteNombre} onChange={handleChange} className="w-full p-2 border rounded text-sm" />
                 <div className="grid grid-cols-2 gap-2">
-                   <input name="clienteReferencia" placeholder="Referencia Cliente" value={quoteData.clienteReferencia} onChange={handleChange} className="p-2 border rounded text-sm" />
+                   <input name="clienteReferencia" placeholder="Referencia (Nombre del PDF)" value={quoteData.clienteReferencia} onChange={handleChange} className="p-2 border rounded text-sm font-bold text-slate-700" />
                    <input type="date" name="fechaEmision" value={quoteData.fechaEmision} onChange={handleChange} className="p-2 border rounded text-sm" />
                 </div>
              </div>
           </div>
-
-          <div className="bg-slate-50 p-4 rounded-lg border border-slate-100">
+          
+          {/* ... (Pega aquí los bloques de 'Datos Operativos' y 'Costos' que ya tenías) ... */}
+           <div className="bg-slate-50 p-4 rounded-lg border border-slate-100">
             <h4 className="text-xs font-bold text-slate-500 uppercase mb-3">Datos Operativos</h4>
             <div className="grid grid-cols-2 gap-3">
               <div className="col-span-2 grid grid-cols-2 gap-3">
                  <input name="bl" placeholder="BL Master" value={quoteData.bl} onChange={handleChange} className="p-2 border rounded text-sm uppercase" />
                  <input name="contenedor" placeholder="Contenedor" value={quoteData.contenedor} onChange={handleChange} className="p-2 border rounded text-sm uppercase" />
               </div>
-              
               <div className="col-span-1">
                 <label className="text-[10px] text-slate-400 font-bold block mb-1">ETA</label>
                 <input type="date" name="eta" value={quoteData.eta} onChange={handleChange} className="w-full p-2 border rounded text-sm" />
@@ -352,27 +374,17 @@ const QuoteGenerator = ({ role }) => {
                 <label className="text-[10px] text-green-600 font-bold block mb-1">ENTREGA</label>
                 <input type="date" name="fechaEntrega" value={quoteData.fechaEntrega} onChange={handleChange} className="w-full p-2 border rounded text-sm bg-green-50 border-green-200" />
               </div>
-
               <input name="puerto" placeholder="Puerto" value={quoteData.puerto} onChange={handleChange} className="p-2 border rounded text-sm" />
               <input name="terminal" placeholder="Terminal" value={quoteData.terminal} onChange={handleChange} className="p-2 border rounded text-sm" />
-              <div className="col-span-2">
-                <input name="naviera" placeholder="Naviera" value={quoteData.naviera} onChange={handleChange} className="w-full p-2 border rounded text-sm" />
-              </div>
-
+              <div className="col-span-2"><input name="naviera" placeholder="Naviera" value={quoteData.naviera} onChange={handleChange} className="w-full p-2 border rounded text-sm" /></div>
               <div className="col-span-2 grid grid-cols-2 gap-3 mt-2">
                 <div>
                    <label className="text-xs font-bold text-slate-500 mb-1 block">Días Demoras</label>
-                   <div className="flex items-center">
-                     <input type="number" name="diasDemoras" value={quoteData.diasDemoras} onChange={handleChange} className="w-full p-2 border border-r-0 rounded-l text-sm text-center focus:ring-2 focus:ring-blue-500 outline-none" />
-                     <span className="bg-slate-200 border border-slate-300 rounded-r px-2 py-2 text-xs text-slate-600 font-bold">Días</span>
-                   </div>
+                   <div className="flex items-center"><input type="number" name="diasDemoras" value={quoteData.diasDemoras} onChange={handleChange} className="w-full p-2 border border-r-0 rounded-l text-sm text-center outline-none" /><span className="bg-slate-200 border border-slate-300 rounded-r px-2 py-2 text-xs text-slate-600 font-bold">Días</span></div>
                 </div>
                 <div>
                    <label className="text-xs font-bold text-slate-500 mb-1 block">Días Almacenaje</label>
-                   <div className="flex items-center">
-                     <input type="number" name="diasAlmacenaje" value={quoteData.diasAlmacenaje} onChange={handleChange} className="w-full p-2 border border-r-0 rounded-l text-sm text-center focus:ring-2 focus:ring-blue-500 outline-none" />
-                     <span className="bg-slate-200 border border-slate-300 rounded-r px-2 py-2 text-xs text-slate-600 font-bold">Días</span>
-                   </div>
+                   <div className="flex items-center"><input type="number" name="diasAlmacenaje" value={quoteData.diasAlmacenaje} onChange={handleChange} className="w-full p-2 border border-r-0 rounded-l text-sm text-center outline-none" /><span className="bg-slate-200 border border-slate-300 rounded-r px-2 py-2 text-xs text-slate-600 font-bold">Días</span></div>
                 </div>
               </div>
             </div>
@@ -386,39 +398,40 @@ const QuoteGenerator = ({ role }) => {
                  <option value="USD">USD (Dólares)</option>
                </select>
             </div>
-            
             <div className="space-y-3">
               {costFields.map((field) => (
                 <div key={field.id} className="flex items-center justify-between">
                   <label className="text-xs font-medium text-slate-600 w-1/3">{field.label}</label>
                   <div className="relative w-2/3">
                     <span className="absolute left-3 top-2 text-xs text-slate-400 font-bold">$</span>
-                    <input 
-                      type="number" 
-                      name={field.id} 
-                      value={quoteData[field.id]} 
-                      onChange={handleChange} 
-                      placeholder="0.00"
-                      className="w-full p-2 pl-6 border rounded text-sm text-right font-mono focus:border-blue-500 outline-none" 
-                    />
+                    <input type="number" name={field.id} value={quoteData[field.id]} onChange={handleChange} placeholder="0.00" className="w-full p-2 pl-6 border rounded text-sm text-right font-mono focus:border-blue-500 outline-none" />
                   </div>
                 </div>
               ))}
             </div>
           </div>
-
         </div>
       </div>
 
-      {/* --- PANEL DERECHO: VISTA PREVIA --- */}
+      {/* PANEL DERECHO: VISTA PREVIA (CON ID PARA CAPTURA) */}
       <div className="lg:w-2/3 bg-slate-200 rounded-xl p-8 overflow-y-auto flex flex-col items-center shadow-inner relative">
-        <div className="absolute top-4 right-4 no-print z-10">
-          <button onClick={() => window.print()} className="bg-blue-600 text-white px-4 py-2 rounded-lg shadow-lg text-sm font-bold flex items-center hover:bg-blue-700 transition-transform transform hover:-translate-y-1">
-            <Printer size={16} className="mr-2" /> Guardar como PDF
+        
+        {/* BOTÓN DESCARGA MEJORADO */}
+        <div className="absolute top-4 right-4 z-10">
+          <button 
+            onClick={handleDownloadPDF} 
+            className="bg-blue-600 text-white px-4 py-2 rounded-lg shadow-lg text-sm font-bold flex items-center hover:bg-blue-700 transition-transform transform hover:-translate-y-1"
+          >
+            <Download size={16} className="mr-2" /> Descargar PDF
           </button>
         </div>
 
-        <div className="printable-area bg-white w-full max-w-[21cm] min-h-[29.7cm] p-12 shadow-2xl text-slate-900 font-sans border border-slate-300 relative flex flex-col justify-between">
+        {/* --- ÁREA QUE SE VA A IMPRIMIR (Con ID invoice-content) --- */}
+        <div 
+          id="invoice-content" 
+          className="bg-white w-[210mm] min-h-[297mm] p-12 shadow-2xl text-slate-900 font-sans border border-slate-300 relative flex flex-col justify-between"
+        >
+          {/* ... (Contenido de la hoja idéntico a la versión anterior) ... */}
           <div>
             <div className="flex justify-between items-start border-b-2 border-slate-800 pb-6 mb-8">
               <div className="flex items-center">
@@ -451,7 +464,7 @@ const QuoteGenerator = ({ role }) => {
             </div>
 
             <div className="border-2 border-black">
-              <div className="bg-blue-100 border-b border-black py-2 text-center print:bg-blue-100">
+              <div className="bg-blue-100 border-b border-black py-2 text-center">
                 <h2 className="text-lg font-bold text-red-600 tracking-wide uppercase">价格 // COTIZACION</h2>
               </div>
               
@@ -473,7 +486,7 @@ const QuoteGenerator = ({ role }) => {
                 </div>
               ))}
 
-              <div className="flex border-t-2 border-black bg-yellow-300 print:bg-yellow-300">
+              <div className="flex border-t-2 border-black bg-yellow-300">
                 <div className="w-1/2 border-r border-black p-2 text-right flex items-center justify-end">
                    <span className="text-sm font-bold">SUBTOTAL</span>
                 </div>
