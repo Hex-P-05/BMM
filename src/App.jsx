@@ -12,7 +12,6 @@ import {
   Search,
   Menu,
   X,
-  Tag,
   User,
   Shield,
   Edit,
@@ -21,7 +20,11 @@ import {
   TrendingUp,
   TrendingDown,
   Activity,
-  AlertCircle // Nuevo icono para el modal
+  AlertCircle,
+  Calculator, // Icono para Cotizaciones
+  Trash2,     // Para borrar items
+  Download,   // Para descargar PDF
+  Printer     // Para imprimir
 } from 'lucide-react';
 import { 
   BarChart, 
@@ -125,7 +128,7 @@ const RoleBadge = ({ role }) => {
   };
   return (
     <span className={`px-2 py-1 rounded-md text-xs font-bold border uppercase ${styles[role] || styles.ejecutivo}`}>
-      {role}
+      {role === 'ejecutivo' ? 'Revalidaciones' : role}
     </span>
   );
 };
@@ -161,10 +164,7 @@ const PaymentModal = ({ isOpen, onClose, onConfirm, item }) => {
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 animate-fade-in">
-      {/* Backdrop oscuro */}
       <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={onClose}></div>
-      
-      {/* Contenido del Modal */}
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md relative z-10 overflow-hidden transform transition-all scale-100">
         <div className="bg-yellow-50 p-6 border-b border-yellow-100 flex items-start space-x-4">
           <div className="p-3 bg-yellow-100 text-yellow-600 rounded-full flex-shrink-0">
@@ -177,7 +177,6 @@ const PaymentModal = ({ isOpen, onClose, onConfirm, item }) => {
             </p>
           </div>
         </div>
-
         <div className="p-6 space-y-4">
           <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
             <div className="flex justify-between items-center mb-2">
@@ -186,7 +185,6 @@ const PaymentModal = ({ isOpen, onClose, onConfirm, item }) => {
             </div>
             <p className="text-3xl font-bold text-slate-800">${item.amount.toLocaleString()}</p>
           </div>
-
           <div className="space-y-2 text-sm">
             <div className="flex justify-between border-b border-slate-100 pb-2">
               <span className="text-slate-500">Beneficiario:</span>
@@ -202,21 +200,245 @@ const PaymentModal = ({ isOpen, onClose, onConfirm, item }) => {
             </div>
           </div>
         </div>
-
         <div className="p-6 bg-slate-50 border-t border-slate-100 flex space-x-3">
-          <button 
-            onClick={onClose}
-            className="flex-1 px-4 py-3 bg-white border border-slate-300 text-slate-700 font-bold rounded-xl hover:bg-slate-50 transition-colors"
-          >
-            Cancelar
+          <button onClick={onClose} className="flex-1 px-4 py-3 bg-white border border-slate-300 text-slate-700 font-bold rounded-xl hover:bg-slate-50 transition-colors">Cancelar</button>
+          <button onClick={onConfirm} className="flex-1 px-4 py-3 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 shadow-lg shadow-blue-200 transition-all flex justify-center items-center">
+            <CheckCircle size={20} className="mr-2" /> Confirmar Transferencia
           </button>
-          <button 
-            onClick={onConfirm}
-            className="flex-1 px-4 py-3 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 shadow-lg shadow-blue-200 transition-all flex justify-center items-center"
-          >
-            <CheckCircle size={20} className="mr-2" />
-            Confirmar Transferencia
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// --- NUEVO COMPONENTE: GENERADOR DE COTIZACIONES ---
+const QuoteGenerator = ({ role }) => {
+  // Seguridad: El rol de 'pagos' no debería hacer cotizaciones (opcional, ajusta según necesidad)
+  if (role === 'pagos') return <div className="p-10 text-center text-red-500 font-bold">Acceso Denegado: Solo Admin y Revalidaciones pueden cotizar.</div>;
+
+  const [clientInfo, setClientInfo] = useState({
+    name: '',
+    attention: '',
+    date: new Date().toISOString().split('T')[0],
+    expiration: addDays(15),
+    origin: '',
+    destination: '',
+    commodity: ''
+  });
+
+  const [items, setItems] = useState([
+    { id: 1, description: 'Flete Marítimo Internacional', quantity: 1, price: 0 },
+    { id: 2, description: 'Gastos en Origen', quantity: 1, price: 0 },
+  ]);
+
+  const addItem = () => {
+    setItems([...items, { id: Date.now(), description: '', quantity: 1, price: 0 }]);
+  };
+
+  const removeItem = (id) => {
+    setItems(items.filter(i => i.id !== id));
+  };
+
+  const updateItem = (id, field, value) => {
+    const newItems = items.map(i => {
+      if (i.id === id) return { ...i, [field]: value };
+      return i;
+    });
+    setItems(newItems);
+  };
+
+  const handleClientChange = (e) => {
+    setClientInfo({ ...clientInfo, [e.target.name]: e.target.value });
+  };
+
+  // Cálculos
+  const subtotal = items.reduce((acc, item) => acc + (item.quantity * item.price), 0);
+  const iva = subtotal * 0.16;
+  const total = subtotal + iva;
+
+  const handleDownload = () => {
+    // Aquí iría la lógica real con jsPDF o similar
+    alert("Simulación: Descargando PDF 'Cotización_" + (clientInfo.name || 'Cliente') + ".pdf' con membrete...");
+  };
+
+  return (
+    <div className="flex flex-col lg:flex-row gap-6 h-full animate-fade-in pb-8">
+      {/* PANEL IZQUIERDO: FORMULARIO */}
+      <div className="lg:w-1/3 bg-white p-6 rounded-xl shadow-sm border border-slate-200 overflow-y-auto">
+        <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center">
+          <Edit size={18} className="mr-2 text-blue-600"/> Datos de la Cotización
+        </h3>
+        
+        <div className="space-y-4 mb-6">
+          <div>
+            <label className="block text-xs font-bold text-slate-500 mb-1">Cliente / Razón Social</label>
+            <input name="name" value={clientInfo.name} onChange={handleClientChange} className="w-full p-2 border rounded text-sm focus:ring-2 focus:ring-blue-500 outline-none" placeholder="Ej. Importadora SA" />
+          </div>
+          <div>
+            <label className="block text-xs font-bold text-slate-500 mb-1">Atención A</label>
+            <input name="attention" value={clientInfo.attention} onChange={handleClientChange} className="w-full p-2 border rounded text-sm focus:ring-2 focus:ring-blue-500 outline-none" placeholder="Ej. Lic. Juan Pérez" />
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className="block text-xs font-bold text-slate-500 mb-1">Fecha Emisión</label>
+              <input type="date" name="date" value={clientInfo.date} onChange={handleClientChange} className="w-full p-2 border rounded text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-slate-500 mb-1">Vencimiento</label>
+              <input type="date" name="expiration" value={clientInfo.expiration} onChange={handleClientChange} className="w-full p-2 border rounded text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
+            </div>
+          </div>
+          <div>
+            <label className="block text-xs font-bold text-slate-500 mb-1">Ruta / Logística</label>
+            <input name="origin" value={clientInfo.origin} onChange={handleClientChange} className="w-full p-2 border rounded text-sm mb-2 focus:ring-2 focus:ring-blue-500 outline-none" placeholder="Origen (Ej. Shanghai, CN)" />
+            <input name="destination" value={clientInfo.destination} onChange={handleClientChange} className="w-full p-2 border rounded text-sm mb-2 focus:ring-2 focus:ring-blue-500 outline-none" placeholder="Destino (Ej. Manzanillo, MX)" />
+            <input name="commodity" value={clientInfo.commodity} onChange={handleClientChange} className="w-full p-2 border rounded text-sm focus:ring-2 focus:ring-blue-500 outline-none" placeholder="Mercancía (Ej. Textiles)" />
+          </div>
+        </div>
+
+        <div className="border-t pt-4 border-slate-100">
+          <div className="flex justify-between items-center mb-2">
+            <h4 className="text-sm font-bold text-slate-700">Servicios</h4>
+            <button onClick={addItem} className="text-xs flex items-center text-blue-600 font-bold hover:bg-blue-50 px-2 py-1 rounded transition-colors">
+              <Plus size={12} className="mr-1"/> Agregar
+            </button>
+          </div>
+          
+          <div className="space-y-3">
+            {items.map((item) => (
+              <div key={item.id} className="bg-slate-50 p-2 rounded border border-slate-200">
+                <input 
+                  value={item.description} 
+                  onChange={(e) => updateItem(item.id, 'description', e.target.value)} 
+                  placeholder="Descripción del servicio" 
+                  className="w-full p-1 bg-white border rounded text-xs mb-2 focus:outline-none focus:border-blue-400"
+                />
+                <div className="flex items-center gap-2">
+                  <div className="flex-1">
+                    <span className="text-[10px] text-slate-400 block">Cant.</span>
+                    <input type="number" value={item.quantity} onChange={(e) => updateItem(item.id, 'quantity', parseFloat(e.target.value))} className="w-full p-1 bg-white border rounded text-xs focus:outline-none focus:border-blue-400" />
+                  </div>
+                  <div className="flex-1">
+                    <span className="text-[10px] text-slate-400 block">Precio Unit.</span>
+                    <input type="number" value={item.price} onChange={(e) => updateItem(item.id, 'price', parseFloat(e.target.value))} className="w-full p-1 bg-white border rounded text-xs focus:outline-none focus:border-blue-400" />
+                  </div>
+                  <button onClick={() => removeItem(item.id)} className="text-red-400 hover:text-red-600 mt-3 p-1">
+                    <Trash2 size={16} />
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* PANEL DERECHO: VISTA PREVIA PDF */}
+      <div className="lg:w-2/3 bg-slate-200 rounded-xl p-8 overflow-y-auto flex flex-col items-center shadow-inner">
+        <div className="flex justify-end w-full max-w-[21cm] mb-4 space-x-2">
+          <button onClick={() => window.print()} className="bg-white text-slate-700 px-4 py-2 rounded shadow-sm text-sm font-bold flex items-center hover:bg-slate-50 transition-colors">
+            <Printer size={16} className="mr-2" /> Imprimir
           </button>
+          <button onClick={handleDownload} className="bg-blue-600 text-white px-4 py-2 rounded shadow-sm text-sm font-bold flex items-center hover:bg-blue-700 transition-colors">
+            <Download size={16} className="mr-2" /> Descargar PDF
+          </button>
+        </div>
+
+        {/* HOJA A4 (Simulación Visual) */}
+        <div className="bg-white w-full max-w-[21cm] min-h-[29.7cm] p-12 shadow-2xl text-slate-800 text-sm relative">
+          
+          {/* HEADER / MEMBRETE */}
+          <div className="flex justify-between items-start border-b-2 border-blue-600 pb-6 mb-8">
+            <div>
+              <div className="flex items-center text-blue-700 mb-2">
+                <Ship size={32} className="mr-2" />
+                <span className="text-2xl font-bold tracking-tight">AduanaSoft</span>
+              </div>
+              <p className="text-slate-500 text-xs">Agencia Aduanal & Logística Internacional</p>
+              <p className="text-slate-500 text-xs">Av. del Puerto 123, Manzanillo, Colima.</p>
+              <p className="text-slate-500 text-xs">Tel: (314) 333-0000 | contacto@aduanasoft.com</p>
+            </div>
+            <div className="text-right">
+              <h2 className="text-3xl font-bold text-slate-200 uppercase tracking-widest">Cotización</h2>
+              <p className="font-bold text-slate-700 mt-2">Folio: <span className="text-blue-600">COT-{new Date().getFullYear()}-001</span></p>
+              <p className="text-slate-500">Fecha: {formatDate(clientInfo.date)}</p>
+              <p className="text-red-400 text-xs mt-1 font-bold">Vence: {formatDate(clientInfo.expiration)}</p>
+            </div>
+          </div>
+
+          {/* DATOS CLIENTE */}
+          <div className="grid grid-cols-2 gap-8 mb-8 bg-slate-50 p-4 rounded-lg border border-slate-100">
+            <div>
+              <h4 className="text-xs font-bold text-slate-400 uppercase mb-2">Cliente</h4>
+              <p className="font-bold text-lg text-slate-800">{clientInfo.name || '---'}</p>
+              <p className="text-slate-600 mt-1"><span className="font-semibold">Atn:</span> {clientInfo.attention || '---'}</p>
+            </div>
+            <div>
+              <h4 className="text-xs font-bold text-slate-400 uppercase mb-2">Datos Logísticos</h4>
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                <div>
+                  <p className="text-slate-500">Origen:</p>
+                  <p className="font-semibold text-slate-700">{clientInfo.origin || '---'}</p>
+                </div>
+                <div>
+                  <p className="text-slate-500">Destino:</p>
+                  <p className="font-semibold text-slate-700">{clientInfo.destination || '---'}</p>
+                </div>
+                <div className="col-span-2 mt-2">
+                  <p className="text-slate-500">Mercancía:</p>
+                  <p className="font-semibold text-slate-700">{clientInfo.commodity || '---'}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* TABLA DE SERVICIOS */}
+          <div className="mb-8">
+            <table className="w-full text-left">
+              <thead>
+                <tr className="bg-slate-800 text-white text-xs uppercase">
+                  <th className="py-2 px-3 rounded-tl-lg">Descripción</th>
+                  <th className="py-2 px-3 text-center">Cantidad</th>
+                  <th className="py-2 px-3 text-right">Precio Unit.</th>
+                  <th className="py-2 px-3 text-right rounded-tr-lg">Total</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-200">
+                {items.map((item) => (
+                  <tr key={item.id}>
+                    <td className="py-3 px-3">{item.description || '---'}</td>
+                    <td className="py-3 px-3 text-center">{item.quantity}</td>
+                    <td className="py-3 px-3 text-right">${item.price.toLocaleString()}</td>
+                    <td className="py-3 px-3 text-right font-medium">${(item.quantity * item.price).toLocaleString()}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {/* TOTALES */}
+          <div className="flex justify-end mb-12">
+            <div className="w-1/2">
+              <div className="flex justify-between py-2 border-b border-slate-100">
+                <span className="text-slate-500">Subtotal</span>
+                <span className="font-medium">${subtotal.toLocaleString()}</span>
+              </div>
+              <div className="flex justify-between py-2 border-b border-slate-100">
+                <span className="text-slate-500">IVA (16%)</span>
+                <span className="font-medium">${iva.toLocaleString()}</span>
+              </div>
+              <div className="flex justify-between py-3">
+                <span className="text-lg font-bold text-slate-800">Total (MXN)</span>
+                <span className="text-lg font-bold text-blue-600">${total.toLocaleString()}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* FOOTER / TÉRMINOS */}
+          <div className="absolute bottom-12 left-12 right-12 text-center text-xs text-slate-400 border-t border-slate-200 pt-4">
+            <p className="mb-1">Esta cotización tiene una vigencia limitada a la fecha de vencimiento indicada.</p>
+            <p>Precios sujetos a cambio sin previo aviso. Consulte términos y condiciones en www.aduanasoft.com</p>
+          </div>
+
         </div>
       </div>
     </div>
@@ -496,7 +718,7 @@ const ListView = ({ data, onInitiatePayment, role, onEdit }) => {
                   <td className="p-4 flex justify-center space-x-2">
                     {canPay && item.payment === 'pending' && (
                       <button 
-                        onClick={() => onInitiatePayment(item.id)} // Llama a la función que abre el modal
+                        onClick={() => onInitiatePayment(item.id)}
                         className="px-3 py-1 bg-emerald-50 text-emerald-600 border border-emerald-200 rounded hover:bg-emerald-100 text-xs font-bold flex items-center"
                       >
                         <DollarSign size={14} className="mr-1"/> Pagar
@@ -581,7 +803,7 @@ export default function App() {
     });
 
     setData(updatedData);
-    setPaymentConfirmation({ isOpen: false, item: null }); // Cerrar modal y limpiar
+    setPaymentConfirmation({ isOpen: false, item: null });
   };
 
   const handleEdit = (item) => {
@@ -622,13 +844,21 @@ export default function App() {
             </div>
             <span className="text-lg font-bold tracking-tight">AduanaSoft</span>
           </div>
-          <p className="text-xs text-slate-500 mt-2">v2.1 Smart Payments</p>
+          <p className="text-xs text-slate-500 mt-2">v2.2 Quotes Module</p>
         </div>
         <nav className="flex-1 p-4">
           <p className="px-4 text-xs font-bold text-slate-500 uppercase mb-3">Menú</p>
           <NavItem id="dashboard" icon={LayoutDashboard} label="Dashboard" />
           <NavItem id="list" icon={TableIcon} label="Sábana Operativa" />
           <NavItem id="capture" icon={Plus} label="Capturar Ticket" />
+          
+          {/* NUEVO ITEM: COTIZACIONES (Solo Admin y Ejecutivo) */}
+          {(role === 'admin' || role === 'ejecutivo') && (
+            <div className="mt-6">
+              <p className="px-4 text-xs font-bold text-slate-500 uppercase mb-3">Comercial</p>
+              <NavItem id="quotes" icon={Calculator} label="Cotizaciones" />
+            </div>
+          )}
         </nav>
         <div className="p-4 bg-slate-800 border-t border-slate-700">
           <label className="text-xs text-slate-400 uppercase font-bold mb-2 block">Simular Rol:</label>
@@ -636,12 +866,15 @@ export default function App() {
             value={role} 
             onChange={(e) => {
               setRole(e.target.value);
-              if (e.target.value === 'pagos' && activeTab === 'capture') setActiveTab('dashboard');
+              // Si cambia a Pagos, sacarlo de módulos prohibidos
+              if (e.target.value === 'pagos' && (activeTab === 'capture' || activeTab === 'quotes')) {
+                setActiveTab('dashboard');
+              }
             }}
             className="w-full bg-slate-900 text-white text-sm p-2 rounded border border-slate-600 focus:ring-blue-500 focus:border-blue-500 outline-none"
           >
             <option value="admin">Admin (Total)</option>
-            <option value="ejecutivo">Ejecutivo (Captura)</option>
+            <option value="ejecutivo">Ejecutivo (Revalidaciones)</option>
             <option value="pagos">Pagos (Solo Lectura)</option>
           </select>
         </div>
@@ -661,7 +894,7 @@ export default function App() {
                   </div>
                   <span className="text-lg font-bold tracking-tight">AduanaSoft</span>
                 </div>
-                <p className="text-xs text-slate-500 mt-2">v2.1 Smart Payments</p>
+                <p className="text-xs text-slate-500 mt-2">v2.2 Quotes Module</p>
               </div>
               <button onClick={() => setIsMobileMenuOpen(false)} className="p-1"><X size={28} /></button>
            </div>
@@ -669,6 +902,9 @@ export default function App() {
               <NavItem id="dashboard" icon={LayoutDashboard} label="Dashboard" />
               <NavItem id="list" icon={TableIcon} label="Sábana Operativa" />
               <NavItem id="capture" icon={Plus} label="Capturar Ticket" />
+              {(role === 'admin' || role === 'ejecutivo') && (
+                <NavItem id="quotes" icon={Calculator} label="Cotizaciones" />
+              )}
               
               <div className="mt-8 pt-6 border-t border-slate-700">
                 <label className="text-xs text-slate-400 uppercase font-bold mb-2 block">Simular Rol (Demo Móvil):</label>
@@ -676,7 +912,9 @@ export default function App() {
                   value={role} 
                   onChange={(e) => {
                     setRole(e.target.value);
-                    if (e.target.value === 'pagos' && activeTab === 'capture') setActiveTab('dashboard');
+                    if (e.target.value === 'pagos' && (activeTab === 'capture' || activeTab === 'quotes')) {
+                      setActiveTab('dashboard');
+                    }
                   }}
                   className="w-full bg-slate-800 text-white text-sm p-3 rounded border border-slate-600 focus:ring-blue-500 outline-none"
                 >
@@ -700,11 +938,11 @@ export default function App() {
             {activeTab === 'dashboard' && 'Visión General'}
             {activeTab === 'list' && 'Gestión y Pagos'}
             {activeTab === 'capture' && 'Alta de Documentos'}
+            {activeTab === 'quotes' && 'Generador de Cotizaciones'}
             <span className="hidden md:inline-flex ml-4 transform scale-90 origin-left"><RoleBadge role={role} /></span>
           </div>
           <div className="flex items-center space-x-4">
              <div className="hidden lg:flex items-center px-3 py-1 bg-green-50 text-green-700 rounded-full border border-green-200 text-xs font-medium"><DollarSign size={14} className="mr-1"/> USD: $20.54</div>
-             {/* Removed Shield icon div here */}
           </div>
         </header>
 
@@ -712,6 +950,7 @@ export default function App() {
           {activeTab === 'dashboard' && <DashboardView data={data} />}
           {activeTab === 'capture' && <CaptureForm onSave={handleSave} onCancel={() => setActiveTab('dashboard')} existingData={data} role={role} />}
           {activeTab === 'list' && <ListView data={data} onInitiatePayment={initiatePayment} role={role} onEdit={handleEdit} />}
+          {activeTab === 'quotes' && <QuoteGenerator role={role} />}
         </div>
       </main>
     </div>
