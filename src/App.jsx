@@ -217,6 +217,7 @@ const PaymentModal = ({ isOpen, onClose, onConfirm, item }) => {
 // --- COMPONENTE: GENERADOR DE COTIZACIONES (VERSIÓN PDF MEMBRETADO) ---
 // --- COMPONENTE: GENERADOR DE COTIZACIONES (FINAL: MONEDAS MIXTAS) ---
 // --- COMPONENTE: GENERADOR DE COTIZACIONES (FINAL: MONEDA ÚNICA) ---
+// --- COMPONENTE: GENERADOR DE COTIZACIONES (CON GASTOS PORTUARIOS) ---
 const QuoteGenerator = ({ role }) => {
   if (role === 'pagos') return <div className="p-10 text-center text-red-500 font-bold">Acceso Denegado: Solo Admin y Revalidaciones pueden cotizar.</div>;
 
@@ -235,16 +236,17 @@ const QuoteGenerator = ({ role }) => {
     diasAlmacenaje: 0,
     naviera: '',
     
-    // COSTOS (Solo montos numéricos)
+    // COSTOS
     costoDemoras: 0,
     costoAlmacenaje: 0,
     costosOperativos: 0,
+    costoGastosPortuarios: 0, // <--- NUEVO CAMPO
     apoyo: 0,
     impuestos: 0,
     liberacion: 0,
     transporte: 0,
     
-    currency: 'MXN' // Moneda Global
+    currency: 'MXN'
   });
 
   const handleChange = (e) => {
@@ -255,11 +257,12 @@ const QuoteGenerator = ({ role }) => {
     });
   };
 
-  // 2. LÓGICA DE SUBTOTAL (Suma simple)
+  // 2. LÓGICA DE SUBTOTAL
   const subtotal = 
     quoteData.costoDemoras + 
     quoteData.costoAlmacenaje + 
     quoteData.costosOperativos + 
+    quoteData.costoGastosPortuarios + // <--- SUMA NUEVA
     quoteData.apoyo + 
     quoteData.impuestos + 
     quoteData.liberacion + 
@@ -281,6 +284,7 @@ const QuoteGenerator = ({ role }) => {
     { label: '延误// DEMORAS', value: quoteData.costoDemoras, isMoney: true },
     { label: '贮存// ALMACENAJE', value: quoteData.costoAlmacenaje, isMoney: true },
     { label: '營運成本// COSTOS OPERATIVOS', value: quoteData.costosOperativos, isMoney: true },
+    { label: '港口费用// GASTOS PORTUARIOS', value: quoteData.costoGastosPortuarios, isMoney: true }, // <--- RENGLÓN NUEVO EN TABLA
     { label: '支援// APOYO', value: quoteData.apoyo, isMoney: true, labelClass: 'text-red-500 font-bold' },
     { label: '税收// IMPUESTOS', value: quoteData.impuestos, isMoney: true },
     { label: '摆脱遗弃// LIBERACION DE ABANDONO', value: quoteData.liberacion, isMoney: true },
@@ -291,6 +295,7 @@ const QuoteGenerator = ({ role }) => {
     { id: 'costoDemoras', label: 'Demoras' },
     { id: 'costoAlmacenaje', label: 'Almacenaje' },
     { id: 'costosOperativos', label: 'Costos Operativos' },
+    { id: 'costoGastosPortuarios', label: 'Gastos Portuarios' }, // <--- INPUT NUEVO
     { id: 'apoyo', label: 'Apoyo' },
     { id: 'impuestos', label: 'Impuestos' },
     { id: 'liberacion', label: 'Liberación Abandono' },
@@ -374,7 +379,6 @@ const QuoteGenerator = ({ role }) => {
           </div>
 
           <div className="bg-slate-50 p-4 rounded-lg border border-slate-100">
-            {/* SELECTOR GLOBAL DE MONEDA */}
             <div className="flex justify-between items-center mb-3">
                <h4 className="text-xs font-bold text-slate-500 uppercase">Costos</h4>
                <select name="currency" value={quoteData.currency} onChange={handleChange} className="text-xs p-1 border rounded font-bold text-blue-600 bg-white shadow-sm outline-none">
