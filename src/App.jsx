@@ -641,13 +641,14 @@ const CaptureForm = ({ onSave, onCancel, existingData, role }) => {
   const [formData, setFormData] = useState({
     bl: '', 
     provider: '', 
-    rfc: '',        // Nuevo campo
-    address: '',    // Nuevo campo
+    rfc: '',
+    address: '',
     client: '', 
     reason: 'GARANTÍA', 
     container: '', 
     eta: '', 
-    amount: ''
+    amount: '',
+    currency: 'MXN' // <--- AGREGAMOS ESTO (Por defecto Pesos)
   });
   
   const [generatedConcept, setGeneratedConcept] = useState('');
@@ -807,13 +808,38 @@ const CaptureForm = ({ onSave, onCancel, existingData, role }) => {
               <label className="text-sm font-medium text-slate-700">Fecha ETA</label>
               <input required name="eta" type="date" className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 outline-none" onChange={handleChange} />
             </div>
+            {/* --- INICIO DEL CAMBIO: MONTO CON DIVISA --- */}
             <div className="col-span-2">
-              <label className="text-sm font-medium text-slate-700">Monto a Pagar (MXN)</label>
-              <div className="relative">
-                <span className="absolute left-3 top-2 text-slate-400 font-bold">$</span>
-                <input required name="amount" type="number" className="w-full pl-6 p-2 border rounded font-bold text-slate-700 focus:ring-2 focus:ring-blue-500 outline-none" onChange={handleChange} placeholder="0.00" />
+              <label className="text-sm font-medium text-slate-700">Monto y Divisa</label>
+              <div className="flex space-x-2">
+                
+                {/* 1. Selector de Moneda */}
+                <select 
+                  name="currency" 
+                  value={formData.currency} 
+                  onChange={handleChange}
+                  className="w-1/3 p-2 border rounded font-bold text-slate-700 bg-slate-50 focus:ring-2 focus:ring-blue-500 outline-none"
+                >
+                  <option value="MXN">MXN (Pesos)</option>
+                  <option value="USD">USD (Dólares)</option>
+                </select>
+
+                {/* 2. Input del Monto (Ajustado) */}
+                <div className="relative w-2/3">
+                  <span className="absolute left-3 top-2 text-slate-400 font-bold">$</span>
+                  <input 
+                    required 
+                    name="amount" 
+                    type="number" 
+                    className="w-full pl-6 p-2 border rounded font-bold text-slate-700 focus:ring-2 focus:ring-blue-500 outline-none" 
+                    onChange={handleChange} 
+                    placeholder="0.00" 
+                  />
+                </div>
+                
               </div>
             </div>
+            {/* --- FIN DEL CAMBIO --- */}
           </div>
 
           <div className="flex justify-end space-x-3 pt-4 border-t">
