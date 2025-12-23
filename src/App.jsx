@@ -214,296 +214,303 @@ const PaymentModal = ({ isOpen, onClose, onConfirm, item }) => {
 };
 
 // --- NUEVO COMPONENTE: GENERADOR DE COTIZACIONES ---
+// --- COMPONENTE: GENERADOR DE COTIZACIONES (VERSIÓN PDF MEMBRETADO) ---
 const QuoteGenerator = ({ role }) => {
   if (role === 'pagos') return <div className="p-10 text-center text-red-500 font-bold">Acceso Denegado: Solo Admin y Revalidaciones pueden cotizar.</div>;
 
-  const [clientInfo, setClientInfo] = useState({
-    name: '',
-    attention: '',
-    date: new Date().toISOString().split('T')[0],
-    expiration: addDays(15),
-    reference: '', 
-    origin: '',
-    destination: '',
-    customs: '',   
-    regime: '',    
-    commodity: '',
-    weight: '',    
-    packages: '',  
-    exchangeRate: '20.50',
-    currency: 'MXN' // Nuevo campo para la divisa
+  // 1. ESTADO: Agregamos datos del CLIENTE para el membrete
+  const [quoteData, setQuoteData] = useState({
+    // Datos del Cliente (Para el membrete)
+    clienteNombre: '',
+    clienteReferencia: '',
+    fechaEmision: new Date().toISOString().split('T')[0],
+    
+    // Datos de la Tabla (La imagen que mandaste)
+    bl: '',
+    contenedor: '',
+    eta: '',
+    fechaEntrega: '',
+    puerto: 'MANZANILLO',
+    terminal: 'CONTECON',
+    diasDemoras: 0,
+    diasAlmacenaje: 0,
+    naviera: '',
+    // Costos
+    costoDemoras: 0,
+    costoAlmacenaje: 0,
+    costosOperativos: 0,
+    apoyo: 0,
+    impuestos: 0,
+    liberacion: 0,
+    transporte: 0,
+    currency: 'MXN'
   });
 
-  const [items, setItems] = useState([
-    { id: 1, description: 'Flete Marítimo Internacional', quantity: 1, price: 0 },
-    { id: 2, description: 'Gastos en Origen', quantity: 1, price: 0 },
-  ]);
-
-  const addItem = () => {
-    setItems([...items, { id: Date.now(), description: '', quantity: 1, price: 0 }]);
-  };
-
-  const removeItem = (id) => {
-    setItems(items.filter(i => i.id !== id));
-  };
-
-  const updateItem = (id, field, value) => {
-    const newItems = items.map(i => {
-      if (i.id === id) return { ...i, [field]: value };
-      return i;
+  const handleChange = (e) => {
+    const { name, value, type } = e.target;
+    setQuoteData({
+      ...quoteData,
+      [name]: type === 'number' ? parseFloat(value) || 0 : value
     });
-    setItems(newItems);
   };
 
-  const handleClientChange = (e) => {
-    setClientInfo({ ...clientInfo, [e.target.name]: e.target.value });
-  };
+  // Cálculo del Subtotal
+  const subtotal = 
+    quoteData.costoDemoras + 
+    quoteData.costoAlmacenaje + 
+    quoteData.costosOperativos + 
+    quoteData.apoyo + 
+    quoteData.impuestos + 
+    quoteData.liberacion + 
+    quoteData.transporte;
 
-  const subtotal = items.reduce((acc, item) => acc + (item.quantity * item.price), 0);
-  const iva = subtotal * 0.16;
-  const total = subtotal + iva;
-
-  const handleDownload = () => {
-    alert("Simulación: Descargando PDF 'Cotización_" + (clientInfo.name || 'Cliente') + ".pdf' con membrete...");
-  };
+  // Filas de la tabla (Idénticas a tu imagen)
+  const tableRows = [
+    { label: '提货单// BL', value: quoteData.bl, isMoney: false },
+    { label: '容器 // CONTENEDOR', value: quoteData.contenedor, isMoney: false },
+    { label: '预计到达时间// ETA', value: formatDate(quoteData.eta), isMoney: false },
+    { label: '交货日期// FECHA DE ENTREGA', value: formatDate(quoteData.fechaEntrega), isMoney: false, className: 'bg-green-100 print:bg-green-100' }, // print:bg asegura que el color salga en el PDF
+    { label: '卸货港 // PUERTO', value: quoteData.puerto, isMoney: false },
+    { label: '码头 // TERMINAL', value: quoteData.terminal, isMoney: false },
+    { label: '延誤數日// DIAS DE DEMORAS', value: quoteData.diasDemoras, isMoney: false },
+    { label: '储存天數 // DIAS DE ALMACENAJE', value: quoteData.diasAlmacenaje, isMoney: false },
+    { label: '航运公司// NAVIERA', value: quoteData.naviera, isMoney: false },
+    { label: '延误// DEMORAS', value: quoteData.costoDemoras, isMoney: true },
+    { label: '贮存// ALMACENAJE', value: quoteData.costoAlmacenaje, isMoney: true },
+    { label: '營運成本// COSTOS OPERATIVOS', value: quoteData.costosOperativos, isMoney: true },
+    { label: '支援// APOYO', value: quoteData.apoyo, isMoney: true, labelClass: 'text-red-500 font-bold' },
+    { label: '税收// IMPUESTOS', value: quoteData.impuestos, isMoney: true },
+    { label: '摆脱遗弃// LIBERACION DE ABANDONO', value: quoteData.liberacion, isMoney: true },
+    { label: '運輸// TRANSPORTE', value: quoteData.transporte, isMoney: true },
+  ];
 
   return (
     <div className="flex flex-col lg:flex-row gap-6 h-full animate-fade-in pb-8">
-      {/* PANEL IZQUIERDO: FORMULARIO */}
-      <div className="lg:w-1/3 bg-white p-6 rounded-xl shadow-sm border border-slate-200 overflow-y-auto">
-        <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center">
-          <Edit size={18} className="mr-2 text-blue-600"/> Datos de la Cotización
+      
+      {/* --- ESTILOS DE IMPRESIÓN (EL TRUCO MÁGICO) --- */}
+      <style>
+        {`
+          @media print {
+            /* Ocultar todo lo que NO sea la hoja de cotización */
+            body * { visibility: hidden; }
+            .printable-area, .printable-area * { visibility: visible; }
+            .printable-area { 
+              position: absolute; 
+              left: 0; 
+              top: 0; 
+              width: 100%; 
+              margin: 0; 
+              padding: 0;
+              box-shadow: none;
+              border: none;
+            }
+            /* Ocultar botones y scrollbars */
+            .no-print { display: none !important; }
+            /* Forzar colores de fondo (para que salga el verde y amarillo) */
+            * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+          }
+        `}
+      </style>
+
+      {/* --- PANEL IZQUIERDO: FORMULARIO (NO SE IMPRIME) --- */}
+      <div className="lg:w-1/3 bg-white p-6 rounded-xl shadow-sm border border-slate-200 overflow-y-auto no-print">
+        <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center border-b pb-2">
+          <Edit size={18} className="mr-2 text-blue-600"/> Editar Cotización
         </h3>
-        
-        <div className="space-y-4 mb-6">
-          <div className="bg-slate-50 p-3 rounded-lg border border-slate-100">
-            <h4 className="text-xs font-bold text-slate-500 uppercase mb-2">Información General</h4>
-            <div className="space-y-3">
-              <div>
-                <label className="block text-xs font-medium text-slate-600 mb-1">Cliente / Razón Social</label>
-                <input name="name" value={clientInfo.name} onChange={handleClientChange} className="w-full p-2 border rounded text-sm focus:ring-2 focus:ring-blue-500 outline-none" placeholder="Ej. Importadora SA" />
-              </div>
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="block text-xs font-medium text-slate-600 mb-1">Atención A</label>
-                  <input name="attention" value={clientInfo.attention} onChange={handleClientChange} className="w-full p-2 border rounded text-sm focus:outline-none" placeholder="Lic. Pérez" />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-slate-600 mb-1">Referencia</label>
-                  <input name="reference" value={clientInfo.reference} onChange={handleClientChange} className="w-full p-2 border rounded text-sm focus:outline-none" placeholder="REF-001" />
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="block text-xs font-medium text-slate-600 mb-1">Fecha Emisión</label>
-                  <input type="date" name="date" value={clientInfo.date} onChange={handleClientChange} className="w-full p-2 border rounded text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-slate-600 mb-1">Vencimiento</label>
-                  <input type="date" name="expiration" value={clientInfo.expiration} onChange={handleClientChange} className="w-full p-2 border rounded text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="block text-xs font-medium text-slate-600 mb-1">Divisa</label>
-                  <select name="currency" value={clientInfo.currency} onChange={handleClientChange} className="w-full p-2 border rounded text-sm focus:outline-none bg-white">
-                    <option value="MXN">Pesos (MXN)</option>
-                    <option value="USD">Dólares (USD)</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-slate-600 mb-1">Tipo Cambio</label>
-                  <input name="exchangeRate" value={clientInfo.exchangeRate} onChange={handleClientChange} className="w-full p-2 border rounded text-sm focus:outline-none" placeholder="20.50" />
-                </div>
-              </div>
-            </div>
-          </div>
 
-          <div className="bg-slate-50 p-3 rounded-lg border border-slate-100">
-            <h4 className="text-xs font-bold text-slate-500 uppercase mb-2">Logística y Mercancía</h4>
-            <div className="space-y-3">
-              <div className="grid grid-cols-2 gap-2">
-                <input name="origin" value={clientInfo.origin} onChange={handleClientChange} className="w-full p-2 border rounded text-sm focus:outline-none" placeholder="Origen" />
-                <input name="destination" value={clientInfo.destination} onChange={handleClientChange} className="w-full p-2 border rounded text-sm focus:outline-none" placeholder="Destino" />
-              </div>
-              <div className="grid grid-cols-2 gap-2">
-                <input name="customs" value={clientInfo.customs} onChange={handleClientChange} className="w-full p-2 border rounded text-sm focus:outline-none" placeholder="Aduana (Ej. 470)" />
-                <input name="regime" value={clientInfo.regime} onChange={handleClientChange} className="w-full p-2 border rounded text-sm focus:outline-none" placeholder="Régimen (IMPO)" />
-              </div>
-              <input name="commodity" value={clientInfo.commodity} onChange={handleClientChange} className="w-full p-2 border rounded text-sm focus:outline-none" placeholder="Descripción Mercancía" />
-              <div className="grid grid-cols-2 gap-2">
-                <input name="weight" value={clientInfo.weight} onChange={handleClientChange} className="w-full p-2 border rounded text-sm focus:outline-none" placeholder="Peso Bruto (Kg)" />
-                <input name="packages" value={clientInfo.packages} onChange={handleClientChange} className="w-full p-2 border rounded text-sm focus:outline-none" placeholder="Bultos" />
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="border-t pt-4 border-slate-100">
-          <div className="flex justify-between items-center mb-2">
-            <h4 className="text-sm font-bold text-slate-700">Servicios</h4>
-            <button onClick={addItem} className="text-xs flex items-center text-blue-600 font-bold hover:bg-blue-50 px-2 py-1 rounded transition-colors">
-              <Plus size={12} className="mr-1"/> Agregar
-            </button>
-          </div>
+        <div className="space-y-4">
           
-          <div className="space-y-3">
-            {items.map((item) => (
-              <div key={item.id} className="bg-slate-50 p-2 rounded border border-slate-200">
-                <input 
-                  value={item.description} 
-                  onChange={(e) => updateItem(item.id, 'description', e.target.value)} 
-                  placeholder="Descripción del servicio" 
-                  className="w-full p-1 bg-white border rounded text-xs mb-2 focus:outline-none focus:border-blue-400"
-                />
-                <div className="flex items-center gap-2">
-                  <div className="flex-1">
-                    <span className="text-[10px] text-slate-400 block">Cant.</span>
-                    <input type="number" value={item.quantity} onChange={(e) => updateItem(item.id, 'quantity', parseFloat(e.target.value))} className="w-full p-1 bg-white border rounded text-xs focus:outline-none focus:border-blue-400" />
-                  </div>
-                  <div className="flex-1">
-                    <span className="text-[10px] text-slate-400 block">Precio Unit.</span>
-                    <input type="number" value={item.price} onChange={(e) => updateItem(item.id, 'price', parseFloat(e.target.value))} className="w-full p-1 bg-white border rounded text-xs focus:outline-none focus:border-blue-400" />
-                  </div>
-                  <button onClick={() => removeItem(item.id)} className="text-red-400 hover:text-red-600 mt-3 p-1">
-                    <Trash2 size={16} />
-                  </button>
+          {/* 1. Datos del Cliente (Para el Membrete) */}
+          <div className="bg-blue-50 p-4 rounded-lg border border-blue-100">
+             <h4 className="text-xs font-bold text-blue-800 uppercase mb-3">Datos del Encabezado</h4>
+             <div className="space-y-2">
+                <input name="clienteNombre" placeholder="Razón Social Cliente" value={quoteData.clienteNombre} onChange={handleChange} className="w-full p-2 border rounded text-sm" />
+                <div className="grid grid-cols-2 gap-2">
+                   <input name="clienteReferencia" placeholder="Referencia Cliente" value={quoteData.clienteReferencia} onChange={handleChange} className="p-2 border rounded text-sm" />
+                   <input type="date" name="fechaEmision" value={quoteData.fechaEmision} onChange={handleChange} className="p-2 border rounded text-sm" />
                 </div>
+             </div>
+          </div>
+
+          {/* 2. Datos Operativos (Tabla) */}
+          <div className="bg-slate-50 p-4 rounded-lg border border-slate-100">
+            <h4 className="text-xs font-bold text-slate-500 uppercase mb-3">Datos Operativos</h4>
+            <div className="grid grid-cols-2 gap-3">
+              <input name="bl" placeholder="BL Master" value={quoteData.bl} onChange={handleChange} className="p-2 border rounded text-sm uppercase" />
+              <input name="contenedor" placeholder="Contenedor" value={quoteData.contenedor} onChange={handleChange} className="p-2 border rounded text-sm uppercase" />
+              
+              <div className="col-span-1">
+                <label className="text-[10px] text-slate-400 font-bold">ETA</label>
+                <input type="date" name="eta" value={quoteData.eta} onChange={handleChange} className="w-full p-2 border rounded text-sm" />
               </div>
-            ))}
+              <div className="col-span-1">
+                <label className="text-[10px] text-green-600 font-bold">ENTREGA</label>
+                <input type="date" name="fechaEntrega" value={quoteData.fechaEntrega} onChange={handleChange} className="w-full p-2 border rounded text-sm bg-green-50 border-green-200" />
+              </div>
+
+              <input name="puerto" placeholder="Puerto" value={quoteData.puerto} onChange={handleChange} className="p-2 border rounded text-sm" />
+              <input name="terminal" placeholder="Terminal" value={quoteData.terminal} onChange={handleChange} className="p-2 border rounded text-sm" />
+              
+              <div className="col-span-2">
+                <input name="naviera" placeholder="Naviera" value={quoteData.naviera} onChange={handleChange} className="w-full p-2 border rounded text-sm" />
+              </div>
+
+              <div className="relative">
+                 <span className="absolute right-2 top-2 text-[10px] text-slate-400">Días</span>
+                 <input type="number" name="diasDemoras" placeholder="Días Demoras" value={quoteData.diasDemoras} onChange={handleChange} className="w-full p-2 border rounded text-sm" />
+              </div>
+              <div className="relative">
+                 <span className="absolute right-2 top-2 text-[10px] text-slate-400">Días</span>
+                 <input type="number" name="diasAlmacenaje" placeholder="Días Almacenaje" value={quoteData.diasAlmacenaje} onChange={handleChange} className="w-full p-2 border rounded text-sm" />
+              </div>
+            </div>
+          </div>
+
+          {/* 3. Costos */}
+          <div className="bg-slate-50 p-4 rounded-lg border border-slate-100">
+            <div className="flex justify-between items-center mb-3">
+               <h4 className="text-xs font-bold text-slate-500 uppercase">Costos</h4>
+               <select name="currency" value={quoteData.currency} onChange={handleChange} className="text-xs p-1 border rounded font-bold text-blue-600 bg-white"><option>MXN</option><option>USD</option></select>
+            </div>
+            
+            <div className="space-y-2">
+              {/* Mapeamos solo los campos de dinero */}
+              {[
+                { k: 'costoDemoras', l: 'Demoras' },
+                { k: 'costoAlmacenaje', l: 'Almacenaje' },
+                { k: 'costosOperativos', l: 'Costos Operativos' },
+                { k: 'apoyo', l: 'Apoyo' },
+                { k: 'impuestos', l: 'Impuestos' },
+                { k: 'liberacion', l: 'Liberación Abandono' },
+                { k: 'transporte', l: 'Transporte' },
+              ].map((field) => (
+                <div key={field.k} className="flex items-center justify-between">
+                  <label className="text-xs font-medium text-slate-600">{field.l}</label>
+                  <div className="relative w-1/2">
+                    <span className="absolute left-2 top-1.5 text-xs text-slate-400">$</span>
+                    <input 
+                      type="number" 
+                      name={field.k} 
+                      value={quoteData[field.k]} 
+                      onChange={handleChange} 
+                      className="w-full p-1 pl-4 border rounded text-sm text-right font-mono focus:border-blue-500 outline-none" 
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       </div>
 
-      {/* PANEL DERECHO: VISTA PREVIA PDF */}
-      <div className="lg:w-2/3 bg-slate-200 rounded-xl p-8 overflow-y-auto flex flex-col items-center shadow-inner">
-        <div className="flex justify-end w-full max-w-[21cm] mb-4 space-x-2">
-          <button onClick={() => window.print()} className="bg-white text-slate-700 px-4 py-2 rounded shadow-sm text-sm font-bold flex items-center hover:bg-slate-50 transition-colors">
-            <Printer size={16} className="mr-2" /> Imprimir
-          </button>
-          <button onClick={handleDownload} className="bg-blue-600 text-white px-4 py-2 rounded shadow-sm text-sm font-bold flex items-center hover:bg-blue-700 transition-colors">
-            <Download size={16} className="mr-2" /> Descargar PDF
+      {/* --- PANEL DERECHO: VISTA PREVIA & PDF (ÁREA IMPRIMIBLE) --- */}
+      <div className="lg:w-2/3 bg-slate-200 rounded-xl p-8 overflow-y-auto flex flex-col items-center shadow-inner relative">
+        
+        {/* Botón Flotante para Descargar */}
+        <div className="absolute top-4 right-4 no-print z-10">
+          <button 
+            onClick={() => window.print()} 
+            className="bg-blue-600 text-white px-4 py-2 rounded-lg shadow-lg text-sm font-bold flex items-center hover:bg-blue-700 transition-transform transform hover:-translate-y-1"
+          >
+            <Printer size={16} className="mr-2" /> Guardar como PDF
           </button>
         </div>
 
-        {/* HOJA A4 (Simulación Visual) */}
-        <div className="bg-white w-full max-w-[21cm] min-h-[29.7cm] p-12 shadow-2xl text-slate-800 text-sm relative">
+        {/* --- HOJA A4 MEMBRETADA (printable-area) --- */}
+        {/* Nota: max-w-[21cm] simula el ancho real de una hoja carta/A4 */}
+        <div className="printable-area bg-white w-full max-w-[21cm] min-h-[29.7cm] p-12 shadow-2xl text-slate-900 font-sans border border-slate-300 relative flex flex-col justify-between">
           
-          {/* HEADER / MEMBRETE */}
-          <div className="flex justify-between items-start border-b-2 border-blue-600 pb-6 mb-6">
-            <div>
-              <div className="flex items-center text-blue-700 mb-2">
-                <Ship size={32} className="mr-2" />
-                <span className="text-2xl font-bold tracking-tight">AduanaSoft</span>
-              </div>
-              <p className="text-slate-500 text-xs">Agencia Aduanal & Logística Internacional</p>
-              <p className="text-slate-500 text-xs">Av. del Puerto 123, Manzanillo, Colima.</p>
-              <p className="text-slate-500 text-xs">Tel: (314) 333-0000 | contacto@aduanasoft.com</p>
-            </div>
-            <div className="text-right">
-              <h2 className="text-3xl font-bold text-slate-200 uppercase tracking-widest">Cotización</h2>
-              <p className="font-bold text-slate-700 mt-2">Folio: <span className="text-blue-600">COT-{new Date().getFullYear()}-001</span></p>
-              <p className="text-slate-500">Fecha: {formatDate(clientInfo.date)}</p>
-              <p className="text-red-400 text-xs mt-1 font-bold">Vence: {formatDate(clientInfo.expiration)}</p>
-            </div>
-          </div>
-
-          {/* DATOS DEL EMBARQUE (Diseño tipo tabla) */}
-          <div className="mb-8">
-            <div className="bg-slate-100 px-4 py-2 border-l-4 border-blue-600 mb-2">
-              <h4 className="text-xs font-bold text-slate-600 uppercase">Información del Cliente</h4>
-            </div>
-            <div className="grid grid-cols-2 gap-4 mb-4 px-2">
-              <p><span className="font-bold text-slate-500 text-xs uppercase block">Cliente:</span> {clientInfo.name || '---'}</p>
-              <p><span className="font-bold text-slate-500 text-xs uppercase block">Atención:</span> {clientInfo.attention || '---'}</p>
-            </div>
-
-            <div className="bg-slate-100 px-4 py-2 border-l-4 border-blue-600 mb-2">
-              <h4 className="text-xs font-bold text-slate-600 uppercase">Detalles del Embarque</h4>
-            </div>
-            <div className="grid grid-cols-4 gap-4 px-2 text-xs">
-              <div>
-                <span className="font-bold text-slate-500 block">Referencia:</span>
-                {clientInfo.reference || '---'}
-              </div>
-              <div>
-                <span className="font-bold text-slate-500 block">Aduana:</span>
-                {clientInfo.customs || '---'}
-              </div>
-              <div>
-                <span className="font-bold text-slate-500 block">Régimen:</span>
-                {clientInfo.regime || '---'}
-              </div>
-              <div>
-                <span className="font-bold text-slate-500 block">Divisa / TC:</span>
-                {clientInfo.currency} / ${clientInfo.exchangeRate}
+          <div>
+            {/* 1. MEMBRETE / ENCABEZADO */}
+            <div className="flex justify-between items-start border-b-2 border-slate-800 pb-6 mb-8">
+              <div className="flex items-center">
+                {/* Logo Simulado */}
+                <div className="w-16 h-16 bg-blue-900 text-white rounded flex items-center justify-center mr-4">
+                  <Ship size={32} />
+                </div>
+                <div>
+                  <h1 className="text-2xl font-bold text-slate-800 tracking-tight uppercase">AduanaSoft</h1>
+                  <p className="text-xs text-slate-500 font-bold tracking-widest uppercase">Logística & Despacho</p>
+                  <p className="text-[10px] text-slate-400 mt-1">Av. Puerto Interior 55, Manzanillo, Colima.<br/>RFC: ADU20250101-XM3</p>
+                </div>
               </div>
               
-              <div className="col-span-2 mt-2">
-                <span className="font-bold text-slate-500 block">Origen - Destino:</span>
-                {clientInfo.origin || '---'} {' -> '} {clientInfo.destination || '---'}
+              <div className="text-right">
+                <h2 className="text-xl font-bold text-slate-400 uppercase tracking-widest">Cotización</h2>
+                <p className="text-sm font-bold text-slate-800 mt-1">Folio: <span className="text-red-600">QT-{new Date().getFullYear()}-{Math.floor(Math.random() * 1000)}</span></p>
+                <p className="text-xs text-slate-500 mt-1">Fecha: {formatDate(quoteData.fechaEmision)}</p>
               </div>
-              <div className="mt-2">
-                <span className="font-bold text-slate-500 block">Peso Bruto:</span>
-                {clientInfo.weight ? `${clientInfo.weight} Kg` : '---'}
+            </div>
+
+            {/* 2. DATOS DEL CLIENTE */}
+            <div className="mb-6 bg-slate-50 p-4 rounded border border-slate-100">
+               <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <span className="block text-[10px] font-bold text-slate-400 uppercase">Cliente / Razón Social</span>
+                    <span className="font-bold text-slate-800 uppercase">{quoteData.clienteNombre || 'CLIENTE MOSTRADOR'}</span>
+                  </div>
+                  <div>
+                    <span className="block text-[10px] font-bold text-slate-400 uppercase">Referencia</span>
+                    <span className="font-bold text-slate-800 uppercase">{quoteData.clienteReferencia || 'S/N'}</span>
+                  </div>
+               </div>
+            </div>
+
+            {/* 3. TABLA PRINCIPAL (ESTILO IMAGEN) */}
+            <div className="border-2 border-black">
+              {/* Título Tabla */}
+              <div className="bg-blue-100 border-b border-black py-2 text-center print:bg-blue-100">
+                <h2 className="text-lg font-bold text-red-600 tracking-wide uppercase">价格 // COTIZACION</h2>
               </div>
-              <div className="mt-2">
-                <span className="font-bold text-slate-500 block">Bultos:</span>
-                {clientInfo.packages || '---'}
-              </div>
-              <div className="col-span-4 mt-2 border-t pt-2 border-slate-100">
-                <span className="font-bold text-slate-500 block">Mercancía:</span>
-                {clientInfo.commodity || '---'}
+
+              {/* Cuerpo Tabla */}
+              {tableRows.map((row, index) => (
+                <div key={index} className={`flex border-b border-black last:border-0 text-sm ${row.className || ''}`}>
+                  <div className="w-1/2 border-r border-black p-2 flex items-center justify-end text-right bg-white">
+                    <span className={`font-medium uppercase text-xs ${row.labelClass || 'text-black'}`}>
+                      {row.label}
+                    </span>
+                  </div>
+                  <div className="w-1/2 p-2 flex items-center justify-center bg-white">
+                    <span className="font-bold text-slate-800">
+                      {row.isMoney && <span className="text-[10px] mr-1 text-slate-500 font-normal">{quoteData.currency}</span>}
+                      {row.isMoney 
+                        ? `$${row.value.toLocaleString(undefined, {minimumFractionDigits: 2})}` 
+                        : (row.value || '-')}
+                    </span>
+                  </div>
+                </div>
+              ))}
+
+              {/* Subtotal */}
+              <div className="flex border-t-2 border-black bg-yellow-300 print:bg-yellow-300">
+                <div className="w-1/2 border-r border-black p-2 text-right">
+                   <span className="text-sm font-bold">SUBTOTAL</span>
+                </div>
+                <div className="w-1/2 p-2 text-center">
+                   <span className="text-lg font-bold">
+                      <span className="text-xs mr-1 font-normal">{quoteData.currency}</span>
+                      ${subtotal.toLocaleString(undefined, {minimumFractionDigits: 2})}
+                   </span>
+                </div>
               </div>
             </div>
           </div>
 
-          {/* TABLA DE SERVICIOS */}
-          <div className="mb-8">
-            <table className="w-full text-left">
-              <thead>
-                <tr className="bg-slate-800 text-white text-xs uppercase">
-                  <th className="py-2 px-3 rounded-tl-lg">Descripción del Concepto</th>
-                  <th className="py-2 px-3 text-center">Cant.</th>
-                  <th className="py-2 px-3 text-right">Precio Unit.</th>
-                  <th className="py-2 px-3 text-right rounded-tr-lg">Importe</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-200 text-sm">
-                {items.map((item) => (
-                  <tr key={item.id}>
-                    <td className="py-3 px-3">{item.description || '---'}</td>
-                    <td className="py-3 px-3 text-center">{item.quantity}</td>
-                    <td className="py-3 px-3 text-right">${item.price.toLocaleString()}</td>
-                    <td className="py-3 px-3 text-right font-medium">${(item.quantity * item.price).toLocaleString()}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          {/* TOTALES */}
-          <div className="flex justify-end mb-12">
-            <div className="w-1/2">
-              <div className="flex justify-between py-2 border-b border-slate-100">
-                <span className="text-slate-500">Subtotal</span>
-                <span className="font-medium">${subtotal.toLocaleString()}</span>
-              </div>
-              <div className="flex justify-between py-2 border-b border-slate-100">
-                <span className="text-slate-500">IVA (16%)</span>
-                <span className="font-medium">${iva.toLocaleString()}</span>
-              </div>
-              <div className="flex justify-between py-3">
-                <span className="text-lg font-bold text-slate-800">Total ({clientInfo.currency})</span>
-                <span className="text-lg font-bold text-blue-600">${total.toLocaleString()}</span>
-              </div>
-            </div>
-          </div>
-
-          {/* FOOTER / TÉRMINOS */}
-          <div className="absolute bottom-12 left-12 right-12 text-center text-xs text-slate-400 border-t border-slate-200 pt-4">
-            <p className="mb-1">Esta cotización tiene una vigencia limitada a la fecha de vencimiento indicada.</p>
-            <p>Precios sujetos a cambio sin previo aviso. Consulte términos y condiciones en www.aduanasoft.com</p>
+          {/* 4. FOOTER / PIE DE PÁGINA */}
+          <div className="mt-8 border-t border-slate-300 pt-4">
+             <div className="flex justify-between items-end text-[10px] text-slate-400">
+                <div className="max-w-[60%]">
+                   <p className="font-bold uppercase text-slate-600 mb-1">Términos y Condiciones</p>
+                   <p>1. Esta cotización tiene una vigencia de 7 días naturales.</p>
+                   <p>2. Precios sujetos a cambios sin previo aviso por parte de la naviera.</p>
+                   <p>3. El pago debe realizarse en la moneda indicada o al tipo de cambio FIX del día.</p>
+                </div>
+                <div className="text-right">
+                   <p className="mb-4">__________________________<br/>Firma de Conformidad</p>
+                   <p>AduanaSoft v2.2 | Página 1 de 1</p>
+                </div>
+             </div>
           </div>
 
         </div>
