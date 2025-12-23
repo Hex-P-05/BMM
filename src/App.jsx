@@ -9,7 +9,7 @@ import {
   Clock, Ship, DollarSign, Plus, Search, Menu, X, User, Edit, Lock, 
   TrendingUp, TrendingDown, Activity, AlertCircle, Calculator, Trash2, 
   Download, Printer, Package, MapPin, Key, LogOut, Check, 
-  ChevronLeft, ChevronRight // <--- NUEVOS ICONOS PARA EL MENÚ
+  ChevronLeft, ChevronRight, ShieldAlert 
 } from 'lucide-react';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -46,10 +46,10 @@ const calculateStatus = (etaString) => {
 
 // --- DATOS INICIALES (MOCKS) ---
 const rawData = [
-  { id: 1, bl: 'HLCU12345678', provider: 'HAPAG', client: 'Importadora México S.A.', clientCode: 'IMP', reason: 'FLETE', container: 'MSKU987654', eta: addDays(45), payment: 'paid', paymentDate: '2025-06-10', paymentDelay: 0, amount: 15000, concept: 'HAPAG IMP 1 FLETE', currency: 'MXN' },
-  { id: 2, bl: 'MAEU87654321', provider: 'MAERSK', client: 'Logística Global', clientCode: 'LOG', reason: 'DEMORAS', container: 'TCLU123000', eta: addDays(-5), payment: 'paid', paymentDate: '2025-06-12', paymentDelay: 5, amount: 22500, concept: 'MAERSK LOG 1 DEMORAS', currency: 'USD' },
-  { id: 3, bl: 'COSU11223344', provider: 'COSCO', client: 'Textiles del Norte', clientCode: 'TEX', reason: 'GARANTÍA', container: 'MRKU554433', eta: addDays(-3), payment: 'pending', paymentDate: null, paymentDelay: 0, amount: 18000, concept: 'COSCO TEX 1 GARANTÍA', currency: 'MXN' },
-  { id: 4, bl: 'MSKU99887766', provider: 'ONE', client: 'Importadora México S.A.', clientCode: 'IMP', reason: 'ALMACENAJE', container: 'MSKU111222', eta: addDays(25), payment: 'pending', paymentDate: null, paymentDelay: 0, amount: 12000, concept: 'ONE IMP 2 ALMACENAJE', currency: 'MXN' },
+  { id: 1, bl: 'HLCU12345678', provider: 'HAPAG', client: 'Importadora México S.A.', clientCode: 'IMP', reason: 'FLETE', container: 'MSKU987654', eta: addDays(45), freeDays: 7, editCount: 0, payment: 'paid', paymentDate: '2025-06-10', paymentDelay: 0, amount: 15000, concept: 'HAPAG IMP 1 FLETE', currency: 'MXN' },
+  { id: 2, bl: 'MAEU87654321', provider: 'MAERSK', client: 'Logística Global', clientCode: 'LOG', reason: 'DEMORAS', container: 'TCLU123000', eta: addDays(-5), freeDays: 14, editCount: 1, payment: 'paid', paymentDate: '2025-06-12', paymentDelay: 5, amount: 22500, concept: 'MAERSK LOG 1 DEMORAS', currency: 'USD' },
+  { id: 3, bl: 'COSU11223344', provider: 'COSCO', client: 'Textiles del Norte', clientCode: 'TEX', reason: 'GARANTÍA', container: 'MRKU554433', eta: addDays(-3), freeDays: 21, editCount: 2, payment: 'pending', paymentDate: null, paymentDelay: 0, amount: 18000, concept: 'COSCO TEX 1 GARANTÍA', currency: 'MXN' },
+  { id: 4, bl: 'MSKU99887766', provider: 'ONE', client: 'Importadora México S.A.', clientCode: 'IMP', reason: 'ALMACENAJE', container: 'MSKU111222', eta: addDays(25), freeDays: 7, editCount: 0, payment: 'pending', paymentDate: null, paymentDelay: 0, amount: 12000, concept: 'ONE IMP 2 ALMACENAJE', currency: 'MXN' },
 ];
 
 const NAVIERAS_DB = [
@@ -140,48 +140,112 @@ const KPICard = ({ title, value, icon: Icon, colorClass, trend, trendValue, subt
   </div>
 );
 
-const PaymentModal = ({ isOpen, onClose, onConfirm, item }) => {
+// --- MODAL DE EDICIÓN ---
+const EditModal = ({ isOpen, onClose, onSave, item, role }) => {
   if (!isOpen || !item) return null;
 
+  const isRestricted = role !== 'admin';
+  const [editData, setEditData] = useState({ ...item });
+
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setEditData({ ...editData, [name]: value });
+  };
+
+  const handleSave = () => {
+    onSave(editData);
+  };
+
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 animate-fade-in">
+      <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={onClose}></div>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl relative z-10 overflow-hidden">
+        <div className="bg-blue-50 p-6 border-b border-blue-100 flex justify-between items-center">
+          <div>
+             <h3 className="text-lg font-bold text-slate-800 flex items-center">
+                <Edit size={20} className="mr-2 text-blue-600"/> Editar contenedor
+             </h3>
+             <p className="text-xs text-slate-500">
+               {isRestricted 
+                 ? `Modo restringido: Solo puedes editar fechas y días libres. (Edición ${item.editCount + 1}/2)` 
+                 : 'Modo administrador: Acceso total.'}
+             </p>
+          </div>
+          <button onClick={onClose}><X size={24} className="text-slate-400 hover:text-slate-600"/></button>
+        </div>
+
+        <div className="p-6 grid grid-cols-2 gap-4">
+          <div className="col-span-1">
+             <label className="text-xs font-bold text-slate-500 mb-1 block">BL (master)</label>
+             <input disabled name="bl" value={editData.bl} onChange={handleChange} className="w-full p-2 border rounded bg-slate-100 text-slate-500 cursor-not-allowed" />
+          </div>
+          <div className="col-span-1">
+             <label className="text-xs font-bold text-slate-500 mb-1 block">Contenedor</label>
+             <input disabled name="container" value={editData.container} onChange={handleChange} className="w-full p-2 border rounded bg-slate-100 text-slate-500 cursor-not-allowed" />
+          </div>
+          <div className="col-span-2">
+             <label className="text-xs font-bold text-slate-500 mb-1 block">Cliente</label>
+             <input disabled name="client" value={editData.client} onChange={handleChange} className="w-full p-2 border rounded bg-slate-100 text-slate-500 cursor-not-allowed" />
+          </div>
+
+          <div className="col-span-1">
+             <label className="text-xs font-bold text-slate-700 mb-1 block flex items-center">
+                Fecha ETA 
+                {isRestricted && <span className="ml-2 text-[10px] bg-green-100 text-green-700 px-1 rounded">Editable</span>}
+             </label>
+             <input type="date" name="eta" value={editData.eta} onChange={handleChange} className="w-full p-2 border border-slate-300 rounded focus:ring-2 focus:ring-blue-500 outline-none" />
+          </div>
+
+          <div className="col-span-1">
+             <label className="text-xs font-bold text-slate-700 mb-1 block flex items-center">
+                Días libres
+                {isRestricted && <span className="ml-2 text-[10px] bg-green-100 text-green-700 px-1 rounded">Editable</span>}
+             </label>
+             <input type="number" name="freeDays" value={editData.freeDays} onChange={handleChange} className="w-full p-2 border border-slate-300 rounded focus:ring-2 focus:ring-blue-500 outline-none" />
+          </div>
+
+          <div className="col-span-2 border-t pt-4 mt-2">
+             <label className="text-xs font-bold text-slate-500 mb-1 block">Monto y divisa</label>
+             <div className="flex gap-2">
+                <input disabled value={editData.currency} className="w-1/4 p-2 border rounded bg-slate-100 text-slate-500 text-center" />
+                <input disabled value={editData.amount} className="w-3/4 p-2 border rounded bg-slate-100 text-slate-500" />
+             </div>
+             {isRestricted && <p className="text-[10px] text-red-400 mt-1 italic">* Para modificar montos o datos fiscales contacte a un Administrador.</p>}
+          </div>
+        </div>
+
+        <div className="p-4 bg-slate-50 border-t flex justify-end gap-3">
+           <button onClick={onClose} className="px-4 py-2 text-slate-600 hover:bg-slate-200 rounded text-sm font-bold">Cancelar</button>
+           <button onClick={handleSave} className="px-4 py-2 bg-blue-600 text-white rounded shadow hover:bg-blue-700 text-sm font-bold">Guardar cambios</button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const PaymentModal = ({ isOpen, onClose, onConfirm, item }) => {
+  if (!isOpen || !item) return null;
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 animate-fade-in">
       <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={onClose}></div>
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md relative z-10 overflow-hidden transform transition-all scale-100">
         <div className="bg-yellow-50 p-6 border-b border-yellow-100 flex items-start space-x-4">
-          <div className="p-3 bg-yellow-100 text-yellow-600 rounded-full flex-shrink-0">
-            <AlertCircle size={32} />
-          </div>
-          <div>
-            <h3 className="text-lg font-bold text-slate-800">¿Confirmar pago?</h3>
-            <p className="text-sm text-slate-600 mt-1">
-              Estás a punto de registrar un pago en el sistema. Asegúrate de haber realizado la transferencia bancaria primero.
-            </p>
-          </div>
+          <div className="p-3 bg-yellow-100 text-yellow-600 rounded-full flex-shrink-0"><AlertCircle size={32} /></div>
+          <div><h3 className="text-lg font-bold text-slate-800">¿Confirmar pago?</h3><p className="text-sm text-slate-600 mt-1">Estás a punto de registrar un pago en el sistema. Asegúrate de haber realizado la transferencia bancaria primero.</p></div>
         </div>
         <div className="p-6 space-y-4">
           <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
-            <div className="flex justify-between items-center mb-2">
-              <span className="text-xs font-bold text-slate-400 uppercase">Monto a pagar</span>
-              <span className="text-xs font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded">{item.currency || 'MXN'}</span>
-            </div>
+            <div className="flex justify-between items-center mb-2"><span className="text-xs font-bold text-slate-400 uppercase">Monto a pagar</span><span className="text-xs font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded">{item.currency || 'MXN'}</span></div>
             <p className="text-3xl font-bold text-slate-800">${item.amount.toLocaleString()}</p>
           </div>
           <div className="space-y-2 text-sm">
-            <div className="flex justify-between border-b border-slate-100 pb-2">
-              <span className="text-slate-500">Beneficiario:</span>
-              <span className="font-medium text-slate-800">{item.provider}</span>
-            </div>
-            <div className="flex justify-between border-b border-slate-100 pb-2">
-              <span className="text-slate-500">Cliente:</span>
-              <span className="font-medium text-slate-800">{item.client}</span>
-            </div>
+            <div className="flex justify-between border-b border-slate-100 pb-2"><span className="text-slate-500">Beneficiario:</span><span className="font-medium text-slate-800">{item.provider}</span></div>
+            <div className="flex justify-between border-b border-slate-100 pb-2"><span className="text-slate-500">Cliente:</span><span className="font-medium text-slate-800">{item.client}</span></div>
           </div>
         </div>
         <div className="p-6 bg-slate-50 border-t border-slate-100 flex space-x-3">
           <button onClick={onClose} className="flex-1 px-4 py-3 bg-white border border-slate-300 text-slate-700 font-bold rounded-xl hover:bg-slate-50 transition-colors">Cancelar</button>
-          <button onClick={onConfirm} className="flex-1 px-4 py-3 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 shadow-lg shadow-blue-200 transition-all flex justify-center items-center">
-            <CheckCircle size={20} className="mr-2" /> Confirmar
-          </button>
+          <button onClick={onConfirm} className="flex-1 px-4 py-3 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 shadow-lg shadow-blue-200 transition-all flex justify-center items-center"><CheckCircle size={20} className="mr-2" /> Confirmar</button>
         </div>
       </div>
     </div>
@@ -196,80 +260,29 @@ const LoginView = ({ onLogin }) => {
   const handleLogin = (e) => {
     e.preventDefault();
     setError('');
-
-    if (email === 'admin@aduanasoft.com' && password === 'admin') {
-      onLogin('admin');
-    } else if (email === 'operaciones@aduanasoft.com' && password === 'ops') {
-      onLogin('ejecutivo');
-    } else if (email === 'pagos@aduanasoft.com' && password === 'pagos') {
-      onLogin('pagos');
-    } else {
-      setError('Credenciales incorrectas. Intenta: admin@aduanasoft.com / admin');
-    }
+    if (email === 'admin@aduanasoft.com' && password === 'admin') { onLogin('admin'); } 
+    else if (email === 'operaciones@aduanasoft.com' && password === 'ops') { onLogin('ejecutivo'); } 
+    else if (email === 'pagos@aduanasoft.com' && password === 'pagos') { onLogin('pagos'); } 
+    else { setError('Credenciales incorrectas. Intenta: admin@aduanasoft.com / admin'); }
   };
 
   return (
     <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden flex flex-col md:flex-row">
-        
         <div className="p-8 w-full">
           <div className="flex items-center space-x-2 mb-8 justify-center">
-            <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center">
-              <Ship size={24} className="text-white" />
-            </div>
+            <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center"><Ship size={24} className="text-white" /></div>
             <span className="text-2xl font-bold tracking-tight text-slate-800">AduanaSoft</span>
           </div>
-
           <h2 className="text-xl font-bold text-slate-800 mb-2 text-center">Bienvenido de nuevo</h2>
           <p className="text-slate-500 text-sm mb-6 text-center">Ingresa a tu cuenta para gestionar operaciones.</p>
-
           <form onSubmit={handleLogin} className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Correo electrónico</label>
-              <div className="relative">
-                <User className="absolute left-3 top-2.5 text-slate-400" size={18} />
-                <input 
-                  type="email" 
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-all"
-                  placeholder="usuario@empresa.com"
-                  autoFocus
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Contraseña</label>
-              <div className="relative">
-                <Key className="absolute left-3 top-2.5 text-slate-400" size={18} />
-                <input 
-                  type="password" 
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-all"
-                  placeholder="••••••••"
-                />
-              </div>
-            </div>
-
-            {error && (
-              <div className="bg-red-50 text-red-600 text-xs p-3 rounded flex items-center">
-                <AlertCircle size={14} className="mr-2" />
-                {error}
-              </div>
-            )}
-
-            <button type="submit" className="w-full bg-blue-600 text-white font-bold py-2.5 rounded-lg hover:bg-blue-700 transition-colors shadow-lg shadow-blue-200">
-              Iniciar sesión
-            </button>
+            <div><label className="block text-sm font-medium text-slate-700 mb-1">Correo electrónico</label><div className="relative"><User className="absolute left-3 top-2.5 text-slate-400" size={18} /><input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-all" placeholder="usuario@empresa.com" autoFocus /></div></div>
+            <div><label className="block text-sm font-medium text-slate-700 mb-1">Contraseña</label><div className="relative"><Key className="absolute left-3 top-2.5 text-slate-400" size={18} /><input type="password" value={password} onChange={(e) => setPassword(e.target.value)} className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-all" placeholder="••••••••" /></div></div>
+            {error && (<div className="bg-red-50 text-red-600 text-xs p-3 rounded flex items-center"><AlertCircle size={14} className="mr-2" />{error}</div>)}
+            <button type="submit" className="w-full bg-blue-600 text-white font-bold py-2.5 rounded-lg hover:bg-blue-700 transition-colors shadow-lg shadow-blue-200">Iniciar sesión</button>
           </form>
-
-          <div className="mt-8 text-center">
-            <p className="text-xs text-slate-400">
-              v2.2 Beta | © 2025 AduanaSoft
-            </p>
-          </div>
+          <div className="mt-8 text-center"><p className="text-xs text-slate-400">v2.2 Beta | © 2025 AduanaSoft</p></div>
         </div>
       </div>
     </div>
@@ -280,46 +293,18 @@ const QuoteGenerator = ({ role }) => {
   if (role === 'pagos') return <div className="p-10 text-center text-red-500 font-bold">Acceso denegado: Solo admin y revalidaciones pueden cotizar.</div>;
 
   const [quoteData, setQuoteData] = useState({
-    clienteNombre: '',
-    clienteReferencia: '',
-    fechaEmision: new Date().toISOString().split('T')[0],
-    bl: '',
-    contenedor: '',
-    eta: '',
-    fechaEntrega: '',
-    puerto: 'MANZANILLO',
-    terminal: 'CONTECON',
-    diasDemoras: 0,
-    diasAlmacenaje: 0,
-    naviera: '',
-    costoDemoras: 0,
-    costoAlmacenaje: 0,
-    costosOperativos: 0,
-    costoGastosPortuarios: 0,
-    apoyo: 0,
-    impuestos: 0,
-    liberacion: 0,
-    transporte: 0,
+    clienteNombre: '', clienteReferencia: '', fechaEmision: new Date().toISOString().split('T')[0],
+    bl: '', contenedor: '', eta: '', fechaEntrega: '', puerto: 'MANZANILLO', terminal: 'CONTECON', diasDemoras: 0, diasAlmacenaje: 0, naviera: '',
+    costoDemoras: 0, costoAlmacenaje: 0, costosOperativos: 0, costoGastosPortuarios: 0, apoyo: 0, impuestos: 0, liberacion: 0, transporte: 0,
     currency: 'MXN'
   });
 
   const handleChange = (e) => {
     const { name, value, type } = e.target;
-    setQuoteData({
-      ...quoteData,
-      [name]: type === 'number' ? parseFloat(value) || 0 : value
-    });
+    setQuoteData({ ...quoteData, [name]: type === 'number' ? parseFloat(value) || 0 : value });
   };
 
-  const subtotal = 
-    quoteData.costoDemoras + 
-    quoteData.costoAlmacenaje + 
-    quoteData.costosOperativos + 
-    quoteData.costoGastosPortuarios +
-    quoteData.apoyo + 
-    quoteData.impuestos + 
-    quoteData.liberacion + 
-    quoteData.transporte;
+  const subtotal = quoteData.costoDemoras + quoteData.costoAlmacenaje + quoteData.costosOperativos + quoteData.costoGastosPortuarios + quoteData.apoyo + quoteData.impuestos + quoteData.liberacion + quoteData.transporte;
 
   const handleDownloadPDF = async () => {
     const element = document.getElementById('invoice-content');
@@ -361,14 +346,8 @@ const QuoteGenerator = ({ role }) => {
   ];
 
   const costFields = [
-    { id: 'costoDemoras', label: 'Demoras' },
-    { id: 'costoAlmacenaje', label: 'Almacenaje' },
-    { id: 'costosOperativos', label: 'Costos operativos' },
-    { id: 'costoGastosPortuarios', label: 'Gastos portuarios' },
-    { id: 'apoyo', label: 'Apoyo' },
-    { id: 'impuestos', label: 'Impuestos' },
-    { id: 'liberacion', label: 'Liberación abandono' },
-    { id: 'transporte', label: 'Transporte' },
+    { id: 'costoDemoras', label: 'Demoras' }, { id: 'costoAlmacenaje', label: 'Almacenaje' }, { id: 'costosOperativos', label: 'Costos operativos' }, { id: 'costoGastosPortuarios', label: 'Gastos portuarios' },
+    { id: 'apoyo', label: 'Apoyo' }, { id: 'impuestos', label: 'Impuestos' }, { id: 'liberacion', label: 'Liberación abandono' }, { id: 'transporte', label: 'Transporte' },
   ];
 
   return (
@@ -380,95 +359,44 @@ const QuoteGenerator = ({ role }) => {
              <h4 className="text-xs font-bold text-blue-800 uppercase mb-3">Datos del encabezado</h4>
              <div className="space-y-2">
                 <input name="clienteNombre" placeholder="Razón social cliente" value={quoteData.clienteNombre} onChange={handleChange} className="w-full p-2 border rounded text-sm" />
-                <div className="grid grid-cols-2 gap-2">
-                   <input name="clienteReferencia" placeholder="Referencia (nombre PDF)" value={quoteData.clienteReferencia} onChange={handleChange} className="p-2 border rounded text-sm font-bold text-slate-700" />
-                   <input type="date" name="fechaEmision" value={quoteData.fechaEmision} onChange={handleChange} className="p-2 border rounded text-sm" />
-                </div>
+                <div className="grid grid-cols-2 gap-2"><input name="clienteReferencia" placeholder="Referencia (nombre PDF)" value={quoteData.clienteReferencia} onChange={handleChange} className="p-2 border rounded text-sm font-bold text-slate-700" /><input type="date" name="fechaEmision" value={quoteData.fechaEmision} onChange={handleChange} className="p-2 border rounded text-sm" /></div>
              </div>
           </div>
            <div className="bg-slate-50 p-4 rounded-lg border border-slate-100">
             <h4 className="text-xs font-bold text-slate-500 uppercase mb-3">Datos operativos</h4>
             <div className="grid grid-cols-2 gap-3">
-              <div className="col-span-2 grid grid-cols-2 gap-3">
-                 <input name="bl" placeholder="BL Master" value={quoteData.bl} onChange={handleChange} className="p-2 border rounded text-sm uppercase" />
-                 <input name="contenedor" placeholder="Contenedor" value={quoteData.contenedor} onChange={handleChange} className="p-2 border rounded text-sm uppercase" />
-              </div>
-              <div className="col-span-1">
-                <label className="text-[10px] text-slate-400 font-bold block mb-1">ETA</label>
-                <input type="date" name="eta" value={quoteData.eta} onChange={handleChange} className="w-full p-2 border rounded text-sm" />
-              </div>
-              <div className="col-span-1">
-                <label className="text-[10px] text-green-600 font-bold block mb-1">ENTREGA</label>
-                <input type="date" name="fechaEntrega" value={quoteData.fechaEntrega} onChange={handleChange} className="w-full p-2 border rounded text-sm bg-green-50 border-green-200" />
-              </div>
-              <input name="puerto" placeholder="Puerto" value={quoteData.puerto} onChange={handleChange} className="p-2 border rounded text-sm" />
-              <input name="terminal" placeholder="Terminal" value={quoteData.terminal} onChange={handleChange} className="p-2 border rounded text-sm" />
+              <div className="col-span-2 grid grid-cols-2 gap-3"><input name="bl" placeholder="BL Master" value={quoteData.bl} onChange={handleChange} className="p-2 border rounded text-sm uppercase" /><input name="contenedor" placeholder="Contenedor" value={quoteData.contenedor} onChange={handleChange} className="p-2 border rounded text-sm uppercase" /></div>
+              <div className="col-span-1"><label className="text-[10px] text-slate-400 font-bold block mb-1">ETA</label><input type="date" name="eta" value={quoteData.eta} onChange={handleChange} className="w-full p-2 border rounded text-sm" /></div>
+              <div className="col-span-1"><label className="text-[10px] text-green-600 font-bold block mb-1">ENTREGA</label><input type="date" name="fechaEntrega" value={quoteData.fechaEntrega} onChange={handleChange} className="w-full p-2 border rounded text-sm bg-green-50 border-green-200" /></div>
+              <input name="puerto" placeholder="Puerto" value={quoteData.puerto} onChange={handleChange} className="p-2 border rounded text-sm" /><input name="terminal" placeholder="Terminal" value={quoteData.terminal} onChange={handleChange} className="p-2 border rounded text-sm" />
               <div className="col-span-2"><input name="naviera" placeholder="Naviera" value={quoteData.naviera} onChange={handleChange} className="w-full p-2 border rounded text-sm" /></div>
               <div className="col-span-2 grid grid-cols-2 gap-3 mt-2">
-                <div>
-                   <label className="text-xs font-bold text-slate-500 mb-1 block">Días demoras</label>
-                   <div className="flex items-center"><input type="number" name="diasDemoras" value={quoteData.diasDemoras} onChange={handleChange} className="w-full p-2 border border-r-0 rounded-l text-sm text-center outline-none" /><span className="bg-slate-200 border border-slate-300 rounded-r px-2 py-2 text-xs text-slate-600 font-bold">Días</span></div>
-                </div>
-                <div>
-                   <label className="text-xs font-bold text-slate-500 mb-1 block">Días almacenaje</label>
-                   <div className="flex items-center"><input type="number" name="diasAlmacenaje" value={quoteData.diasAlmacenaje} onChange={handleChange} className="w-full p-2 border border-r-0 rounded-l text-sm text-center outline-none" /><span className="bg-slate-200 border border-slate-300 rounded-r px-2 py-2 text-xs text-slate-600 font-bold">Días</span></div>
-                </div>
+                <div><label className="text-xs font-bold text-slate-500 mb-1 block">Días demoras</label><div className="flex items-center"><input type="number" name="diasDemoras" value={quoteData.diasDemoras} onChange={handleChange} className="w-full p-2 border border-r-0 rounded-l text-sm text-center outline-none" /><span className="bg-slate-200 border border-slate-300 rounded-r px-2 py-2 text-xs text-slate-600 font-bold">Días</span></div></div>
+                <div><label className="text-xs font-bold text-slate-500 mb-1 block">Días almacenaje</label><div className="flex items-center"><input type="number" name="diasAlmacenaje" value={quoteData.diasAlmacenaje} onChange={handleChange} className="w-full p-2 border border-r-0 rounded-l text-sm text-center outline-none" /><span className="bg-slate-200 border border-slate-300 rounded-r px-2 py-2 text-xs text-slate-600 font-bold">Días</span></div></div>
               </div>
             </div>
           </div>
           <div className="bg-slate-50 p-4 rounded-lg border border-slate-100">
-            <div className="flex justify-between items-center mb-3">
-               <h4 className="text-xs font-bold text-slate-500 uppercase">Costos</h4>
-               <select name="currency" value={quoteData.currency} onChange={handleChange} className="text-xs p-1 border rounded font-bold text-blue-600 bg-white shadow-sm outline-none">
-                 <option value="MXN">MXN (Pesos)</option>
-                 <option value="USD">USD (Dólares)</option>
-               </select>
-            </div>
-            <div className="space-y-3">
-              {costFields.map((field) => (
-                <div key={field.id} className="flex items-center justify-between">
-                  <label className="text-xs font-medium text-slate-600 w-1/3">{field.label}</label>
-                  <div className="relative w-2/3">
-                    <span className="absolute left-3 top-2 text-xs text-slate-400 font-bold">$</span>
-                    <input type="number" name={field.id} value={quoteData[field.id]} onChange={handleChange} placeholder="0.00" className="w-full p-2 pl-6 border rounded text-sm text-right font-mono focus:border-blue-500 outline-none" />
-                  </div>
-                </div>
-              ))}
-            </div>
+            <div className="flex justify-between items-center mb-3"><h4 className="text-xs font-bold text-slate-500 uppercase">Costos</h4><select name="currency" value={quoteData.currency} onChange={handleChange} className="text-xs p-1 border rounded font-bold text-blue-600 bg-white shadow-sm outline-none"><option value="MXN">MXN (Pesos)</option><option value="USD">USD (Dólares)</option></select></div>
+            <div className="space-y-3">{costFields.map((field) => (<div key={field.id} className="flex items-center justify-between"><label className="text-xs font-medium text-slate-600 w-1/3">{field.label}</label><div className="relative w-2/3"><span className="absolute left-3 top-2 text-xs text-slate-400 font-bold">$</span><input type="number" name={field.id} value={quoteData[field.id]} onChange={handleChange} placeholder="0.00" className="w-full p-2 pl-6 border rounded text-sm text-right font-mono focus:border-blue-500 outline-none" /></div></div>))}</div>
           </div>
         </div>
       </div>
       <div className="lg:w-2/3 bg-slate-200 rounded-xl p-8 overflow-y-auto flex flex-col items-center shadow-inner relative">
-        <div className="absolute top-4 right-4 z-10">
-          <button onClick={handleDownloadPDF} className="bg-blue-600 text-white px-4 py-2 rounded-lg shadow-lg text-sm font-bold flex items-center hover:bg-blue-700 transition-transform transform hover:-translate-y-1"><Download size={16} className="mr-2" /> Descargar PDF</button>
-        </div>
+        <div className="absolute top-4 right-4 z-10"><button onClick={handleDownloadPDF} className="bg-blue-600 text-white px-4 py-2 rounded-lg shadow-lg text-sm font-bold flex items-center hover:bg-blue-700 transition-transform transform hover:-translate-y-1"><Download size={16} className="mr-2" /> Descargar PDF</button></div>
         <div id="invoice-content" className="bg-white w-[210mm] min-h-[297mm] p-12 shadow-2xl text-slate-900 font-sans border border-slate-300 relative flex flex-col justify-between">
           <div>
             <div className="flex justify-between items-start border-b-2 border-slate-800 pb-4 mb-4">
-              <div className="flex items-center">
-                <div className="w-14 h-14 bg-blue-900 text-white rounded flex items-center justify-center mr-4"><Ship size={28} /></div>
-                <div><h1 className="text-xl font-bold text-slate-800 tracking-tight uppercase">AduanaSoft</h1><p className="text-[10px] text-slate-500 font-bold tracking-widest uppercase">Logística y despacho</p><p className="text-[9px] text-slate-400 mt-1">Av. Puerto Interior 55, Manzanillo, Colima.<br/>RFC: ADU20250101-XM3</p></div>
-              </div>
+              <div className="flex items-center"><div className="w-14 h-14 bg-blue-900 text-white rounded flex items-center justify-center mr-4"><Ship size={28} /></div><div><h1 className="text-xl font-bold text-slate-800 tracking-tight uppercase">AduanaSoft</h1><p className="text-[10px] text-slate-500 font-bold tracking-widest uppercase">Logística y despacho</p><p className="text-[9px] text-slate-400 mt-1">Av. Puerto Interior 55, Manzanillo, Colima.<br/>RFC: ADU20250101-XM3</p></div></div>
               <div className="text-right"><h2 className="text-lg font-bold text-slate-400 uppercase tracking-widest">Cotización</h2><p className="text-[10px] text-slate-500 mt-1">Fecha: {formatDate(quoteData.fechaEmision)}</p></div>
             </div>
             <div className="mb-4 bg-slate-50 p-3 rounded border border-slate-100">
-               <div className="grid grid-cols-2 gap-4 text-xs">
-                  <div><span className="block text-[9px] font-bold text-slate-400 uppercase">Cliente / razón social</span><span className="font-bold text-slate-800 uppercase">{quoteData.clienteNombre || 'CLIENTE MOSTRADOR'}</span></div>
-                  <div><span className="block text-[9px] font-bold text-slate-400 uppercase">Referencia</span><span className="font-bold text-slate-800 uppercase">{quoteData.clienteReferencia || 'S/N'}</span></div>
-               </div>
+               <div className="grid grid-cols-2 gap-4 text-xs"><div><span className="block text-[9px] font-bold text-slate-400 uppercase">Cliente / razón social</span><span className="font-bold text-slate-800 uppercase">{quoteData.clienteNombre || 'CLIENTE MOSTRADOR'}</span></div><div><span className="block text-[9px] font-bold text-slate-400 uppercase">Referencia</span><span className="font-bold text-slate-800 uppercase">{quoteData.clienteReferencia || 'S/N'}</span></div></div>
             </div>
             <div className="border-2 border-black">
               <div className="bg-blue-100 border-b border-black py-1 text-center"><h2 className="text-base font-bold text-red-600 tracking-wide uppercase">价格 // COTIZACION</h2></div>
-              {tableRows.map((row, index) => (
-                <div key={index} className={`flex border-b border-black last:border-0 text-xs ${row.className || ''}`}>
-                  <div className="w-1/2 border-r border-black py-1 px-2 flex items-center justify-end text-right bg-white"><span className={`font-medium uppercase text-[11px] ${row.labelClass || 'text-black'}`}>{row.label}</span></div>
-                  <div className="w-1/2 py-1 px-2 flex items-center justify-center bg-white"><span className="font-bold text-slate-800">{row.isMoney && <span className="text-[9px] mr-1 text-slate-500 font-normal">{quoteData.currency}</span>}{row.isMoney ? `$${row.value.toLocaleString(undefined, {minimumFractionDigits: 2})}` : (row.value || '-')}</span></div>
-                </div>
-              ))}
-              <div className="flex border-t-2 border-black bg-yellow-300">
-                <div className="w-1/2 border-r border-black py-1 px-2 text-right flex items-center justify-end"><span className="text-sm font-bold">SUBTOTAL</span></div>
-                <div className="w-1/2 py-1 px-2 text-center flex flex-col justify-center"><span className="text-base font-bold"><span className="text-[10px] mr-1 font-normal">{quoteData.currency}</span>${subtotal.toLocaleString(undefined, {minimumFractionDigits: 2})}</span></div>
-              </div>
+              {tableRows.map((row, index) => (<div key={index} className={`flex border-b border-black last:border-0 text-xs ${row.className || ''}`}><div className="w-1/2 border-r border-black py-1 px-2 flex items-center justify-end text-right bg-white"><span className={`font-medium uppercase text-[11px] ${row.labelClass || 'text-black'}`}>{row.label}</span></div><div className="w-1/2 py-1 px-2 flex items-center justify-center bg-white"><span className="font-bold text-slate-800">{row.isMoney && <span className="text-[9px] mr-1 text-slate-500 font-normal">{quoteData.currency}</span>}{row.isMoney ? `$${row.value.toLocaleString(undefined, {minimumFractionDigits: 2})}` : (row.value || '-')}</span></div></div>))}
+              <div className="flex border-t-2 border-black bg-yellow-300"><div className="w-1/2 border-r border-black py-1 px-2 text-right flex items-center justify-end"><span className="text-sm font-bold">SUBTOTAL</span></div><div className="w-1/2 py-1 px-2 text-center flex flex-col justify-center"><span className="text-base font-bold"><span className="text-[10px] mr-1 font-normal">{quoteData.currency}</span>${subtotal.toLocaleString(undefined, {minimumFractionDigits: 2})}</span></div></div>
             </div>
           </div>
           <div className="mt-4 border-t border-slate-300 pt-2">
@@ -488,35 +416,10 @@ const DashboardView = ({ data }) => {
   const warning = data.filter(i => i.status === 'warning' && i.payment === 'pending').length;
   const danger = data.filter(i => (i.status === 'danger' || i.status === 'expired') && i.payment === 'pending').length;
   const pendingMoney = data.filter(i => i.payment === 'pending').reduce((acc, curr) => acc + curr.amount, 0);
-
-  const clientData = useMemo(() => {
-    const counts = {};
-    data.forEach(item => { counts[item.client] = (counts[item.client] || 0) + 1; });
-    return Object.keys(counts).map(key => ({ name: key, count: counts[key] }));
-  }, [data]);
-
-  const statusData = [
-    { name: 'A tiempo', value: total - warning - danger },
-    { name: 'Riesgo', value: warning },
-    { name: 'Penalizado', value: danger },
-  ];
-
-  const performanceData = [
-    { name: 'Lun', operaciones: 12, monto: 15000 },
-    { name: 'Mar', operaciones: 19, monto: 22000 },
-    { name: 'Mié', operaciones: 15, monto: 18000 },
-    { name: 'Jue', operaciones: 25, monto: 35000 },
-    { name: 'Vie', operaciones: 32, monto: 45000 },
-    { name: 'Sáb', operaciones: 20, monto: 28000 },
-    { name: 'Dom', operaciones: 10, monto: 12000 },
-  ];
-
-  const recentActivities = [
-    { id: 1, user: 'Admin', action: 'Pago registrado', details: 'BL HLCU123...', time: 'Hace 5 min' },
-    { id: 2, user: 'Ejecutivo', action: 'Nueva captura', details: 'Cliente: Textil...', time: 'Hace 24 min' },
-    { id: 3, user: 'Sistema', action: 'Alerta generada', details: 'ETA vencido MAEU...', time: 'Hace 1 hora' },
-    { id: 4, user: 'Pagos', action: 'Cierre de día', details: 'Reporte generado', time: 'Ayer' },
-  ];
+  const clientData = useMemo(() => { const counts = {}; data.forEach(item => { counts[item.client] = (counts[item.client] || 0) + 1; }); return Object.keys(counts).map(key => ({ name: key, count: counts[key] })); }, [data]);
+  const statusData = [{ name: 'A tiempo', value: total - warning - danger }, { name: 'Riesgo', value: warning }, { name: 'Penalizado', value: danger }];
+  const performanceData = [{ name: 'Lun', operaciones: 12, monto: 15000 }, { name: 'Mar', operaciones: 19, monto: 22000 }, { name: 'Mié', operaciones: 15, monto: 18000 }, { name: 'Jue', operaciones: 25, monto: 35000 }, { name: 'Vie', operaciones: 32, monto: 45000 }, { name: 'Sáb', operaciones: 20, monto: 28000 }, { name: 'Dom', operaciones: 10, monto: 12000 }];
+  const recentActivities = [{ id: 1, user: 'Admin', action: 'Pago registrado', details: 'BL HLCU123...', time: 'Hace 5 min' }, { id: 2, user: 'Ejecutivo', action: 'Nueva captura', details: 'Cliente: Textil...', time: 'Hace 24 min' }, { id: 3, user: 'Sistema', action: 'Alerta generada', details: 'ETA vencido MAEU...', time: 'Hace 1 hora' }, { id: 4, user: 'Pagos', action: 'Cierre de día', details: 'Reporte generado', time: 'Ayer' }];
 
   return (
     <div className="space-y-6 animate-fade-in pb-8">
@@ -526,68 +429,18 @@ const DashboardView = ({ data }) => {
         <KPICard title="Críticos (vencidos)" value={danger} icon={AlertTriangle} colorClass="bg-red-100 text-red-600" trend="up" trendValue="+2" subtext="requiere atención" />
         <KPICard title="Cuentas por cobrar" value={`$${(pendingMoney/1000).toFixed(1)}k`} icon={DollarSign} colorClass="bg-emerald-100 text-emerald-600" trend="up" trendValue="+8%" subtext="flujo de caja proyectado" />
       </div>
-
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 lg:col-span-2">
-          <div className="flex justify-between items-center mb-6">
-            <div><h3 className="text-lg font-bold text-slate-800">Dinámica semanal</h3><p className="text-xs text-slate-400">Volumen de operaciones y montos</p></div>
-            <select className="bg-slate-50 border border-slate-200 text-xs rounded-md p-1 outline-none text-slate-600"><option>Últimos 7 días</option><option>Este mes</option></select>
-          </div>
-          <div className="h-72">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={performanceData}>
-                <defs><linearGradient id="colorOps" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#2563EB" stopOpacity={0.1}/><stop offset="95%" stopColor="#2563EB" stopOpacity={0}/></linearGradient></defs>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                <XAxis dataKey="name" tick={{fontSize: 12, fill: '#64748b'}} axisLine={false} tickLine={false} />
-                <YAxis tick={{fontSize: 12, fill: '#64748b'}} axisLine={false} tickLine={false} />
-                <Tooltip contentStyle={{borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'}} />
-                <Area type="monotone" dataKey="monto" stroke="#2563EB" strokeWidth={2} fillOpacity={1} fill="url(#colorOps)" name="Monto ($)" />
-              </AreaChart>
-            </ResponsiveContainer>
-          </div>
+          <div className="flex justify-between items-center mb-6"><div><h3 className="text-lg font-bold text-slate-800">Dinámica semanal</h3><p className="text-xs text-slate-400">Volumen de operaciones y montos</p></div><select className="bg-slate-50 border border-slate-200 text-xs rounded-md p-1 outline-none text-slate-600"><option>Últimos 7 días</option><option>Este mes</option></select></div>
+          <div className="h-72"><ResponsiveContainer width="100%" height="100%"><AreaChart data={performanceData}><defs><linearGradient id="colorOps" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#2563EB" stopOpacity={0.1}/><stop offset="95%" stopColor="#2563EB" stopOpacity={0}/></linearGradient></defs><CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" /><XAxis dataKey="name" tick={{fontSize: 12, fill: '#64748b'}} axisLine={false} tickLine={false} /><YAxis tick={{fontSize: 12, fill: '#64748b'}} axisLine={false} tickLine={false} /><Tooltip contentStyle={{borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'}} /><Area type="monotone" dataKey="monto" stroke="#2563EB" strokeWidth={2} fillOpacity={1} fill="url(#colorOps)" name="Monto ($)" /></AreaChart></ResponsiveContainer></div>
         </div>
-
         <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 flex flex-col">
           <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center"><Activity size={18} className="mr-2 text-blue-500"/> Actividad reciente</h3>
-          <div className="flex-1 overflow-y-auto pr-2 space-y-4">
-            {recentActivities.map((act) => (
-              <div key={act.id} className="flex items-start pb-4 border-b border-slate-50 last:border-0 last:pb-0">
-                <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 mr-3 flex-shrink-0 text-xs font-bold">{act.user.charAt(0)}</div>
-                <div><p className="text-sm font-medium text-slate-700">{act.action}</p><p className="text-xs text-slate-400">{act.details}</p><p className="text-[10px] text-slate-300 mt-1">{act.time}</p></div>
-              </div>
-            ))}
-          </div>
+          <div className="flex-1 overflow-y-auto pr-2 space-y-4">{recentActivities.map((act) => (<div key={act.id} className="flex items-start pb-4 border-b border-slate-50 last:border-0 last:pb-0"><div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 mr-3 flex-shrink-0 text-xs font-bold">{act.user.charAt(0)}</div><div><p className="text-sm font-medium text-slate-700">{act.action}</p><p className="text-xs text-slate-400">{act.details}</p><p className="text-[10px] text-slate-300 mt-1">{act.time}</p></div></div>))}</div>
           <button className="mt-4 w-full py-2 text-xs text-blue-600 font-medium hover:bg-blue-50 rounded-lg transition-colors">Ver todo el historial</button>
         </div>
-
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
-          <h3 className="text-sm font-bold text-slate-500 uppercase mb-4">Volumen por cliente</h3>
-          <div className="h-48">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={clientData}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                <XAxis dataKey="name" tick={{fontSize: 10}} interval={0} hide />
-                <Tooltip />
-                <Bar dataKey="count" fill={COLORS.secondary} radius={[4, 4, 4, 4]} barSize={20} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-
         <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 lg:col-span-2">
-          <div className="flex items-start justify-between">
-            <div><h3 className="text-sm font-bold text-slate-500 uppercase mb-2">Salud de la operación</h3><p className="text-2xl font-bold text-slate-800">92% <span className="text-sm font-normal text-slate-400">Eficiencia</span></p></div>
-            <div className="h-48 w-full max-w-xs">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie data={statusData} innerRadius={50} outerRadius={70} paddingAngle={5} dataKey="value">
-                    <Cell fill={COLORS.ok} /><Cell fill={COLORS.warning} /><Cell fill={COLORS.danger} />
-                  </Pie>
-                  <Tooltip /><Legend verticalAlign="middle" align="right" layout="vertical" iconType="circle" />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
+          <div className="flex items-start justify-between"><div><h3 className="text-sm font-bold text-slate-500 uppercase mb-2">Salud de la operación</h3><p className="text-2xl font-bold text-slate-800">92% <span className="text-sm font-normal text-slate-400">Eficiencia</span></p></div><div className="h-48 w-full max-w-xs"><ResponsiveContainer width="100%" height="100%"><PieChart><Pie data={statusData} innerRadius={50} outerRadius={70} paddingAngle={5} dataKey="value"><Cell fill={COLORS.ok} /><Cell fill={COLORS.warning} /><Cell fill={COLORS.danger} /></Pie><Tooltip /><Legend verticalAlign="middle" align="right" layout="vertical" iconType="circle" /></PieChart></ResponsiveContainer></div></div>
         </div>
       </div>
     </div>
@@ -598,18 +451,9 @@ const CaptureForm = ({ onSave, onCancel, existingData, role }) => {
   if (role === 'pagos') return <div className="p-10 text-center text-red-500 font-bold">Acceso denegado: Rol no autorizado para capturas.</div>;
 
   const [formData, setFormData] = useState({
-    bl: '', 
-    provider: '', 
-    rfc: '',
-    address: '',
-    client: '', 
-    reason: 'GARANTÍA', 
-    container: '', 
-    eta: '', 
-    amount: '',
-    currency: 'MXN'
+    bl: '', provider: '', rfc: '', address: '', client: '', reason: 'GARANTÍA', container: '', eta: '', amount: '', currency: 'MXN',
+    freeDays: 7 
   });
-  
   const [generatedConcept, setGeneratedConcept] = useState('');
   const [clientConsecutive, setClientConsecutive] = useState(1);
 
@@ -626,21 +470,8 @@ const CaptureForm = ({ onSave, onCancel, existingData, role }) => {
   const handleNavieraChange = (e) => {
     const nombreSeleccionado = e.target.value;
     const naviera = NAVIERAS_DB.find(n => n.nombre === nombreSeleccionado);
-    if (naviera) {
-      setFormData({
-        ...formData,
-        provider: naviera.nombre,
-        rfc: naviera.rfc,
-        address: naviera.direccion
-      });
-    } else {
-      setFormData({
-        ...formData,
-        provider: nombreSeleccionado,
-        rfc: '',
-        address: ''
-      });
-    }
+    if (naviera) { setFormData({ ...formData, provider: naviera.nombre, rfc: naviera.rfc, address: naviera.direccion }); } 
+    else { setFormData({ ...formData, provider: nombreSeleccionado, rfc: '', address: '' }); }
   };
 
   const handleSubmit = (e) => {
@@ -654,115 +485,42 @@ const CaptureForm = ({ onSave, onCancel, existingData, role }) => {
       payment: 'pending',
       paymentDate: null,
       paymentDelay: 0,
+      editCount: 0, 
       concept: generatedConcept 
     });
   };
-
   const handleChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value });
 
   return (
     <div className="max-w-4xl mx-auto animate-fade-in">
       <div className="bg-white rounded-xl shadow-lg border border-slate-200 overflow-hidden">
         <div className="p-6 border-b border-slate-100 bg-slate-50 flex justify-between items-center">
-          <div>
-            <h2 className="text-xl font-bold text-slate-800 flex items-center">
-              <FileText className="mr-2 text-blue-600" /> Nueva captura de ticket
-            </h2>
-            <p className="text-slate-500 text-sm">Los datos fiscales se autocompletarán al seleccionar naviera.</p>
-          </div>
+          <div><h2 className="text-xl font-bold text-slate-800 flex items-center"><FileText className="mr-2 text-blue-600" /> Alta de nuevo contenedor</h2><p className="text-slate-500 text-sm">Los datos fiscales se autocompletarán al seleccionar naviera.</p></div>
         </div>
-        
         <form onSubmit={handleSubmit} className="p-8 space-y-6">
           <div className="bg-slate-50 p-4 rounded-lg border border-slate-200">
-            <h3 className="text-xs font-bold text-slate-500 uppercase mb-3 flex items-center">
-              <Ship size={14} className="mr-1"/> Datos de la naviera y concepto
-            </h3>
-            
+            <h3 className="text-xs font-bold text-slate-500 uppercase mb-3 flex items-center"><Ship size={14} className="mr-1"/> Datos de la naviera y concepto</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-              <div>
-                <label className="text-xs font-medium text-slate-600 mb-1 block">Naviera / proveedor</label>
-                <select 
-                  required 
-                  name="provider" 
-                  className="w-full p-2 border rounded text-sm bg-white focus:ring-2 focus:ring-blue-500 outline-none" 
-                  onChange={handleNavieraChange}
-                  value={formData.provider}
-                >
-                  <option value="">-- Selecciona naviera --</option>
-                  {NAVIERAS_DB.map(nav => (
-                    <option key={nav.id} value={nav.nombre}>{nav.nombre}</option>
-                  ))}
-                  <option value="OTRA">OTRA (Manual)</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="text-xs font-medium text-slate-600 mb-1 block">Cliente</label>
-                <input required name="client" placeholder="Nombre del cliente" className="w-full p-2 border rounded text-sm focus:ring-2 focus:ring-blue-500 outline-none" onChange={handleChange} />
-              </div>
+              <div><label className="text-xs font-medium text-slate-600 mb-1 block">Naviera / proveedor</label><select required name="provider" className="w-full p-2 border rounded text-sm bg-white outline-none" onChange={handleNavieraChange} value={formData.provider}><option value="">-- Selecciona naviera --</option>{NAVIERAS_DB.map(nav => (<option key={nav.id} value={nav.nombre}>{nav.nombre}</option>))}<option value="OTRA">OTRA (Manual)</option></select></div>
+              <div><label className="text-xs font-medium text-slate-600 mb-1 block">Cliente</label><input required name="client" placeholder="Nombre del cliente" className="w-full p-2 border rounded text-sm outline-none" onChange={handleChange} /></div>
             </div>
-
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-               <div>
-                  <label className="text-xs font-medium text-slate-600 mb-1 block">RFC (emisor)</label>
-                  <input name="rfc" value={formData.rfc} onChange={handleChange} placeholder="Autocompletado..." className="w-full p-2 border rounded text-sm bg-white font-mono text-slate-600 focus:border-blue-400 outline-none" />
-               </div>
-               <div className="md:col-span-2">
-                  <label className="text-xs font-medium text-slate-600 mb-1 block">Dirección fiscal</label>
-                  <input name="address" value={formData.address} onChange={handleChange} placeholder="Autocompletado..." className="w-full p-2 border rounded text-sm bg-white text-slate-600 focus:border-blue-400 outline-none" />
-               </div>
+               <div><label className="text-xs font-medium text-slate-600 mb-1 block">RFC (emisor)</label><input name="rfc" value={formData.rfc} onChange={handleChange} placeholder="Autocompletado..." className="w-full p-2 border rounded text-sm bg-white font-mono text-slate-600 outline-none" /></div>
+               <div className="md:col-span-2"><label className="text-xs font-medium text-slate-600 mb-1 block">Dirección fiscal</label><input name="address" value={formData.address} onChange={handleChange} placeholder="Autocompletado..." className="w-full p-2 border rounded text-sm bg-white text-slate-600 outline-none" /></div>
             </div>
-
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-               <div className="md:col-span-3">
-                  <label className="text-xs font-medium text-slate-600 mb-1 block">Motivo del ticket</label>
-                  <select name="reason" className="w-full p-2 border rounded text-sm bg-white outline-none" onChange={handleChange}>
-                    <option>GARANTÍA</option><option>FLETE</option><option>ALMACENAJE</option><option>DEMORAS</option>
-                  </select>
-               </div>
+               <div className="md:col-span-3"><label className="text-xs font-medium text-slate-600 mb-1 block">Motivo</label><select name="reason" className="w-full p-2 border rounded text-sm bg-white outline-none" onChange={handleChange}><option>GARANTÍA</option><option>FLETE</option><option>ALMACENAJE</option><option>DEMORAS</option></select></div>
             </div>
-
-            <div className="mt-3 p-3 bg-slate-800 text-green-400 font-mono text-sm rounded flex justify-between items-center shadow-inner">
-              <span className="flex items-center"><FileText size={14} className="mr-2"/> {generatedConcept}</span>
-              <span className="text-xs text-slate-500 bg-slate-900 px-2 py-1 rounded border border-slate-700">Consecutivo #{clientConsecutive}</span>
-            </div>
+            <div className="mt-3 p-3 bg-slate-800 text-green-400 font-mono text-sm rounded flex justify-between items-center shadow-inner"><span className="flex items-center"><FileText size={14} className="mr-2"/> {generatedConcept}</span><span className="text-xs text-slate-500 bg-slate-900 px-2 py-1 rounded border border-slate-700">Consecutivo #{clientConsecutive}</span></div>
           </div>
-
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="col-span-2">
-              <label className="text-sm font-bold text-slate-700">BL (master)</label>
-              <input required name="bl" className="w-full p-2 border rounded uppercase font-mono focus:ring-2 focus:ring-blue-500 outline-none" onChange={handleChange} placeholder="HLCU..." />
-            </div>
-            <div>
-              <label className="text-sm font-medium text-slate-700">Contenedor</label>
-              <input required name="container" className="w-full p-2 border rounded uppercase focus:ring-2 focus:ring-blue-500 outline-none" onChange={handleChange} placeholder="MSKU..." />
-            </div>
-            <div>
-              <label className="text-sm font-medium text-slate-700">Fecha ETA</label>
-              <input required name="eta" type="date" className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 outline-none" onChange={handleChange} />
-            </div>
-            
-            <div className="col-span-2">
-              <label className="text-sm font-medium text-slate-700">Monto y divisa</label>
-              <div className="flex space-x-2">
-                <select name="currency" value={formData.currency} onChange={handleChange} className="w-1/3 p-2 border rounded font-bold text-slate-700 bg-slate-50 focus:ring-2 focus:ring-blue-500 outline-none">
-                  <option value="MXN">MXN (Pesos)</option>
-                  <option value="USD">USD (Dólares)</option>
-                </select>
-                <div className="relative w-2/3">
-                  <span className="absolute left-3 top-2 text-slate-400 font-bold">$</span>
-                  <input required name="amount" type="number" className="w-full pl-6 p-2 border rounded font-bold text-slate-700 focus:ring-2 focus:ring-blue-500 outline-none" onChange={handleChange} placeholder="0.00" />
-                </div>
-              </div>
-            </div>
+            <div className="col-span-2"><label className="text-sm font-bold text-slate-700">BL (master)</label><input required name="bl" className="w-full p-2 border rounded uppercase font-mono outline-none" onChange={handleChange} placeholder="HLCU..." /></div>
+            <div><label className="text-sm font-medium text-slate-700">Contenedor</label><input required name="container" className="w-full p-2 border rounded uppercase outline-none" onChange={handleChange} placeholder="MSKU..." /></div>
+            <div><label className="text-sm font-medium text-slate-700">Fecha ETA</label><input required name="eta" type="date" className="w-full p-2 border rounded outline-none" onChange={handleChange} /></div>
+            <div><label className="text-sm font-medium text-slate-700">Días libres</label><input required name="freeDays" type="number" value={formData.freeDays} className="w-full p-2 border rounded outline-none" onChange={handleChange} /></div>
+            <div className="col-span-2"><label className="text-sm font-medium text-slate-700">Monto y divisa</label><div className="flex space-x-2"><select name="currency" value={formData.currency} onChange={handleChange} className="w-1/3 p-2 border rounded font-bold text-slate-700 bg-slate-50 outline-none"><option value="MXN">MXN (Pesos)</option><option value="USD">USD (Dólares)</option></select><div className="relative w-2/3"><span className="absolute left-3 top-2 text-slate-400 font-bold">$</span><input required name="amount" type="number" className="w-full pl-6 p-2 border rounded font-bold text-slate-700 outline-none" onChange={handleChange} placeholder="0.00" /></div></div></div>
           </div>
-
-          <div className="flex justify-end space-x-3 pt-4 border-t">
-            <button type="button" onClick={onCancel} className="px-4 py-2 border rounded text-slate-600 hover:bg-slate-50 font-medium">Cancelar</button>
-            <button type="submit" className="px-6 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 flex items-center shadow-lg shadow-blue-200 font-bold transition-all transform hover:-translate-y-0.5">
-              <Lock size={16} className="mr-2" /> Guardar ticket
-            </button>
-          </div>
+          <div className="flex justify-end space-x-3 pt-4 border-t"><button type="button" onClick={onCancel} className="px-4 py-2 border rounded text-slate-600 hover:bg-slate-50 font-medium">Cancelar</button><button type="submit" className="px-6 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 flex items-center shadow-lg shadow-blue-200 font-bold transition-all transform hover:-translate-y-0.5"><Lock size={16} className="mr-2" /> Dar de alta</button></div>
         </form>
       </div>
     </div>
@@ -771,90 +529,30 @@ const CaptureForm = ({ onSave, onCancel, existingData, role }) => {
 
 const ListView = ({ data, onInitiatePayment, role, onEdit }) => {
   const [searchTerm, setSearchTerm] = useState('');
-  
-  const filteredData = data.filter(item => 
-    item.bl.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    item.client.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    item.container.toLowerCase().includes(searchTerm.toLowerCase())
-  );
-
+  const filteredData = data.filter(item => item.bl.toLowerCase().includes(searchTerm.toLowerCase()) || item.client.toLowerCase().includes(searchTerm.toLowerCase()) || item.container.toLowerCase().includes(searchTerm.toLowerCase()));
   const canPay = role === 'admin' || role === 'pagos';
-  const canEdit = role === 'admin';
+  const canSeeEdit = role === 'admin' || role === 'ejecutivo';
 
   return (
     <div className="space-y-4 animate-fade-in">
-      <div className="flex justify-between items-center bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-        <h2 className="text-xl font-bold text-slate-800">Sábana operativa</h2>
-        <div className="relative w-72">
-          <Search className="absolute left-3 top-2.5 text-slate-400" size={18} />
-          <input 
-            type="text" 
-            placeholder="Buscar..." 
-            className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm"
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
-        </div>
-      </div>
-
+      <div className="flex justify-between items-center bg-white p-4 rounded-xl border border-slate-200 shadow-sm"><h2 className="text-xl font-bold text-slate-800">Sábana operativa</h2><div className="relative w-72"><Search className="absolute left-3 top-2.5 text-slate-400" size={18} /><input type="text" placeholder="Buscar..." className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm" onChange={(e) => setSearchTerm(e.target.value)} /></div></div>
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="bg-slate-50 border-b border-slate-200 text-xs font-bold text-slate-500 uppercase">
-                <th className="p-4">Concepto</th>
-                <th className="p-4">BL / Contenedor</th>
-                <th className="p-4">ETA</th>
-                <th className="p-4 text-center">Estatus</th>
-                <th className="p-4 text-right">Monto</th>
-                <th className="p-4 text-center">Pagado el</th>
-                <th className="p-4 text-center">Acciones</th>
-              </tr>
-            </thead>
+            <thead><tr className="bg-slate-50 border-b border-slate-200 text-xs font-bold text-slate-500 uppercase"><th className="p-4">Concepto</th><th className="p-4">BL / Contenedor</th><th className="p-4">ETA / Días libres</th><th className="p-4 text-center">Estatus</th><th className="p-4 text-right">Monto</th><th className="p-4 text-center">Pagado el</th><th className="p-4 text-center">Acciones</th></tr></thead>
             <tbody className="divide-y divide-slate-100 text-sm">
               {filteredData.map((item) => (
                 <tr key={item.id} className="hover:bg-slate-50">
-                  <td className="p-4">
-                    <div className="font-bold text-slate-700">{item.client}</div>
-                    <div className="inline-block mt-1 px-2 py-0.5 bg-slate-100 border rounded text-xs font-mono text-slate-600">
-                      {item.concept}
-                    </div>
-                  </td>
-                  <td className="p-4">
-                    <div className="font-mono font-medium">{item.bl}</div>
-                    <div className="text-xs text-slate-500">{item.container}</div>
-                  </td>
-                  <td className="p-4 text-slate-600">{formatDate(item.eta)}</td>
-                  <td className="p-4 text-center">
-                    <StatusBadge item={item} />
-                  </td>
-                  <td className="p-4 text-right font-medium">
-                    <span className="text-[10px] text-slate-400 mr-1 font-bold align-top">
-                      {item.currency || 'MXN'}
-                    </span>
-                    ${item.amount.toLocaleString()}
-                  </td>
-                  <td className="p-4 text-center text-xs text-slate-500">
-                    {item.payment === 'paid' ? formatDate(item.paymentDate) : '-'}
-                  </td>
+                  <td className="p-4"><div className="font-bold text-slate-700">{item.client}</div><div className="inline-block mt-1 px-2 py-0.5 bg-slate-100 border rounded text-xs font-mono text-slate-600">{item.concept}</div></td>
+                  <td className="p-4"><div className="font-mono font-medium">{item.bl}</div><div className="text-xs text-slate-500">{item.container}</div></td>
+                  <td className="p-4"><div className="text-slate-600">{formatDate(item.eta)}</div><div className="text-[10px] text-slate-400">{item.freeDays} días libres</div></td>
+                  <td className="p-4 text-center"><StatusBadge item={item} /></td>
+                  <td className="p-4 text-right font-medium"><span className="text-[10px] text-slate-400 mr-1 font-bold align-top">{item.currency || 'MXN'}</span>${item.amount.toLocaleString()}</td>
+                  <td className="p-4 text-center text-xs text-slate-500">{item.payment === 'paid' ? formatDate(item.paymentDate) : '-'}</td>
                   <td className="p-4 flex justify-center space-x-2">
-                    {canPay && item.payment === 'pending' && (
-                      <button 
-                        onClick={() => onInitiatePayment(item.id)}
-                        className="px-3 py-1 bg-emerald-50 text-emerald-600 border border-emerald-200 rounded hover:bg-emerald-100 text-xs font-bold flex items-center"
-                      >
-                        <DollarSign size={14} className="mr-1"/> Pagar
-                      </button>
-                    )}
-                    {item.payment === 'paid' && (
-                      <span className="px-3 py-1 bg-slate-50 text-slate-400 rounded text-xs font-bold border border-slate-200 cursor-not-allowed">
-                        Completado
-                      </span>
-                    )}
-                    {canEdit && (
-                      <button onClick={() => onEdit(item)} className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors" title="Editar (Solo Admin)">
-                        <Edit size={16} />
-                      </button>
-                    )}
+                    {canPay && item.payment === 'pending' && (<button onClick={() => onInitiatePayment(item.id)} className="px-3 py-1 bg-emerald-50 text-emerald-600 border border-emerald-200 rounded hover:bg-emerald-100 text-xs font-bold flex items-center"><DollarSign size={14} className="mr-1"/> Pagar</button>)}
+                    {item.payment === 'paid' && (<span className="px-3 py-1 bg-slate-50 text-slate-400 rounded text-xs font-bold border border-slate-200 cursor-not-allowed">Completado</span>)}
+                    {canSeeEdit && (<button onClick={() => onEdit(item)} className={`p-1.5 rounded transition-colors ${role === 'ejecutivo' && item.editCount >= 2 ? 'text-slate-300 cursor-not-allowed' : 'text-slate-400 hover:text-blue-600 hover:bg-blue-50'}`} title={role === 'ejecutivo' && item.editCount >= 2 ? "Edición bloqueada por el sistema" : "Editar contenedor"}>{role === 'ejecutivo' && item.editCount >= 2 ? <ShieldAlert size={16} /> : <Edit size={16} />}</button>)}
                   </td>
                 </tr>
               ))}
@@ -869,22 +567,15 @@ const ListView = ({ data, onInitiatePayment, role, onEdit }) => {
 export default function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [role, setRole] = useState('admin');
-  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false); // NUEVO ESTADO DEL MENU
-
-  const handleLogin = (userRole) => {
-    setRole(userRole);
-    setIsLoggedIn(true);
-  };
-
-  const handleLogout = () => {
-    setIsLoggedIn(false);
-    setActiveTab('dashboard');
-  };
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const handleLogin = (userRole) => { setRole(userRole); setIsLoggedIn(true); };
+  const handleLogout = () => { setIsLoggedIn(false); setActiveTab('dashboard'); };
 
   const [activeTab, setActiveTab] = useState('dashboard');
   const [data, setData] = useState(initialData);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [paymentConfirmation, setPaymentConfirmation] = useState({ isOpen: false, item: null });
+  const [editingItem, setEditingItem] = useState(null);
 
   const handleSave = (newItem) => {
     const itemWithId = { ...newItem, id: Date.now() };
@@ -892,193 +583,80 @@ export default function App() {
     setActiveTab('list');
   };
 
-  const initiatePayment = (id) => {
-    const item = data.find(i => i.id === id);
-    if (item) {
-      setPaymentConfirmation({ isOpen: true, item });
-    }
+  const handleSaveEdit = (editedItem) => {
+    const newData = data.map(item => {
+      if (item.id === editedItem.id) {
+        return { ...editedItem, editCount: (item.editCount || 0) + 1 };
+      }
+      return item;
+    });
+    setData(newData);
+    setEditingItem(null); 
   };
+
+  const initiatePayment = (id) => { const item = data.find(i => i.id === id); if (item) { setPaymentConfirmation({ isOpen: true, item }); } };
 
   const executePayment = () => {
     const { item } = paymentConfirmation;
     if (!item) return;
-
-    const today = new Date();
-    today.setHours(0,0,0,0);
-    const todayStr = today.toISOString().split('T')[0];
-
+    const today = new Date(); today.setHours(0,0,0,0); const todayStr = today.toISOString().split('T')[0];
     const updatedData = data.map(d => {
       if (d.id === item.id) {
-        const [year, month, day] = d.eta.split('-').map(Number);
-        const etaDate = new Date(year, month - 1, day);
-        const diffTime = etaDate - today;
-        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)); 
-        
-        let delay = 0;
-        if (diffDays < 0) {
-           delay = Math.abs(diffDays);
-        }
-
-        return { 
-          ...d, 
-          payment: 'paid', 
-          paymentDate: todayStr,
-          paymentDelay: delay 
-        };
+        const [year, month, day] = d.eta.split('-').map(Number); const etaDate = new Date(year, month - 1, day); const diffTime = etaDate - today; const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)); 
+        let delay = 0; if (diffDays < 0) { delay = Math.abs(diffDays); }
+        return { ...d, payment: 'paid', paymentDate: todayStr, paymentDelay: delay };
       }
       return d;
     });
-
-    setData(updatedData);
-    setPaymentConfirmation({ isOpen: false, item: null }); 
+    setData(updatedData); setPaymentConfirmation({ isOpen: false, item: null }); 
   };
 
-  const handleEdit = (item) => {
-    alert(`Modo edición (Admin): Modificar ${item.bl}.`);
+  const handleEditClick = (item) => {
+    if (role === 'ejecutivo') {
+       if (item.editCount >= 2) {
+         alert("⚠️ ACCESO DENEGADO\n\nEste contenedor ya ha sido modificado 2 veces. Por política de seguridad, solo un administrador puede realizar cambios adicionales.");
+         return;
+       }
+    }
+    setEditingItem(item);
   };
 
   const NavItem = ({ id, icon: Icon, label }) => {
     if (role === 'pagos' && id === 'capture') return null;
     return (
-      <button
-        onClick={() => { setActiveTab(id); setIsMobileMenuOpen(false); }}
-        className={`w-full flex items-center px-4 py-3 mb-1 rounded-lg transition-all duration-300 ${
-          activeTab === id ? 'bg-blue-600 text-white shadow-md' : 'text-slate-400 hover:bg-slate-800 hover:text-white'
-        } ${isSidebarCollapsed ? 'justify-center' : ''}`}
-        title={isSidebarCollapsed ? label : ''}
-      >
+      <button onClick={() => { setActiveTab(id); setIsMobileMenuOpen(false); }} className={`w-full flex items-center px-4 py-3 mb-1 rounded-lg transition-all duration-300 ${activeTab === id ? 'bg-blue-600 text-white shadow-md' : 'text-slate-400 hover:bg-slate-800 hover:text-white'} ${isSidebarCollapsed ? 'justify-center' : ''}`} title={isSidebarCollapsed ? label : ''}>
         <Icon size={20} className={`${isSidebarCollapsed ? '' : 'mr-3'}`} />
         {!isSidebarCollapsed && <span className="font-medium whitespace-nowrap">{label}</span>}
       </button>
     );
   };
 
-  if (!isLoggedIn) {
-    return <LoginView onLogin={handleLogin} />;
-  }
+  if (!isLoggedIn) { return <LoginView onLogin={handleLogin} />; }
 
   return (
     <div className="flex h-screen bg-slate-100 font-sans text-slate-800 relative">
-      <PaymentModal 
-        isOpen={paymentConfirmation.isOpen}
-        item={paymentConfirmation.item}
-        onClose={() => setPaymentConfirmation({ isOpen: false, item: null })}
-        onConfirm={executePayment}
-      />
-      
-      {/* SIDEBAR CON TRANSICIÓN DINÁMICA */}
-      <aside 
-        className={`${isSidebarCollapsed ? 'w-20' : 'w-64'} bg-slate-900 text-white flex-shrink-0 hidden md:flex flex-col transition-all duration-300 ease-in-out relative`}
-      >
-        {/* Botón para colapsar */}
-        <button 
-          onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-          className="absolute -right-3 top-9 bg-blue-600 text-white p-1 rounded-full shadow-lg border-2 border-slate-100 hover:bg-blue-700 transition-colors z-20"
-        >
-          {isSidebarCollapsed ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
-        </button>
+      <PaymentModal isOpen={paymentConfirmation.isOpen} item={paymentConfirmation.item} onClose={() => setPaymentConfirmation({ isOpen: false, item: null })} onConfirm={executePayment} />
+      <EditModal isOpen={!!editingItem} onClose={() => setEditingItem(null)} onSave={handleSaveEdit} item={editingItem} role={role} />
 
-        <div className={`p-6 border-b border-slate-800 flex items-center ${isSidebarCollapsed ? 'justify-center' : 'space-x-2'}`}>
-          <div className="w-8 h-8 bg-blue-500 rounded-lg flex items-center justify-center flex-shrink-0">
-            <Ship size={20} className="text-white" />
-          </div>
-          {!isSidebarCollapsed && (
-            <div className="overflow-hidden">
-              <span className="text-lg font-bold tracking-tight whitespace-nowrap">AduanaSoft</span>
-              <p className="text-xs text-slate-500 mt-0.5 whitespace-nowrap">v2.2 Production</p>
-            </div>
-          )}
-        </div>
-        
+      <aside className={`${isSidebarCollapsed ? 'w-20' : 'w-64'} bg-slate-900 text-white flex-shrink-0 hidden md:flex flex-col transition-all duration-300 ease-in-out relative`}>
+        <button onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)} className="absolute -right-3 top-9 bg-blue-600 text-white p-1 rounded-full shadow-lg border-2 border-slate-100 hover:bg-blue-700 transition-colors z-20">{isSidebarCollapsed ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}</button>
+        <div className={`p-6 border-b border-slate-800 flex items-center ${isSidebarCollapsed ? 'justify-center' : 'space-x-2'}`}><div className="w-8 h-8 bg-blue-500 rounded-lg flex items-center justify-center flex-shrink-0"><Ship size={20} className="text-white" /></div>{!isSidebarCollapsed && (<div className="overflow-hidden"><span className="text-lg font-bold tracking-tight whitespace-nowrap">AduanaSoft</span><p className="text-xs text-slate-500 mt-0.5 whitespace-nowrap">v2.2 Production</p></div>)}</div>
         <nav className="flex-1 p-4 overflow-y-auto overflow-x-hidden">
           {!isSidebarCollapsed && <p className="px-4 text-xs font-bold text-slate-500 uppercase mb-3 animate-fade-in">Menú</p>}
-          <NavItem id="dashboard" icon={LayoutDashboard} label="Visión general" />
-          <NavItem id="list" icon={TableIcon} label="Sábana operativa" />
-          <NavItem id="capture" icon={Plus} label="Capturar ticket" />
-          
-          {(role === 'admin' || role === 'ejecutivo') && (
-            <div className={`mt-6 ${isSidebarCollapsed ? 'border-t border-slate-800 pt-6' : ''}`}>
-              {!isSidebarCollapsed && <p className="px-4 text-xs font-bold text-slate-500 uppercase mb-3 animate-fade-in">Comercial</p>}
-              <NavItem id="quotes" icon={Calculator} label="Generador de cotizaciones" />
-            </div>
-          )}
+          <NavItem id="dashboard" icon={LayoutDashboard} label="Visión general" /><NavItem id="list" icon={TableIcon} label="Sábana operativa" /><NavItem id="capture" icon={Plus} label="Alta de contenedores" />
+          {(role === 'admin' || role === 'ejecutivo') && (<div className={`mt-6 ${isSidebarCollapsed ? 'border-t border-slate-800 pt-6' : ''}`}>{!isSidebarCollapsed && <p className="px-4 text-xs font-bold text-slate-500 uppercase mb-3 animate-fade-in">Comercial</p>}<NavItem id="quotes" icon={Calculator} label="Generador de cotizaciones" /></div>)}
         </nav>
-        
-        <div className="p-4 border-t border-slate-800">
-          <div className={`flex items-center ${isSidebarCollapsed ? 'justify-center' : 'space-x-3'} mb-4`}>
-            <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-blue-500 to-purple-500 flex items-center justify-center text-xs font-bold flex-shrink-0"><User size={20} /></div>
-            {!isSidebarCollapsed && (
-              <div className="overflow-hidden">
-                <p className="text-sm font-medium whitespace-nowrap">Usuario activo</p>
-                <RoleBadge role={role} />
-              </div>
-            )}
-          </div>
-          <button 
-            onClick={handleLogout}
-            className={`w-full flex items-center ${isSidebarCollapsed ? 'justify-center px-0' : 'justify-center px-4'} py-2 bg-slate-800 hover:bg-red-900/30 text-slate-400 hover:text-red-400 rounded-lg transition-colors text-xs font-bold`}
-            title={isSidebarCollapsed ? "Cerrar sesión" : ""}
-          >
-            <LogOut size={14} className={`${isSidebarCollapsed ? '' : 'mr-2'}`} /> 
-            {!isSidebarCollapsed && "Cerrar sesión"}
-          </button>
-        </div>
+        <div className="p-4 border-t border-slate-800"><div className={`flex items-center ${isSidebarCollapsed ? 'justify-center' : 'space-x-3'} mb-4`}><div className="w-10 h-10 rounded-full bg-gradient-to-tr from-blue-500 to-purple-500 flex items-center justify-center text-xs font-bold flex-shrink-0"><User size={20} /></div>{!isSidebarCollapsed && (<div className="overflow-hidden"><p className="text-sm font-medium whitespace-nowrap">Usuario activo</p><RoleBadge role={role} /></div>)}</div><button onClick={handleLogout} className={`w-full flex items-center ${isSidebarCollapsed ? 'justify-center px-0' : 'justify-center px-4'} py-2 bg-slate-800 hover:bg-red-900/30 text-slate-400 hover:text-red-400 rounded-lg transition-colors text-xs font-bold`} title={isSidebarCollapsed ? "Cerrar sesión" : ""}><LogOut size={14} className={`${isSidebarCollapsed ? '' : 'mr-2'}`} /> {!isSidebarCollapsed && "Cerrar sesión"}</button></div>
       </aside>
 
-      {/* MENÚ MÓVIL (Sin cambios mayores, solo el título) */}
-      {isMobileMenuOpen && (
-        <div className="fixed inset-0 z-50 bg-slate-900 text-white flex flex-col animate-fade-in">
-           <div className="p-6 border-b border-slate-800 flex justify-between items-start">
-              <div>
-                <div className="flex items-center space-x-2">
-                  <div className="w-8 h-8 bg-blue-500 rounded-lg flex items-center justify-center">
-                    <Ship size={20} className="text-white" />
-                  </div>
-                  <span className="text-lg font-bold tracking-tight">AduanaSoft</span>
-                </div>
-              </div>
-              <button onClick={() => setIsMobileMenuOpen(false)} className="p-1"><X size={28} /></button>
-           </div>
-           <nav className="flex-1 p-6">
-              <NavItem id="dashboard" icon={LayoutDashboard} label="Visión general" />
-              <NavItem id="list" icon={TableIcon} label="Sábana operativa" />
-              <NavItem id="capture" icon={Plus} label="Capturar ticket" />
-              {(role === 'admin' || role === 'ejecutivo') && (
-                <NavItem id="quotes" icon={Calculator} label="Generador de cotizaciones" />
-              )}
-              <div className="mt-8 pt-6 border-t border-slate-700">
-                <div className="flex items-center space-x-3 mb-6">
-                  <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-blue-500 to-purple-500 flex items-center justify-center text-xs font-bold"><User size={16} /></div>
-                  <div className="text-sm">Rol actual: <RoleBadge role={role} /></div>
-                </div>
-                <button onClick={handleLogout} className="w-full flex items-center justify-center px-4 py-3 bg-red-600 text-white rounded-lg font-bold">
-                  <LogOut size={18} className="mr-2" /> Cerrar sesión
-                </button>
-              </div>
-           </nav>
-        </div>
-      )}
+      {isMobileMenuOpen && (<div className="fixed inset-0 z-50 bg-slate-900 text-white flex flex-col animate-fade-in"><div className="p-6 border-b border-slate-800 flex justify-between items-start"><div><div className="flex items-center space-x-2"><div className="w-8 h-8 bg-blue-500 rounded-lg flex items-center justify-center"><Ship size={20} className="text-white" /></div><span className="text-lg font-bold tracking-tight">AduanaSoft</span></div></div><button onClick={() => setIsMobileMenuOpen(false)} className="p-1"><X size={28} /></button></div><nav className="flex-1 p-6"><NavItem id="dashboard" icon={LayoutDashboard} label="Visión general" /><NavItem id="list" icon={TableIcon} label="Sábana operativa" /><NavItem id="capture" icon={Plus} label="Alta de contenedores" />{(role === 'admin' || role === 'ejecutivo') && (<NavItem id="quotes" icon={Calculator} label="Generador de cotizaciones" />)}<div className="mt-8 pt-6 border-t border-slate-700"><div className="flex items-center space-x-3 mb-6"><div className="w-8 h-8 rounded-full bg-gradient-to-tr from-blue-500 to-purple-500 flex items-center justify-center text-xs font-bold"><User size={16} /></div><div className="text-sm">Rol actual: <RoleBadge role={role} /></div></div><button onClick={handleLogout} className="w-full flex items-center justify-center px-4 py-3 bg-red-600 text-white rounded-lg font-bold"><LogOut size={18} className="mr-2" /> Cerrar sesión</button></div></nav></div>)}
 
-      {/* CONTENIDO PRINCIPAL: Se ajusta automáticamente porque está en un flex container */}
       <main className="flex-1 flex flex-col overflow-hidden transition-all duration-300">
-        <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-6 shadow-sm z-10">
-          <button onClick={() => setIsMobileMenuOpen(true)} className="md:hidden p-2 -ml-2 rounded hover:bg-slate-100"><Menu className="text-slate-800" /></button>
-          <div className="text-xl font-bold text-slate-800 flex items-center gap-2">
-            {activeTab === 'dashboard' && 'Visión general'}
-            {activeTab === 'list' && 'Gestión y pagos'}
-            {activeTab === 'capture' && 'Alta de documentos'}
-            {activeTab === 'quotes' && 'Generador de cotizaciones'}
-            <span className="hidden md:inline-flex ml-4 transform scale-90 origin-left"><RoleBadge role={role} /></span>
-          </div>
-          <div className="flex items-center space-x-4">
-             <div className="hidden lg:flex items-center px-3 py-1 bg-green-50 text-green-700 rounded-full border border-green-200 text-xs font-medium"><DollarSign size={14} className="mr-1"/> USD: $20.54</div>
-          </div>
-        </header>
-
+        <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-6 shadow-sm z-10"><button onClick={() => setIsMobileMenuOpen(true)} className="md:hidden p-2 -ml-2 rounded hover:bg-slate-100"><Menu className="text-slate-800" /></button><div className="text-xl font-bold text-slate-800 flex items-center gap-2">{activeTab === 'dashboard' && 'Visión general'}{activeTab === 'list' && 'Gestión y pagos'}{activeTab === 'capture' && 'Alta de documentos'}{activeTab === 'quotes' && 'Generador de cotizaciones'}<span className="hidden md:inline-flex ml-4 transform scale-90 origin-left"><RoleBadge role={role} /></span></div><div className="flex items-center space-x-4"><div className="hidden lg:flex items-center px-3 py-1 bg-green-50 text-green-700 rounded-full border border-green-200 text-xs font-medium"><DollarSign size={14} className="mr-1"/> USD: $20.54</div></div></header>
         <div className="flex-1 overflow-auto p-4 md:p-8">
           {activeTab === 'dashboard' && <DashboardView data={data} />}
           {activeTab === 'capture' && <CaptureForm onSave={handleSave} onCancel={() => setActiveTab('dashboard')} existingData={data} role={role} />}
-          {activeTab === 'list' && <ListView data={data} onInitiatePayment={initiatePayment} role={role} onEdit={handleEdit} />}
+          {activeTab === 'list' && <ListView data={data} onInitiatePayment={initiatePayment} role={role} onEdit={handleEditClick} />}
           {activeTab === 'quotes' && <QuoteGenerator role={role} />}
         </div>
       </main>
