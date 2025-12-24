@@ -9,7 +9,7 @@ import {
   Clock, Ship, DollarSign, Plus, Search, Menu, X, User, Edit, Lock, 
   TrendingUp, TrendingDown, Activity, AlertCircle, Calculator, Trash2, 
   Download, Printer, Package, MapPin, Key, LogOut, Check, 
-  ChevronLeft, ChevronRight, ChevronDown, ChevronUp, ShieldAlert, Eye, Calendar, Anchor
+  ChevronLeft, ChevronRight, ChevronDown, ChevronUp, ShieldAlert, Eye, EyeOff, Calendar, Anchor
 } from 'lucide-react';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -29,7 +29,6 @@ const formatDate = (dateString) => {
   return `${day}/${month}/${year}`;
 };
 
-// Nueva utilidad para calcular diferencia de días exactos
 const getDaysDiff = (etaString) => {
   if (!etaString) return 0;
   const today = new Date();
@@ -43,11 +42,10 @@ const getDaysDiff = (etaString) => {
 const calculateStatus = (etaString) => {
   if (!etaString) return 'ok';
   const diffDays = getDaysDiff(etaString);
-
-  if (diffDays < 0) return 'expired'; // Ya llegó o pasó la fecha
-  if (diffDays <= 7) return 'danger'; // Menos de una semana (Crítico)
-  if (diffDays <= 15) return 'warning'; // Entre 1 y 2 semanas (Alerta)
-  return 'ok'; // Más de 2 semanas (Seguro)
+  if (diffDays < 0) return 'expired';
+  if (diffDays <= 7) return 'danger';
+  if (diffDays <= 15) return 'warning';
+  return 'ok';
 };
 
 // --- DATOS INICIALES ---
@@ -91,7 +89,7 @@ const COLORS = {
   ok: '#10B981', warning: '#F59E0B', danger: '#EF4444', expired: '#991B1B', primary: '#2563EB', secondary: '#8b5cf6'
 };
 
-// --- COMPONENTES UI AUXILIARES (SEMÁFORO MEJORADO) ---
+// --- UI COMPONENTS ---
 const StatusBadge = ({ item }) => {
   if (item.payment === 'paid') {
     return (
@@ -101,18 +99,14 @@ const StatusBadge = ({ item }) => {
       </span>
     );
   }
-
-  // CONFIGURACIÓN DE COLORES SÓLIDOS Y VIBRANTES
   const config = {
     ok: { color: 'bg-emerald-500 text-white', icon: CheckCircle, label: 'En tiempo' },
     warning: { color: 'bg-amber-500 text-white', icon: Clock, label: 'Atención' },
     danger: { color: 'bg-rose-600 text-white', icon: AlertTriangle, label: 'Crítico' },
     expired: { color: 'bg-slate-800 text-white', icon: AlertTriangle, label: 'Vencido' },
   };
-  
   const current = config[item.status] || config.ok;
   const Icon = current.icon;
-  
   return (
     <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold shadow-sm ${current.color}`}>
       <Icon size={12} className="mr-1" />
@@ -127,11 +121,7 @@ const RoleBadge = ({ role, collapsed }) => {
     ejecutivo: 'bg-blue-100 text-blue-800 border-blue-200',
     pagos: 'bg-emerald-100 text-emerald-800 border-emerald-200'
   };
-  
-  if (collapsed) {
-     return <div className={`w-3 h-3 rounded-full ${styles[role] || styles.ejecutivo} border`}></div>
-  }
-
+  if (collapsed) return <div className={`w-3 h-3 rounded-full ${styles[role] || styles.ejecutivo} border`}></div>;
   return (
     <span className={`px-2 py-1 rounded-md text-xs font-bold border uppercase ${styles[role] || styles.ejecutivo}`}>
       {role === 'ejecutivo' ? 'Revalidaciones' : role}
@@ -150,21 +140,16 @@ const KPICard = ({ title, value, icon: Icon, colorClass, trend, trendValue, subt
         <Icon size={24} />
       </div>
     </div>
-    
     <div className="flex items-center text-xs">
       {trend === 'up' && <TrendingUp size={14} className="text-green-500 mr-1" />}
       {trend === 'down' && <TrendingDown size={14} className="text-red-500 mr-1" />}
-      {trendValue && (
-        <span className={`font-bold mr-2 ${trend === 'up' ? 'text-green-600' : 'text-red-600'}`}>
-          {trendValue}
-        </span>
-      )}
+      {trendValue && <span className={`font-bold mr-2 ${trend === 'up' ? 'text-green-600' : 'text-red-600'}`}>{trendValue}</span>}
       <span className="text-slate-400">{subtext}</span>
     </div>
   </div>
 );
 
-// --- MODAL DE EDICIÓN ---
+// --- MODAL DE EDICIÓN RESPONSIVE ---
 const EditModal = ({ isOpen, onClose, onSave, item, role }) => {
   if (!isOpen || !item) return null;
 
@@ -187,9 +172,7 @@ const EditModal = ({ isOpen, onClose, onSave, item, role }) => {
     }
   };
 
-  const handleSave = () => {
-    onSave(editData);
-  };
+  const handleSave = () => { onSave(editData); };
 
   const costInputs = [
     { key: 'costDemoras', label: 'Demoras' }, { key: 'costAlmacenaje', label: 'Almacenaje' },
@@ -201,22 +184,21 @@ const EditModal = ({ isOpen, onClose, onSave, item, role }) => {
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 animate-fade-in">
       <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={onClose}></div>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl relative z-10 overflow-hidden max-h-[90vh] overflow-y-auto">
+      {/* Modal responsivo: w-full en movil, max-w-3xl en desktop */}
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl relative z-10 overflow-hidden max-h-[90vh] overflow-y-auto m-4">
         <div className="bg-blue-50 p-6 border-b border-blue-100 flex justify-between items-center sticky top-0 z-20">
           <div>
              <h3 className="text-lg font-bold text-slate-800 flex items-center">
                 <Edit size={20} className="mr-2 text-blue-600"/> Editar contenedor
              </h3>
-             <p className="text-xs text-slate-500">
-               {isRestricted 
-                 ? `Modo restringido: Solo puedes editar fechas y días libres. (Edición ${item.editCount + 1}/2)` 
-                 : 'Modo administrador: Acceso total.'}
+             <p className="text-xs text-slate-500 hidden sm:block">
+               {isRestricted ? `Modo restringido (${item.editCount + 1}/2)` : 'Modo administrador'}
              </p>
           </div>
           <button onClick={onClose}><X size={24} className="text-slate-400 hover:text-slate-600"/></button>
         </div>
 
-        <div className="p-6 grid grid-cols-2 gap-4">
+        <div className="p-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="col-span-1">
              <label className="text-xs font-bold text-slate-500 mb-1 block">BL (master)</label>
              <input disabled name="bl" value={editData.bl} onChange={handleChange} className="w-full p-2 border rounded bg-slate-100 text-slate-500 cursor-not-allowed" />
@@ -242,15 +224,15 @@ const EditModal = ({ isOpen, onClose, onSave, item, role }) => {
              <input type="number" name="freeDays" value={editData.freeDays} onChange={handleChange} className="w-full p-2 border border-slate-300 rounded focus:ring-2 focus:ring-blue-500 outline-none" />
           </div>
 
-          <div className="col-span-2 border-t pt-4 mt-2">
-             <div className="flex justify-between items-center mb-2">
-                <label className="text-xs font-bold text-slate-500 uppercase">Desglose de costos</label>
+          <div className="col-span-1 sm:col-span-2 border-t pt-4 mt-2">
+             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-2">
+                <label className="text-xs font-bold text-slate-500 uppercase mb-2 sm:mb-0">Desglose de costos</label>
                 <span className="text-xs font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded border border-blue-100">Total: ${editData.amount.toLocaleString()}</span>
              </div>
-             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 {costInputs.map(field => (
                     <div key={field.key}>
-                        <label className="text-[10px] font-medium text-slate-500 mb-1 block">{field.label}</label>
+                        <label className="text-[10px] font-medium text-slate-500 mb-1 block truncate" title={field.label}>{field.label}</label>
                         <input 
                             disabled={isRestricted}
                             type="number" 
@@ -262,7 +244,7 @@ const EditModal = ({ isOpen, onClose, onSave, item, role }) => {
                     </div>
                 ))}
              </div>
-             {isRestricted && <p className="text-[10px] text-red-400 mt-3 italic">* Para modificar montos o datos fiscales contacte a un Administrador.</p>}
+             {isRestricted && <p className="text-[10px] text-red-400 mt-3 italic">* Contacte a Admin para otros cambios.</p>}
           </div>
         </div>
 
@@ -280,10 +262,10 @@ const PaymentModal = ({ isOpen, onClose, onConfirm, item }) => {
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 animate-fade-in">
       <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={onClose}></div>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md relative z-10 overflow-hidden transform transition-all scale-100">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md relative z-10 overflow-hidden m-4">
         <div className="bg-yellow-50 p-6 border-b border-yellow-100 flex items-start space-x-4">
           <div className="p-3 bg-yellow-100 text-yellow-600 rounded-full flex-shrink-0"><AlertCircle size={32} /></div>
-          <div><h3 className="text-lg font-bold text-slate-800">¿Confirmar pago?</h3><p className="text-sm text-slate-600 mt-1">Estás a punto de registrar un pago en el sistema. Asegúrate de haber realizado la transferencia bancaria primero.</p></div>
+          <div><h3 className="text-lg font-bold text-slate-800">¿Confirmar pago?</h3><p className="text-sm text-slate-600 mt-1">Registrar pago en el sistema.</p></div>
         </div>
         <div className="p-6 space-y-4">
           <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
@@ -304,9 +286,11 @@ const PaymentModal = ({ isOpen, onClose, onConfirm, item }) => {
   );
 };
 
+// --- LOGIN VIEW (CON OJITO PARA VER CONTRASEÑA) ---
 const LoginView = ({ onLogin }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false); // Estado para el ojito
   const [error, setError] = useState('');
 
   const handleLogin = (e) => {
@@ -320,7 +304,7 @@ const LoginView = ({ onLogin }) => {
 
   return (
     <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden flex flex-col md:flex-row">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden flex flex-col">
         <div className="p-8 w-full">
           <div className="flex items-center space-x-2 mb-8 justify-center">
             <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center"><Ship size={24} className="text-white" /></div>
@@ -328,9 +312,38 @@ const LoginView = ({ onLogin }) => {
           </div>
           <h2 className="text-xl font-bold text-slate-800 mb-2 text-center">Bienvenido de nuevo</h2>
           <p className="text-slate-500 text-sm mb-6 text-center">Ingresa a tu cuenta para gestionar operaciones.</p>
+          
           <form onSubmit={handleLogin} className="space-y-4">
-            <div><label className="block text-sm font-medium text-slate-700 mb-1">Correo electrónico</label><div className="relative"><User className="absolute left-3 top-2.5 text-slate-400" size={18} /><input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-all" placeholder="usuario@empresa.com" autoFocus /></div></div>
-            <div><label className="block text-sm font-medium text-slate-700 mb-1">Contraseña</label><div className="relative"><Key className="absolute left-3 top-2.5 text-slate-400" size={18} /><input type="password" value={password} onChange={(e) => setPassword(e.target.value)} className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-all" placeholder="••••••••" /></div></div>
+            <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Correo electrónico</label>
+                <div className="relative">
+                    <User className="absolute left-3 top-2.5 text-slate-400" size={18} />
+                    <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-all" placeholder="usuario@empresa.com" autoFocus />
+                </div>
+            </div>
+            
+            {/* INPUT DE CONTRASEÑA CON OJITO */}
+            <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Contraseña</label>
+                <div className="relative">
+                    <Key className="absolute left-3 top-2.5 text-slate-400" size={18} />
+                    <input 
+                        type={showPassword ? "text" : "password"} // Cambia el tipo dinámicamente
+                        value={password} 
+                        onChange={(e) => setPassword(e.target.value)} 
+                        className="w-full pl-10 pr-10 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-all" 
+                        placeholder="••••••••" 
+                    />
+                    <button 
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute right-3 top-2.5 text-slate-400 hover:text-slate-600 focus:outline-none"
+                    >
+                        {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                    </button>
+                </div>
+            </div>
+
             {error && (<div className="bg-red-50 text-red-600 text-xs p-3 rounded flex items-center"><AlertCircle size={14} className="mr-2" />{error}</div>)}
             <button type="submit" className="w-full bg-blue-600 text-white font-bold py-2.5 rounded-lg hover:bg-blue-700 transition-colors shadow-lg shadow-blue-200">Iniciar sesión</button>
           </form>
@@ -505,7 +518,6 @@ const CaptureForm = ({ onSave, onCancel, existingData, role }) => {
   const [formData, setFormData] = useState({
     bl: '', provider: '', rfc: '', address: '', client: '', reason: 'GARANTÍA', container: '', eta: '', currency: 'MXN',
     freeDays: 7,
-    // Costos individuales
     costDemoras: 0, costAlmacenaje: 0, costOperativos: 0, costPortuarios: 0,
     costApoyo: 0, costImpuestos: 0, costLiberacion: 0, costTransporte: 0
   });
@@ -514,7 +526,6 @@ const CaptureForm = ({ onSave, onCancel, existingData, role }) => {
   const [generatedConcept, setGeneratedConcept] = useState('');
   const [clientConsecutive, setClientConsecutive] = useState(1);
 
-  // Recalcular total cuando cambian los costos
   useEffect(() => {
     const sum = 
       (parseFloat(formData.costDemoras) || 0) + (parseFloat(formData.costAlmacenaje) || 0) +
@@ -547,7 +558,7 @@ const CaptureForm = ({ onSave, onCancel, existingData, role }) => {
     onSave({ 
       ...formData, 
       clientCode: formData.client.substring(0, 3).toUpperCase(),
-      amount: totalAmount, // Guardamos el total calculado
+      amount: totalAmount, 
       status: calculatedStatus, 
       payment: 'pending',
       paymentDate: null,
@@ -558,7 +569,6 @@ const CaptureForm = ({ onSave, onCancel, existingData, role }) => {
   };
   const handleChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value });
 
-  // Lista de campos para el map
   const costFieldsInputs = [
     { name: 'costDemoras', label: 'Demoras' }, { name: 'costAlmacenaje', label: 'Almacenaje' },
     { name: 'costOperativos', label: 'Costos operativos' }, { name: 'costPortuarios', label: 'Gastos portuarios' },
@@ -595,8 +605,7 @@ const CaptureForm = ({ onSave, onCancel, existingData, role }) => {
             <div><label className="text-sm font-medium text-slate-700">Fecha ETA</label><input required name="eta" type="date" className="w-full p-2 border rounded outline-none" onChange={handleChange} /></div>
             <div><label className="text-sm font-medium text-slate-700">Días libres</label><input required name="freeDays" type="number" value={formData.freeDays} className="w-full p-2 border rounded outline-none" onChange={handleChange} /></div>
             
-            {/* SECCIÓN DE COSTOS DESGLOSADOS */}
-            <div className="col-span-2 border-t pt-4">
+            <div className="col-span-1 md:col-span-2 border-t pt-4">
                <div className="flex justify-between items-center mb-3">
                   <label className="text-sm font-bold text-slate-700">Desglose de costos</label>
                   <select name="currency" value={formData.currency} onChange={handleChange} className="text-xs p-1 border rounded font-bold text-blue-600 bg-white"><option value="MXN">MXN (Pesos)</option><option value="USD">USD (Dólares)</option></select>
@@ -607,13 +616,7 @@ const CaptureForm = ({ onSave, onCancel, existingData, role }) => {
                           <label className="text-xs font-medium text-slate-500 mb-1 block">{field.label}</label>
                           <div className="relative">
                              <span className="absolute left-2 top-1.5 text-xs text-slate-400">$</span>
-                             <input 
-                                type="number" 
-                                name={field.name} 
-                                className="w-full pl-5 p-1.5 border rounded text-sm text-right outline-none focus:border-blue-500" 
-                                onChange={handleChange} 
-                                placeholder="0" 
-                             />
+                             <input type="number" name={field.name} className="w-full pl-5 p-1.5 border rounded text-sm text-right outline-none focus:border-blue-500" onChange={handleChange} placeholder="0" />
                           </div>
                       </div>
                   ))}
@@ -634,32 +637,23 @@ const CaptureForm = ({ onSave, onCancel, existingData, role }) => {
   );
 };
 
-// --- LISTVIEW (SÁBANA) CON SEMÁFORO Y DIFERENCIA DE DÍAS ---
 const ListView = ({ data, onInitiatePayment, role, onEdit }) => {
   const [searchTerm, setSearchTerm] = useState('');
-  const [expandedRow, setExpandedRow] = useState(null); // Estado para controlar qué fila está expandida
+  const [expandedRow, setExpandedRow] = useState(null);
 
   const filteredData = data.filter(item => item.bl.toLowerCase().includes(searchTerm.toLowerCase()) || item.client.toLowerCase().includes(searchTerm.toLowerCase()) || item.container.toLowerCase().includes(searchTerm.toLowerCase()));
   const canPay = role === 'admin' || role === 'pagos';
   const canSeeEdit = role === 'admin' || role === 'ejecutivo';
 
   const toggleRow = (id) => {
-    if (expandedRow === id) {
-        setExpandedRow(null);
-    } else {
-        setExpandedRow(id);
-    }
+    if (expandedRow === id) { setExpandedRow(null); } else { setExpandedRow(id); }
   };
 
   const renderDaysDiff = (etaString) => {
     const diff = getDaysDiff(etaString);
-    if (diff < 0) {
-        return <span className="text-xs font-bold text-red-600 block mt-1">Hace {Math.abs(diff)} días</span>;
-    } else if (diff === 0) {
-        return <span className="text-xs font-bold text-orange-600 block mt-1">¡Llega hoy!</span>;
-    } else {
-        return <span className="text-xs font-medium text-slate-400 block mt-1">Faltan {diff} días</span>;
-    }
+    if (diff < 0) { return <span className="text-xs font-bold text-red-600 block mt-1">Hace {Math.abs(diff)} días</span>; } 
+    else if (diff === 0) { return <span className="text-xs font-bold text-orange-600 block mt-1">¡Llega hoy!</span>; } 
+    else { return <span className="text-xs font-medium text-slate-400 block mt-1">Faltan {diff} días</span>; }
   };
 
   return (
@@ -667,10 +661,10 @@ const ListView = ({ data, onInitiatePayment, role, onEdit }) => {
       <div className="flex justify-between items-center bg-white p-4 rounded-xl border border-slate-200 shadow-sm"><h2 className="text-xl font-bold text-slate-800">Sábana operativa</h2><div className="relative w-72"><Search className="absolute left-3 top-2.5 text-slate-400" size={18} /><input type="text" placeholder="Buscar..." className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm" onChange={(e) => setSearchTerm(e.target.value)} /></div></div>
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
+          <table className="w-full text-left border-collapse min-w-[800px]">
             <thead>
                 <tr className="bg-slate-50 border-b border-slate-200 text-xs font-bold text-slate-500 uppercase">
-                    <th className="p-4 w-10"></th> {/* Espacio para el chevron */}
+                    <th className="p-4 w-10"></th>
                     <th className="p-4">Concepto</th>
                     <th className="p-4">BL / Contenedor</th>
                     <th className="p-4">ETA & Estatus</th>
@@ -683,7 +677,6 @@ const ListView = ({ data, onInitiatePayment, role, onEdit }) => {
             <tbody className="text-sm">
               {filteredData.map((item) => (
                 <React.Fragment key={item.id}>
-                    {/* FILA PRINCIPAL (RESUMEN) */}
                     <tr className={`hover:bg-slate-50 border-b border-slate-100 transition-colors ${expandedRow === item.id ? 'bg-blue-50/50' : ''}`}>
                         <td className="p-4 text-center cursor-pointer" onClick={() => toggleRow(item.id)}>
                             {expandedRow === item.id ? <ChevronUp size={18} className="text-slate-400"/> : <ChevronDown size={18} className="text-slate-400"/>}
@@ -691,17 +684,9 @@ const ListView = ({ data, onInitiatePayment, role, onEdit }) => {
                         <td className="p-4"><div className="font-bold text-slate-700">{item.client}</div><div className="inline-block mt-1 px-2 py-0.5 bg-slate-100 border rounded text-xs font-mono text-slate-600">{item.concept}</div></td>
                         <td className="p-4"><div className="font-mono font-medium">{item.bl}</div><div className="text-xs text-slate-500">{item.container}</div></td>
                         <td className="p-4">
-                            <div className="flex items-center space-x-2 mb-1">
-                                <span className="font-bold text-slate-700">{formatDate(item.eta)}</span>
-                                <StatusBadge item={item} />
-                            </div>
-                            {renderDaysDiff(item.eta)}
+                            <div className="flex items-center space-x-2 mb-1"><span className="font-bold text-slate-700">{formatDate(item.eta)}</span><StatusBadge item={item} /></div>{renderDaysDiff(item.eta)}
                         </td>
-                        <td className="p-4 text-center">
-                            <div className="inline-flex items-center px-2 py-1 bg-slate-100 text-slate-600 rounded-md border border-slate-200 font-bold text-xs">
-                                <Clock size={12} className="mr-1"/> {item.freeDays}
-                            </div>
-                        </td>
+                        <td className="p-4 text-center"><div className="inline-flex items-center px-2 py-1 bg-slate-100 text-slate-600 rounded-md border border-slate-200 font-bold text-xs"><Clock size={12} className="mr-1"/> {item.freeDays}</div></td>
                         <td className="p-4 text-right font-medium"><span className="text-[10px] text-slate-400 mr-1 font-bold align-top">{item.currency || 'MXN'}</span>${item.amount.toLocaleString()}</td>
                         <td className="p-4 text-center text-xs text-slate-500">{item.payment === 'paid' ? formatDate(item.paymentDate) : '-'}</td>
                         <td className="p-4 flex justify-center space-x-2">
@@ -710,27 +695,12 @@ const ListView = ({ data, onInitiatePayment, role, onEdit }) => {
                             {canSeeEdit && (<button onClick={() => onEdit(item)} className={`p-1.5 rounded transition-colors ${role === 'ejecutivo' && item.editCount >= 2 ? 'text-slate-300 cursor-not-allowed' : 'text-slate-400 hover:text-blue-600 hover:bg-blue-50'}`} title={role === 'ejecutivo' && item.editCount >= 2 ? "Edición bloqueada por el sistema" : "Editar contenedor"}>{role === 'ejecutivo' && item.editCount >= 2 ? <ShieldAlert size={16} /> : <Edit size={16} />}</button>)}
                         </td>
                     </tr>
-                    
-                    {/* FILA EXPANDIDA (DETALLE) */}
                     {expandedRow === item.id && (
                         <tr className="bg-slate-50 animate-fade-in">
                             <td colSpan="8" className="p-4 border-b border-slate-200 shadow-inner">
                                 <div className="grid grid-cols-2 md:grid-cols-4 gap-y-4 gap-x-8 px-8">
-                                    {[
-                                        { l: 'Demoras', v: item.costDemoras }, { l: 'Almacenaje', v: item.costAlmacenaje },
-                                        { l: 'Costos operativos', v: item.costOperativos }, { l: 'Gastos portuarios', v: item.costPortuarios },
-                                        { l: 'Apoyo', v: item.costApoyo }, { l: 'Impuestos', v: item.costImpuestos },
-                                        { l: 'Liberación abandono', v: item.costLiberacion }, { l: 'Transporte', v: item.costTransporte }
-                                    ].map((cost, idx) => (
-                                        <div key={idx} className="flex justify-between border-b border-slate-200 pb-1">
-                                            <span className="text-xs text-slate-500 font-medium">{cost.l}</span>
-                                            <span className="text-xs font-bold text-slate-700 font-mono">${(cost.v || 0).toLocaleString()}</span>
-                                        </div>
-                                    ))}
-                                    <div className="col-span-2 md:col-start-4 pt-2 flex justify-between items-center">
-                                        <span className="text-sm font-bold text-slate-800 uppercase">Total calculado:</span>
-                                        <span className="text-lg font-bold text-blue-600 font-mono">${item.amount.toLocaleString()} <span className="text-xs text-slate-400">{item.currency}</span></span>
-                                    </div>
+                                    {[{ l: 'Demoras', v: item.costDemoras }, { l: 'Almacenaje', v: item.costAlmacenaje }, { l: 'Costos operativos', v: item.costOperativos }, { l: 'Gastos portuarios', v: item.costPortuarios }, { l: 'Apoyo', v: item.costApoyo }, { l: 'Impuestos', v: item.costImpuestos }, { l: 'Liberación abandono', v: item.costLiberacion }, { l: 'Transporte', v: item.costTransporte }].map((cost, idx) => (<div key={idx} className="flex justify-between border-b border-slate-200 pb-1"><span className="text-xs text-slate-500 font-medium">{cost.l}</span><span className="text-xs font-bold text-slate-700 font-mono">${(cost.v || 0).toLocaleString()}</span></div>))}
+                                    <div className="col-span-2 md:col-start-4 pt-2 flex justify-between items-center"><span className="text-sm font-bold text-slate-800 uppercase">Total calculado:</span><span className="text-lg font-bold text-blue-600 font-mono">${item.amount.toLocaleString()} <span className="text-xs text-slate-400">{item.currency}</span></span></div>
                                 </div>
                             </td>
                         </tr>
