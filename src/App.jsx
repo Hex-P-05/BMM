@@ -1,7 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas'; 
-import jsPDF from 'jspdf';
 import { 
   LayoutDashboard, FileText, Table as TableIcon, AlertTriangle, CheckCircle, 
   Clock, Ship, DollarSign, Plus, Search, Menu, X, User, Edit, Lock, 
