@@ -725,7 +725,7 @@ const CaptureForm = ({ onSave, onCancel, existingData, role }) => {
 };
 
 // --- LISTVIEW (SÁBANA) CON DESGLOSE VISIBLE ---
-// --- LISTVIEW (SÁBANA) CON SCROLL HORIZONTAL Y COLUMNAS FIJAS ---
+// --- LISTVIEW CON SCROLLBAR SIEMPRE VISIBLE Y ENCABEZADO FIJO ---
 const ListView = ({ data, onPayItem, onPayAll, onCloseOperation, role, onEdit }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [expandedRow, setExpandedRow] = useState(null);
@@ -756,8 +756,8 @@ const ListView = ({ data, onPayItem, onPayAll, onCloseOperation, role, onEdit })
   };
 
   return (
-    <div className="space-y-4 animate-fade-in">
-      <div className="flex justify-between items-center bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+    <div className="space-y-4 animate-fade-in h-full flex flex-col"> {/* Flex col para controlar altura */}
+      <div className="flex justify-between items-center bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex-shrink-0">
         <h2 className="text-xl font-bold text-slate-800">Sábana operativa</h2>
         <div className="relative w-72">
             <Search className="absolute left-3 top-2.5 text-slate-400" size={18} />
@@ -765,26 +765,25 @@ const ListView = ({ data, onPayItem, onPayAll, onCloseOperation, role, onEdit })
         </div>
       </div>
 
-      <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden relative">
-        {/* Contenedor con scroll horizontal */}
-        <div className="overflow-x-auto">
+      <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden flex-1 relative">
+        {/* AQUÍ ESTÁ EL TRUCO: h-[calc(100vh-XXX)] fuerza al contenedor a tener scroll interno */}
+        <div className="overflow-auto h-[calc(100vh-180px)] w-full"> 
           <table className="w-full text-left border-collapse min-w-[1600px]">
-            <thead>
-                <tr className="bg-slate-50 border-b border-slate-200 text-xs font-bold text-slate-500 uppercase h-12">
-                    {/* COLUMNAS FIJAS (STICKY) */}
-                    <th className="p-4 w-12 sticky left-0 z-20 bg-slate-50"></th>
-                    <th className="p-4 w-48 sticky left-12 z-20 bg-slate-50 border-r border-slate-200">Concepto</th>
-                    <th className="p-4 w-48 sticky left-60 z-20 bg-slate-50 border-r border-slate-300 shadow-lg md:shadow-none">BL / Contenedor</th>
+            <thead className="sticky top-0 z-40"> {/* Encabezado Pegajoso al Top */}
+                <tr className="bg-slate-50 border-b border-slate-200 text-xs font-bold text-slate-500 uppercase h-12 shadow-sm">
+                    {/* ESQUINAS FIJAS (Z-INDEX 50: MÁS ALTO PORQUE ES INTERSECCIÓN TOP/LEFT) */}
+                    <th className="p-4 w-12 sticky left-0 top-0 z-50 bg-slate-50 border-b border-slate-200"></th>
+                    <th className="p-4 w-48 sticky left-12 top-0 z-50 bg-slate-50 border-r border-b border-slate-200">Concepto</th>
+                    <th className="p-4 w-48 sticky left-60 top-0 z-50 bg-slate-50 border-r border-b border-slate-300 shadow-lg md:shadow-none">BL / Contenedor</th>
                     
-                    {/* COLUMNAS SCROLLEABLES (Aquí agregamos ETA y Días Libres de nuevo) */}
-                    <th className="p-4 w-40">ETA & Semáforo</th>
-                    <th className="p-4 w-32 text-center">Días libres</th>
-                    <th className="p-4 w-32 text-center">Estatus Op.</th>
-                    <th className="p-4 w-40 text-right">Monto total</th>
-                    <th className="p-4 w-40 text-center">Fecha Pago</th>
-                    <th className="p-4 w-40 text-center">Acciones</th>
-                    {/* Espacio extra por si quieres agregar más columnas a futuro */}
-                    <th className="p-4 text-center">Observaciones</th>
+                    {/* COLUMNAS NORMALES DEL ENCABEZADO (Z-INDEX 40) */}
+                    <th className="p-4 w-40 bg-slate-50">ETA & Semáforo</th>
+                    <th className="p-4 w-32 text-center bg-slate-50">Días libres</th>
+                    <th className="p-4 w-32 text-center bg-slate-50">Estatus Op.</th>
+                    <th className="p-4 w-40 text-right bg-slate-50">Monto total</th>
+                    <th className="p-4 w-40 text-center bg-slate-50">Fecha Pago</th>
+                    <th className="p-4 w-40 text-center bg-slate-50">Acciones</th>
+                    <th className="p-4 text-center bg-slate-50">Observaciones</th>
                 </tr>
             </thead>
             <tbody className="text-sm">
@@ -796,26 +795,24 @@ const ListView = ({ data, onPayItem, onPayAll, onCloseOperation, role, onEdit })
                 <React.Fragment key={item.id}>
                     <tr className={`hover:bg-slate-50 border-b border-slate-100 transition-colors ${expandedRow === item.id ? 'bg-blue-50/30' : ''}`}>
                         
-                        {/* 1. FLECHA (STICKY LEFT 0) */}
-                        <td className="p-4 text-center cursor-pointer sticky left-0 z-10 bg-white border-r border-slate-100" onClick={() => toggleRow(item.id)}>
+                        {/* 1. FLECHA (STICKY LEFT) - Z-20 para estar sobre el scroll normal */}
+                        <td className="p-4 text-center cursor-pointer sticky left-0 z-20 bg-white border-r border-slate-100" onClick={() => toggleRow(item.id)}>
                             {expandedRow === item.id ? <ChevronUp size={18} className="text-blue-500"/> : <ChevronDown size={18} className="text-slate-400"/>}
                         </td>
 
-                        {/* 2. CLIENTE (STICKY LEFT 12) */}
-                        <td className="p-4 sticky left-12 z-10 bg-white border-r border-slate-100">
+                        {/* 2. CLIENTE (STICKY LEFT) */}
+                        <td className="p-4 sticky left-12 z-20 bg-white border-r border-slate-100">
                             <div className="font-bold text-slate-700 truncate w-40" title={item.client}>{item.client}</div>
                             <div className="inline-block mt-1 px-2 py-0.5 bg-slate-100 border rounded text-[10px] font-mono text-slate-600 truncate max-w-[150px]">{item.concept}</div>
                         </td>
 
-                        {/* 3. BL / CONTENEDOR (STICKY LEFT 60 - EL QUE QUERÍAS FIJO) */}
-                        <td className="p-4 sticky left-60 z-10 bg-white border-r border-slate-300 shadow-[4px_0_10px_-2px_rgba(0,0,0,0.1)]">
+                        {/* 3. BL / CONTENEDOR (STICKY LEFT - BORDE FINAL) */}
+                        <td className="p-4 sticky left-60 z-20 bg-white border-r border-slate-300 shadow-[4px_0_10px_-2px_rgba(0,0,0,0.1)]">
                             <div className="font-mono font-bold text-blue-700">{item.bl}</div>
                             <div className="text-xs text-slate-500 font-bold">{item.container}</div>
                         </td>
 
-                        {/* --- COLUMNAS NORMALES (SCROLLEABLES) --- */}
-                        
-                        {/* 4. ETA Y SEMÁFORO (RECUPERADO) */}
+                        {/* --- COLUMNAS SCROLLEABLES --- */}
                         <td className="p-4">
                             <div className="flex flex-col">
                                 <span className="font-bold text-slate-700 text-xs mb-1">{formatDate(item.eta)}</span>
@@ -824,7 +821,6 @@ const ListView = ({ data, onPayItem, onPayAll, onCloseOperation, role, onEdit })
                             </div>
                         </td>
 
-                        {/* 5. DÍAS LIBRES (RECUPERADO) */}
                         <td className="p-4 text-center">
                             <div className="inline-flex flex-col items-center justify-center p-2 bg-slate-50 rounded-lg border border-slate-200 min-w-[60px]">
                                 <span className="text-[10px] text-slate-400 uppercase font-bold mb-1">Libres</span>
@@ -834,7 +830,6 @@ const ListView = ({ data, onPayItem, onPayAll, onCloseOperation, role, onEdit })
                             </div>
                         </td>
 
-                        {/* 6. ESTATUS OPERATIVO (CERRADO/ACTIVO) */}
                         <td className="p-4 text-center">
                              {item.status === 'closed' 
                                 ? <span className="px-2 py-1 bg-slate-800 text-white rounded text-[10px] font-bold uppercase tracking-wider">Cerrado</span> 
@@ -842,13 +837,11 @@ const ListView = ({ data, onPayItem, onPayAll, onCloseOperation, role, onEdit })
                             }
                         </td>
 
-                        {/* 7. MONTO */}
                         <td className="p-4 text-right font-medium">
                             <div className="text-lg font-bold text-slate-700">${item.amount.toLocaleString()}</div>
                             <div className="text-[10px] text-slate-400 font-bold">{item.currency}</div>
                         </td>
 
-                        {/* 8. FECHA PAGO */}
                         <td className="p-4 text-center text-xs text-slate-500">
                             {item.payment === 'paid' ? (
                                 <div>
@@ -858,7 +851,6 @@ const ListView = ({ data, onPayItem, onPayAll, onCloseOperation, role, onEdit })
                             ) : '-'}
                         </td>
 
-                        {/* 9. ACCIONES */}
                         <td className="p-4 flex justify-center space-x-2">
                             {canSeeEdit && item.status !== 'closed' && (
                                 <button onClick={() => onEdit(item)} className="p-2 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg border border-transparent hover:border-blue-100 transition-all" title="Editar">
@@ -867,7 +859,6 @@ const ListView = ({ data, onPayItem, onPayAll, onCloseOperation, role, onEdit })
                             )}
                         </td>
 
-                        {/* 10. OBSERVACIONES (ESPACIO EXTRA) */}
                         <td className="p-4 text-xs text-slate-400 italic truncate max-w-[200px]">
                             Sin observaciones registradas...
                         </td>
@@ -876,14 +867,9 @@ const ListView = ({ data, onPayItem, onPayAll, onCloseOperation, role, onEdit })
                     {/* --- ZONA EXPANDIDA (ACORDEÓN DE PAGOS) --- */}
                     {expandedRow === item.id && (
                         <tr className="bg-slate-50 animate-fade-in">
-                            {/* Ocupa todo el ancho, pero debemos respetar los stickies visualmente si queremos, 
-                                aunque en 'sticky' el contenido expandido suele ir debajo normal. 
-                                Aquí haremos un truco: el contenido expandido tendrá un padding-left grande 
-                                para no chocar con los stickies visualmente si scrolleas a la izquierda. */}
                             <td colSpan="12" className="p-0 border-b border-slate-200 shadow-inner">
-                                <div className="pl-[360px] p-6 relative"> {/* pl-[360px] para empujar el contenido después de las columnas fijas */}
+                                <div className="pl-[360px] p-6 relative min-w-max"> {/* min-w-max asegura que el fondo gris cubra todo */}
                                     
-                                    {/* Indicador visual de que esto pertenece al BL fijo */}
                                     <div className="absolute left-0 top-0 bottom-0 w-[360px] bg-slate-100 border-r border-slate-200 z-10 flex items-center justify-center text-slate-300">
                                         <Anchor size={48} opacity={0.1} />
                                     </div>
@@ -892,9 +878,6 @@ const ListView = ({ data, onPayItem, onPayAll, onCloseOperation, role, onEdit })
                                         {costMap.map((c) => {
                                             const monto = item[c.k] || 0;
                                             const isPaid = paidFlags[c.k] || isFullyPaid;
-                                            
-                                            // Renderizamos incluso si es 0 para que se vea la estructura completa, 
-                                            // o puedes poner "if (monto === 0) return null;" si prefieres ocultarlos.
                                             
                                             return (
                                                 <div key={c.k} className={`p-3 rounded-lg border flex flex-col justify-between shadow-sm transition-all ${monto > 0 ? 'bg-white border-slate-200' : 'bg-slate-50 border-slate-100 opacity-60'}`}>
