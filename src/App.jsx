@@ -7,7 +7,7 @@ import {
   TrendingUp, TrendingDown, Activity, AlertCircle, Calculator, Trash2, 
   Download, Printer, Package, MapPin, Key, LogOut, Check, 
   ChevronLeft, ChevronRight, ChevronDown, ChevronUp, ShieldAlert, Eye, EyeOff, 
-  Anchor, ClipboardCheck, Calculator, Plus, Trash2, Download, FileText
+  Anchor, ClipboardCheck
 } from 'lucide-react';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
