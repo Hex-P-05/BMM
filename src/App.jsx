@@ -994,8 +994,7 @@ const ListView = ({ data, onPayItem, onPayAll, onCloseOperation, role, onEdit })
   );
 };
 
-// --- MÓDULO DE CIERRE DE CUENTA (ESTILO HOJA DE CÁLCULO) ---
-// --- MÓDULO DE CIERRE DE CUENTA (CON GENERACIÓN DE PDF) ---
+// --- MÓDULO DE CIERRE DE CUENTA (CON PDF NATIVO DE ALTA CALIDAD) ---
 const AccountClosure = ({ data }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedItem, setSelectedItem] = useState(null);
@@ -1027,33 +1026,140 @@ const AccountClosure = ({ data }) => {
     setSpreadsheet({ ...spreadsheet, [name]: parseFloat(value) || 0 });
   };
 
-  // --- NUEVA FUNCIÓN PARA GUARDAR PDF ---
-  const handleSavePDF = async () => {
-    const element = document.getElementById('closure-spreadsheet'); // Buscamos la hoja por ID
-    if(!element) return;
-    
-    try {
-      // 1. Capturamos el diseño exacto
-      const canvas = await html2canvas(element, { scale: 2, useCORS: true, backgroundColor: '#ffffff' });
-      
-      // 2. Preparamos el PDF
-      const imgData = canvas.toDataURL('image/png');
-      const pdf = new jsPDF('p', 'mm', 'a4'); // A4 Vertical
-      const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pdfHeight = (canvas.height * pdfWidth) / canvas.width; // Ajuste proporcional
-
-      // 3. Agregamos la imagen y guardamos
-      pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
-      pdf.save(`Cierre_Cuenta_${selectedItem.bl}.pdf`);
-    } catch (error) {
-      console.error("Error generando PDF:", error);
-      alert("Hubo un error al generar el PDF.");
-    }
-  };
-
+  // Cálculos
   const totalCliente = spreadsheet.venta + spreadsheet.almacenajes + spreadsheet.transporte + spreadsheet.demoras + spreadsheet.estadias + spreadsheet.otros;
   const totalAnticipo = spreadsheet.anticipo1 + spreadsheet.anticipo2 + spreadsheet.anticipo3;
   const diferencia = totalCliente - totalAnticipo;
+
+  // --- NUEVA FUNCIÓN DE PDF: DIBUJADO NATIVO (Alta Calidad) ---
+  const handleSavePDF = () => {
+    const doc = new jsPDF();
+    const margin = 20;
+    let yPos = 20;
+
+    // Colores personalizados (RGB)
+    const black = [30, 30, 30];
+    const orangeBg = [255, 247, 237]; // Orange-50
+    const orangeBorder = [253, 186, 116]; // Orange-300
+    const greenBg = [240, 253, 244]; // Green-50
+    const greenBorder = [134, 239, 172]; // Green-300
+    const redBg = [254, 242, 242]; // Red-50
+    const redText = [185, 28, 28]; // Red-700
+
+    // 1. ENCABEZADO NEGRO
+    doc.setFillColor(...black);
+    doc.rect(0, 0, 210, 45, 'F'); // Fondo negro superior
+
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(18);
+    doc.setFont("helvetica", "bold");
+    doc.text("ESTADO DE CUENTA FINAL", margin, 20);
+
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "normal");
+    doc.text("Resumen de cierre operativo y financiero", margin, 26);
+    
+    // Datos del Header
+    doc.setFontSize(9);
+    doc.text(`CLIENTE: ${selectedItem.client}`, margin, 38);
+    doc.text(`BL MASTER: ${selectedItem.bl}`, 120, 38);
+    
+    doc.text(`FECHA: ${new Date().toLocaleDateString()}`, 170, 20, { align: 'right' });
+    doc.text(`CONTENEDOR: ${selectedItem.container}`, 170, 38, { align: 'right' });
+
+    yPos = 60;
+
+    // Función auxiliar para dibujar filas
+    const drawRow = (label, value, bgColor, borderColor) => {
+        doc.setFillColor(...bgColor);
+        doc.setDrawColor(...borderColor);
+        
+        // Rectángulo Label
+        doc.rect(margin, yPos, 85, 10, 'F');
+        doc.rect(margin, yPos, 85, 10, 'S');
+        
+        // Rectángulo Valor
+        doc.rect(margin + 85, yPos, 85, 10, 'S');
+
+        // Texto Label
+        doc.setTextColor(50, 50, 50);
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(10);
+        doc.text(label, margin + 80, yPos + 7, { align: 'right' });
+
+        // Texto Valor
+        doc.setFont("helvetica", "normal");
+        doc.text(`$${value.toLocaleString()}`, margin + 165, yPos + 7, { align: 'right' });
+
+        yPos += 10;
+    };
+
+    // 2. SECCIÓN CARGOS (NARANJA)
+    doc.setFontSize(12);
+    doc.setTextColor(0, 0, 0);
+    doc.text("CARGOS AL CLIENTE", margin, yPos - 5);
+    
+    const cargos = [
+        { l: 'VENTA DE CONTENEDOR', v: spreadsheet.venta },
+        { l: 'ALMACENAJES', v: spreadsheet.almacenajes },
+        { l: 'TRANSPORTE', v: spreadsheet.transporte },
+        { l: 'DEMORAS', v: spreadsheet.demoras },
+        { l: 'ESTADÍAS', v: spreadsheet.estadias },
+        { l: 'OTROS', v: spreadsheet.otros },
+    ];
+
+    cargos.forEach(c => drawRow(c.l, c.v, orangeBg, orangeBorder));
+
+    // Total Cargos
+    doc.setFillColor(255, 237, 213); // Naranja más fuerte
+    doc.rect(margin, yPos, 170, 12, 'F');
+    doc.setFont("helvetica", "bold");
+    doc.text("TOTAL CLIENTE", margin + 80, yPos + 8, { align: 'right' });
+    doc.text(`$${totalCliente.toLocaleString()}`, margin + 165, yPos + 8, { align: 'right' });
+    yPos += 20;
+
+    // 3. SECCIÓN ANTICIPOS (VERDE)
+    doc.setFontSize(12);
+    doc.setTextColor(0, 0, 0);
+    doc.text("ANTICIPOS RECIBIDOS", margin, yPos - 5);
+
+    const anticipos = [
+        { l: 'ANTICIPO 1', v: spreadsheet.anticipo1 },
+        { l: 'ANTICIPO 2', v: spreadsheet.anticipo2 },
+        { l: 'ANTICIPO 3', v: spreadsheet.anticipo3 },
+    ];
+
+    anticipos.forEach(a => drawRow(a.l, a.v, greenBg, greenBorder));
+
+    // Total Anticipos
+    doc.setFillColor(220, 252, 231); // Verde más fuerte
+    doc.rect(margin, yPos, 170, 12, 'F');
+    doc.setFont("helvetica", "bold");
+    doc.text("TOTAL ANTICIPOS", margin + 80, yPos + 8, { align: 'right' });
+    doc.text(`$${totalAnticipo.toLocaleString()}`, margin + 165, yPos + 8, { align: 'right' });
+    yPos += 25;
+
+    // 4. DIFERENCIA (ROJO GRAN FINAL)
+    doc.setDrawColor(185, 28, 28); // Borde Rojo oscuro
+    doc.setLineWidth(1);
+    doc.setFillColor(...redBg);
+    doc.roundedRect(margin, yPos, 170, 25, 3, 3, 'FD'); // Fill and Draw
+
+    doc.setTextColor(...redText);
+    doc.setFontSize(14);
+    doc.text("DIFERENCIA A PAGAR / SALDO", margin + 85, yPos + 10, { align: 'center' });
+    
+    doc.setFontSize(22);
+    doc.setFont("helvetica", "bold");
+    doc.text(`$${diferencia.toLocaleString()}`, margin + 85, yPos + 20, { align: 'center' });
+
+    // Pie de página
+    doc.setFontSize(8);
+    doc.setTextColor(150, 150, 150);
+    doc.text("Este documento es un comprobante interno de cierre de cuenta.", 105, 280, { align: 'center' });
+
+    doc.save(`Cierre_${selectedItem.bl}.pdf`);
+  };
 
   return (
     <div className="max-w-5xl mx-auto animate-fade-in space-y-6 pb-12">
@@ -1097,82 +1203,79 @@ const AccountClosure = ({ data }) => {
       {selectedItem ? (
         <div className="bg-white shadow-2xl border border-slate-300 w-full max-w-4xl mx-auto font-sans">
             
-            {/* --- ID AGREGADO AQUÍ PARA QUE EL PDF CAPTURE SOLO ESTA PARTE --- */}
-            <div id="closure-spreadsheet"> 
-                {/* ENCABEZADO NEGRO */}
-                <div className="bg-black text-white p-4 grid grid-cols-2 md:grid-cols-4 gap-4 items-center border-b-4 border-slate-600">
-                    <div className="md:col-span-2">
-                        <h3 className="text-lg font-bold text-yellow-400 uppercase tracking-widest">Cierre de Cuenta</h3>
-                        <div className="text-sm font-bold mt-1">{selectedItem.client}</div>
-                        <div className="text-xs text-gray-400">{selectedItem.bl}</div>
+            {/* ENCABEZADO VISUAL (HTML) */}
+            <div className="bg-black text-white p-4 grid grid-cols-2 md:grid-cols-4 gap-4 items-center border-b-4 border-slate-600">
+                <div className="md:col-span-2">
+                    <h3 className="text-lg font-bold text-yellow-400 uppercase tracking-widest">Cierre de Cuenta</h3>
+                    <div className="text-sm font-bold mt-1">{selectedItem.client}</div>
+                    <div className="text-xs text-gray-400">{selectedItem.bl}</div>
+                </div>
+                <div className="text-right md:text-left">
+                    <div className="text-xs text-gray-400 uppercase">ETA</div>
+                    <div className="font-mono font-bold text-lg">{formatDate(selectedItem.eta)}</div>
+                </div>
+                <div className="text-right">
+                    <div className="text-xs text-gray-400 uppercase">FECHA CIERRE</div>
+                    <div className="font-mono font-bold text-lg">{new Date().toLocaleDateString()}</div>
+                </div>
+            </div>
+
+            {/* CUERPO DE LA TABLA (HTML - VISUALIZACIÓN) */}
+            <div className="p-8 space-y-1 bg-white">
+                {[
+                    { label: 'VENTA DE CONTENEDOR', name: 'venta' },
+                    { label: 'ALMACENAJES', name: 'almacenajes' },
+                    { label: 'TRANSPORTE', name: 'transporte' },
+                    { label: 'DEMORAS', name: 'demoras' },
+                    { label: 'ESTADÍAS', name: 'estadias' },
+                    { label: 'OTROS', name: 'otros' }
+                ].map((row, idx) => (
+                    <div key={idx} className="flex border-b border-slate-200">
+                        <div className="w-1/2 p-2 bg-orange-50 border-r border-slate-200 font-bold text-slate-700 uppercase text-sm flex items-center justify-end pr-4">
+                            {row.label}
+                        </div>
+                        <div className="w-1/2 p-1 relative">
+                            <span className="absolute left-3 top-3 text-slate-400 font-bold">$</span>
+                            <input type="number" name={row.name} value={spreadsheet[row.name] || ''} onChange={handleCalcChange} className="w-full h-full p-2 pl-8 text-right font-mono text-slate-800 outline-none bg-transparent" placeholder="0.00"/>
+                        </div>
                     </div>
-                    <div className="text-right md:text-left">
-                        <div className="text-xs text-gray-400 uppercase">ETA</div>
-                        <div className="font-mono font-bold text-lg">{formatDate(selectedItem.eta)}</div>
-                    </div>
-                    <div className="text-right">
-                        <div className="text-xs text-gray-400 uppercase">FECHA CIERRE</div>
-                        <div className="font-mono font-bold text-lg">{new Date().toLocaleDateString()}</div>
-                    </div>
+                ))}
+
+                <div className="flex border-t-2 border-black mt-2">
+                    <div className="w-1/2 p-3 bg-orange-200 border-r border-black font-extrabold text-red-900 uppercase text-sm flex items-center justify-end pr-4">TOTAL CLIENTE</div>
+                    <div className="w-1/2 p-3 bg-orange-100 text-right font-mono font-bold text-xl text-slate-900">${totalCliente.toLocaleString()}</div>
                 </div>
 
-                {/* CUERPO DE LA TABLA */}
-                <div className="p-8 space-y-1 bg-white">
-                    {[
-                        { label: 'VENTA DE CONTENEDOR', name: 'venta' },
-                        { label: 'ALMACENAJES', name: 'almacenajes' },
-                        { label: 'TRANSPORTE', name: 'transporte' },
-                        { label: 'DEMORAS', name: 'demoras' },
-                        { label: 'ESTADÍAS', name: 'estadias' },
-                        { label: 'OTROS', name: 'otros' }
-                    ].map((row, idx) => (
-                        <div key={idx} className="flex border-b border-slate-200">
-                            <div className="w-1/2 p-2 bg-orange-50 border-r border-slate-200 font-bold text-slate-700 uppercase text-sm flex items-center justify-end pr-4">
-                                {row.label}
-                            </div>
-                            <div className="w-1/2 p-1 relative">
-                                <span className="absolute left-3 top-3 text-slate-400 font-bold">$</span>
-                                <input type="number" name={row.name} value={spreadsheet[row.name] || ''} onChange={handleCalcChange} className="w-full h-full p-2 pl-8 text-right font-mono text-slate-800 outline-none bg-transparent" placeholder="0.00"/>
-                            </div>
+                <div className="h-6"></div>
+
+                {[
+                    { label: 'ANTICIPO 1', name: 'anticipo1' },
+                    { label: 'ANTICIPO 2', name: 'anticipo2' },
+                    { label: 'ANTICIPO 3', name: 'anticipo3' }
+                ].map((row, idx) => (
+                    <div key={idx} className="flex border-b border-slate-200">
+                        <div className="w-1/2 p-2 bg-green-50 border-r border-slate-200 font-bold text-green-800 uppercase text-sm flex items-center justify-end pr-4">{row.label}</div>
+                        <div className="w-1/2 p-1 relative">
+                            <span className="absolute left-3 top-3 text-slate-400 font-bold">$</span>
+                            <input type="number" name={row.name} value={spreadsheet[row.name] || ''} onChange={handleCalcChange} className="w-full h-full p-2 pl-8 text-right font-mono text-slate-800 outline-none bg-transparent" placeholder="0.00"/>
                         </div>
-                    ))}
-
-                    <div className="flex border-t-2 border-black mt-2">
-                        <div className="w-1/2 p-3 bg-orange-200 border-r border-black font-extrabold text-red-900 uppercase text-sm flex items-center justify-end pr-4">TOTAL CLIENTE</div>
-                        <div className="w-1/2 p-3 bg-orange-100 text-right font-mono font-bold text-xl text-slate-900">${totalCliente.toLocaleString()}</div>
                     </div>
+                ))}
 
-                    <div className="h-6"></div>
+                <div className="flex border-t-2 border-green-600">
+                    <div className="w-1/2 p-3 bg-green-200 border-r border-green-600 font-extrabold text-green-900 uppercase text-sm flex items-center justify-end pr-4">TOTAL ANTICIPO</div>
+                    <div className="w-1/2 p-3 bg-green-100 text-right font-mono font-bold text-xl text-green-900">${totalAnticipo.toLocaleString()}</div>
+                </div>
 
-                    {[
-                        { label: 'ANTICIPO 1', name: 'anticipo1' },
-                        { label: 'ANTICIPO 2', name: 'anticipo2' },
-                        { label: 'ANTICIPO 3', name: 'anticipo3' }
-                    ].map((row, idx) => (
-                        <div key={idx} className="flex border-b border-slate-200">
-                            <div className="w-1/2 p-2 bg-green-50 border-r border-slate-200 font-bold text-green-800 uppercase text-sm flex items-center justify-end pr-4">{row.label}</div>
-                            <div className="w-1/2 p-1 relative">
-                                <span className="absolute left-3 top-3 text-slate-400 font-bold">$</span>
-                                <input type="number" name={row.name} value={spreadsheet[row.name] || ''} onChange={handleCalcChange} className="w-full h-full p-2 pl-8 text-right font-mono text-slate-800 outline-none bg-transparent" placeholder="0.00"/>
-                            </div>
-                        </div>
-                    ))}
+                <div className="h-6"></div>
 
-                    <div className="flex border-t-2 border-green-600">
-                        <div className="w-1/2 p-3 bg-green-200 border-r border-green-600 font-extrabold text-green-900 uppercase text-sm flex items-center justify-end pr-4">TOTAL ANTICIPO</div>
-                        <div className="w-1/2 p-3 bg-green-100 text-right font-mono font-bold text-xl text-green-900">${totalAnticipo.toLocaleString()}</div>
-                    </div>
-
-                    <div className="h-6"></div>
-
-                    <div className="flex border-4 border-red-800 shadow-lg transform scale-105 origin-center my-4">
-                        <div className="w-1/2 p-4 bg-red-300 border-r-4 border-red-800 font-extrabold text-red-950 uppercase text-lg flex items-center justify-end pr-4">DIFERENCIA</div>
-                        <div className="w-1/2 p-4 bg-red-200 text-right font-mono font-extrabold text-3xl text-red-900">${diferencia.toLocaleString()}</div>
-                    </div>
+                <div className="flex border-4 border-red-800 shadow-lg transform scale-105 origin-center my-4">
+                    <div className="w-1/2 p-4 bg-red-300 border-r-4 border-red-800 font-extrabold text-red-950 uppercase text-lg flex items-center justify-end pr-4">DIFERENCIA</div>
+                    <div className="w-1/2 p-4 bg-red-200 text-right font-mono font-extrabold text-3xl text-red-900">${diferencia.toLocaleString()}</div>
                 </div>
             </div>
             
-            {/* BOTÓN ACTUALIZADO PARA GUARDAR PDF */}
+            {/* BOTÓN GUARDAR PDF (NATIVO) */}
             <div className="p-4 bg-slate-100 border-t border-slate-300 flex justify-end">
                 <button 
                     onClick={handleSavePDF} 
