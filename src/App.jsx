@@ -268,6 +268,87 @@ const EditModal = ({ isOpen, onClose, onSave, item, role }) => {
   );
 };
 
+// --- NUEVO MODAL PARA CERRAR OPERACIÓN Y PDF ---
+const CloseModal = ({ isOpen, onClose, item }) => {
+  if (!isOpen || !item) return null;
+
+  // Calcula totales para el resumen
+  const totalPagado = item.amount; // Asumimos que al cerrar todo está pagado
+  const fechaCierre = new Date().toLocaleDateString();
+
+  const handleDownloadReceipt = async () => {
+    const element = document.getElementById('receipt-content');
+    if(!element) return;
+    try {
+      const canvas = await html2canvas(element, { scale: 2, backgroundColor: '#ffffff' });
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+      pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+      pdf.save(`Comprobante_Cierre_${item.bl}.pdf`);
+    } catch (error) {
+      console.error("Error PDF:", error);
+    }
+  };
+
+  const costList = [
+    { l: 'Demoras', v: item.costDemoras }, { l: 'Almacenaje', v: item.costAlmacenaje },
+    { l: 'Operativos', v: item.costOperativos }, { l: 'Portuarios', v: item.costPortuarios },
+    { l: 'Apoyo', v: item.costApoyo }, { l: 'Impuestos', v: item.costImpuestos },
+    { l: 'Liberación', v: item.costLiberacion }, { l: 'Transporte', v: item.costTransporte }
+  ].filter(c => c.v > 0); // Solo mostramos lo que costó algo
+
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 animate-fade-in">
+      <div className="absolute inset-0 bg-slate-900/80 backdrop-blur-sm" onClick={onClose}></div>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg relative z-10 overflow-hidden flex flex-col max-h-[90vh]">
+        
+        {/* Cabecera del Modal */}
+        <div className="bg-emerald-600 p-6 text-white flex justify-between items-center">
+          <div>
+            <h3 className="text-xl font-bold flex items-center"><CheckCircle className="mr-2"/> Operación Cerrada</h3>
+            <p className="text-emerald-100 text-sm">El contenedor ha finalizado su ciclo.</p>
+          </div>
+          <button onClick={onClose}><X className="text-white hover:bg-emerald-700 rounded p-1" /></button>
+        </div>
+
+        {/* Contenido Visual (Lo que se imprime) */}
+        <div className="p-6 overflow-y-auto bg-slate-50 flex-1">
+          <div id="receipt-content" className="bg-white p-8 shadow-sm border border-slate-200 rounded-lg">
+            <div className="text-center border-b border-slate-100 pb-4 mb-4">
+              <h2 className="text-2xl font-bold text-slate-800 uppercase tracking-widest">Comprobante</h2>
+              <p className="text-xs text-slate-400">Ref: {item.bl} - {item.container}</p>
+              <p className="text-xs text-slate-400">Fecha Cierre: {fechaCierre}</p>
+            </div>
+            
+            <div className="space-y-2 text-sm mb-6">
+              {costList.map((c, i) => (
+                <div key={i} className="flex justify-between border-b border-slate-50 pb-1">
+                  <span className="text-slate-500">{c.l}</span>
+                  <span className="font-mono font-bold text-slate-700">${c.v.toLocaleString()}</span>
+                </div>
+              ))}
+            </div>
+
+            <div className="bg-slate-900 text-white p-3 rounded-lg flex justify-between items-center">
+              <span className="font-bold">TOTAL PAGADO</span>
+              <span className="text-xl font-bold">${totalPagado.toLocaleString()} {item.currency}</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Footer con Botón de Descarga */}
+        <div className="p-4 border-t bg-white">
+          <button onClick={handleDownloadReceipt} className="w-full py-3 bg-slate-800 text-white font-bold rounded-xl hover:bg-slate-900 flex justify-center items-center gap-2 shadow-lg">
+            <Download size={18} /> Descargar PDF y Finalizar
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const PaymentModal = ({ isOpen, onClose, onConfirm, item }) => {
   if (!isOpen || !item) return null;
   return (
@@ -643,28 +724,39 @@ const CaptureForm = ({ onSave, onCancel, existingData, role }) => {
 };
 
 // --- LISTVIEW (SÁBANA) CON DESGLOSE VISIBLE ---
-const ListView = ({ data, onInitiatePayment, role, onEdit }) => {
+const ListView = ({ data, onPayItem, onPayAll, onCloseOperation, role, onEdit }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [expandedRow, setExpandedRow] = useState(null);
 
-  const filteredData = data.filter(item => item.bl.toLowerCase().includes(searchTerm.toLowerCase()) || item.client.toLowerCase().includes(searchTerm.toLowerCase()) || item.container.toLowerCase().includes(searchTerm.toLowerCase()));
+  const filteredData = data.filter(item => 
+    item.bl.toLowerCase().includes(searchTerm.toLowerCase()) || 
+    item.client.toLowerCase().includes(searchTerm.toLowerCase()) || 
+    item.container.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
   const canPay = role === 'admin' || role === 'pagos';
   const canSeeEdit = role === 'admin' || role === 'ejecutivo';
 
-  const toggleRow = (id) => {
-    if (expandedRow === id) { setExpandedRow(null); } else { setExpandedRow(id); }
-  };
+  const toggleRow = (id) => setExpandedRow(expandedRow === id ? null : id);
 
-  const renderDaysDiff = (etaString) => {
-    const diff = getDaysDiff(etaString);
-    if (diff < 0) { return <span className="text-xs font-bold text-red-600 block mt-1">Hace {Math.abs(diff)} días</span>; } 
-    else if (diff === 0) { return <span className="text-xs font-bold text-orange-600 block mt-1">¡Llega hoy!</span>; } 
-    else { return <span className="text-xs font-medium text-slate-400 block mt-1">Faltan {diff} días</span>; }
-  };
+  // Mapeo de claves de costo a nombres legibles
+  const costMap = [
+    { k: 'costDemoras', l: 'Demoras' }, { k: 'costAlmacenaje', l: 'Almacenaje' },
+    { k: 'costOperativos', l: 'Operativos' }, { k: 'costPortuarios', l: 'Portuarios' },
+    { k: 'costApoyo', l: 'Apoyo' }, { k: 'costImpuestos', l: 'Impuestos' },
+    { k: 'costLiberacion', l: 'Liberación' }, { k: 'costTransporte', l: 'Transporte' }
+  ];
 
   return (
     <div className="space-y-4 animate-fade-in">
-      <div className="flex justify-between items-center bg-white p-4 rounded-xl border border-slate-200 shadow-sm"><h2 className="text-xl font-bold text-slate-800">Sábana operativa</h2><div className="relative w-72"><Search className="absolute left-3 top-2.5 text-slate-400" size={18} /><input type="text" placeholder="Buscar..." className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm" onChange={(e) => setSearchTerm(e.target.value)} /></div></div>
+      <div className="flex justify-between items-center bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+        <h2 className="text-xl font-bold text-slate-800">Sábana operativa</h2>
+        <div className="relative w-72">
+            <Search className="absolute left-3 top-2.5 text-slate-400" size={18} />
+            <input type="text" placeholder="Buscar..." className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm" onChange={(e) => setSearchTerm(e.target.value)} />
+        </div>
+      </div>
+
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse min-w-[800px]">
@@ -673,15 +765,19 @@ const ListView = ({ data, onInitiatePayment, role, onEdit }) => {
                     <th className="p-4 w-10"></th>
                     <th className="p-4">Concepto</th>
                     <th className="p-4">BL / Contenedor</th>
-                    <th className="p-4">ETA & Estatus</th>
-                    <th className="p-4 text-center">Días libres</th>
+                    <th className="p-4">Estatus Global</th>
                     <th className="p-4 text-right">Monto total</th>
-                    <th className="p-4 text-center">Pagado el</th>
                     <th className="p-4 text-center">Acciones</th>
                 </tr>
             </thead>
             <tbody className="text-sm">
-              {filteredData.map((item) => (
+              {filteredData.map((item) => {
+                // Verificamos si todo está pagado (simulado con payment === 'paid')
+                const isFullyPaid = item.payment === 'paid'; 
+                // Simulamos flags de pago individuales si no existen en la data (esto iría en tu DB real)
+                const paidFlags = item.paidFlags || {}; 
+
+                return (
                 <React.Fragment key={item.id}>
                     <tr className={`hover:bg-slate-50 border-b border-slate-100 transition-colors ${expandedRow === item.id ? 'bg-blue-50/50' : ''}`}>
                         <td className="p-4 text-center cursor-pointer" onClick={() => toggleRow(item.id)}>
@@ -690,37 +786,84 @@ const ListView = ({ data, onInitiatePayment, role, onEdit }) => {
                         <td className="p-4"><div className="font-bold text-slate-700">{item.client}</div><div className="inline-block mt-1 px-2 py-0.5 bg-slate-100 border rounded text-xs font-mono text-slate-600">{item.concept}</div></td>
                         <td className="p-4"><div className="font-mono font-medium">{item.bl}</div><div className="text-xs text-slate-500">{item.container}</div></td>
                         <td className="p-4">
-                            <div className="flex items-center space-x-2 mb-1"><span className="font-bold text-slate-700">{formatDate(item.eta)}</span><StatusBadge item={item} /></div>{renderDaysDiff(item.eta)}
+                            {item.status === 'closed' 
+                                ? <span className="px-2 py-1 bg-slate-800 text-white rounded text-xs font-bold">CERRADO</span> 
+                                : <StatusBadge item={item} />
+                            }
                         </td>
-                        <td className="p-4 text-center"><div className="inline-flex items-center px-2 py-1 bg-slate-100 text-slate-600 rounded-md border border-slate-200 font-bold text-xs"><Clock size={12} className="mr-1"/> {item.freeDays}</div></td>
-                        <td className="p-4 text-right font-medium"><span className="text-[10px] text-slate-400 mr-1 font-bold align-top">{item.currency || 'MXN'}</span>${item.amount.toLocaleString()}</td>
-                        <td className="p-4 text-center text-xs text-slate-500">{item.payment === 'paid' ? formatDate(item.paymentDate) : '-'}</td>
+                        <td className="p-4 text-right font-medium"><span className="text-[10px] text-slate-400 mr-1 font-bold align-top">{item.currency}</span>${item.amount.toLocaleString()}</td>
                         <td className="p-4 flex justify-center space-x-2">
-                            {canPay && item.payment === 'pending' && (<button onClick={() => onInitiatePayment(item.id)} className="px-3 py-1 bg-emerald-50 text-emerald-600 border border-emerald-200 rounded hover:bg-emerald-100 text-xs font-bold flex items-center"><DollarSign size={14} className="mr-1"/> Pagar</button>)}
-                            {item.payment === 'paid' && (<span className="px-3 py-1 bg-slate-50 text-slate-400 rounded text-xs font-bold border border-slate-200 cursor-not-allowed">Completado</span>)}
-                            {canSeeEdit && (<button onClick={() => onEdit(item)} className={`p-1.5 rounded transition-colors ${role === 'ejecutivo' && item.editCount >= 2 ? 'text-slate-300 cursor-not-allowed' : 'text-slate-400 hover:text-blue-600 hover:bg-blue-50'}`} title={role === 'ejecutivo' && item.editCount >= 2 ? "Edición bloqueada por el sistema" : "Editar contenedor"}>{role === 'ejecutivo' && item.editCount >= 2 ? <ShieldAlert size={16} /> : <Edit size={16} />}</button>)}
+                            {canSeeEdit && item.status !== 'closed' && (
+                                <button onClick={() => onEdit(item)} className="p-1.5 text-slate-400 hover:text-blue-600 rounded bg-white border border-slate-200 shadow-sm"><Edit size={16}/></button>
+                            )}
                         </td>
                     </tr>
+                    
+                    {/* ZONA EXPANDIDA DE PAGOS */}
                     {expandedRow === item.id && (
                         <tr className="bg-slate-50 animate-fade-in">
-                            <td colSpan="8" className="p-4 border-b border-slate-200 shadow-inner">
-                                {/* AQUÍ ESTÁ EL DESGLOSE DE PAGOS (GRANULARIDAD) */}
-                                <div className="grid grid-cols-2 md:grid-cols-4 gap-y-4 gap-x-8 px-8">
-                                    <div className="flex justify-between border-b border-slate-200 pb-1"><span className="text-xs text-slate-500 font-medium">Demoras</span><span className="text-xs font-bold text-slate-700 font-mono">${(item.costDemoras || 0).toLocaleString()}</span></div>
-                                    <div className="flex justify-between border-b border-slate-200 pb-1"><span className="text-xs text-slate-500 font-medium">Almacenaje</span><span className="text-xs font-bold text-slate-700 font-mono">${(item.costAlmacenaje || 0).toLocaleString()}</span></div>
-                                    <div className="flex justify-between border-b border-slate-200 pb-1"><span className="text-xs text-slate-500 font-medium">Costos operativos</span><span className="text-xs font-bold text-slate-700 font-mono">${(item.costOperativos || 0).toLocaleString()}</span></div>
-                                    <div className="flex justify-between border-b border-slate-200 pb-1"><span className="text-xs text-slate-500 font-medium">Gastos portuarios</span><span className="text-xs font-bold text-slate-700 font-mono">${(item.costPortuarios || 0).toLocaleString()}</span></div>
-                                    <div className="flex justify-between border-b border-slate-200 pb-1"><span className="text-xs text-slate-500 font-medium">Apoyo</span><span className="text-xs font-bold text-slate-700 font-mono">${(item.costApoyo || 0).toLocaleString()}</span></div>
-                                    <div className="flex justify-between border-b border-slate-200 pb-1"><span className="text-xs text-slate-500 font-medium">Impuestos</span><span className="text-xs font-bold text-slate-700 font-mono">${(item.costImpuestos || 0).toLocaleString()}</span></div>
-                                    <div className="flex justify-between border-b border-slate-200 pb-1"><span className="text-xs text-slate-500 font-medium">Liberación abandono</span><span className="text-xs font-bold text-slate-700 font-mono">${(item.costLiberacion || 0).toLocaleString()}</span></div>
-                                    <div className="flex justify-between border-b border-slate-200 pb-1"><span className="text-xs text-slate-500 font-medium">Transporte</span><span className="text-xs font-bold text-slate-700 font-mono">${(item.costTransporte || 0).toLocaleString()}</span></div>
-                                    <div className="col-span-2 md:col-start-4 pt-2 flex justify-between items-center"><span className="text-sm font-bold text-slate-800 uppercase">Total calculado:</span><span className="text-lg font-bold text-blue-600 font-mono">${item.amount.toLocaleString()} <span className="text-xs text-slate-400">{item.currency}</span></span></div>
+                            <td colSpan="6" className="p-6 border-b border-slate-200 shadow-inner">
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                                    {costMap.map((c) => {
+                                        const monto = item[c.k] || 0;
+                                        const isPaid = paidFlags[c.k] || isFullyPaid; // Si es global paid, todo es paid
+                                        
+                                        if (monto === 0) return null; // No mostrar si es 0
+
+                                        return (
+                                            <div key={c.k} className="bg-white p-3 rounded-lg border border-slate-200 flex flex-col justify-between shadow-sm">
+                                                <div className="flex justify-between items-start mb-2">
+                                                    <span className="text-xs font-bold text-slate-500 uppercase">{c.l}</span>
+                                                    <span className="font-mono font-bold text-slate-800">${monto.toLocaleString()}</span>
+                                                </div>
+                                                {/* Botón Individual */}
+                                                {canPay && item.status !== 'closed' && (
+                                                    <button 
+                                                        disabled={isPaid}
+                                                        onClick={() => onPayItem(item.id, c.k)}
+                                                        className={`w-full py-1.5 text-xs font-bold rounded flex items-center justify-center transition-colors ${
+                                                            isPaid 
+                                                            ? 'bg-green-100 text-green-700 cursor-default' 
+                                                            : 'bg-blue-600 text-white hover:bg-blue-700'
+                                                        }`}
+                                                    >
+                                                        {isPaid ? <><Check size={12} className="mr-1"/> Pagado</> : 'Pagar'}
+                                                    </button>
+                                                )}
+                                            </div>
+                                        );
+                                    })}
                                 </div>
+
+                                {/* BARRA DE ACCIONES DE CIERRE */}
+                                {canPay && item.status !== 'closed' && (
+                                    <div className="flex justify-end gap-3 pt-4 border-t border-slate-200">
+                                        {!isFullyPaid && (
+                                            <button 
+                                                onClick={() => onPayAll(item.id)}
+                                                className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-bold rounded-lg shadow-sm flex items-center"
+                                            >
+                                                <CheckCircle size={16} className="mr-2"/> Pagar Todo
+                                            </button>
+                                        )}
+                                        <button 
+                                            onClick={() => onCloseOperation(item)}
+                                            className="px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white text-sm font-bold rounded-lg shadow-sm flex items-center"
+                                        >
+                                            <Lock size={16} className="mr-2"/> Cerrar Operación
+                                        </button>
+                                    </div>
+                                )}
+                                {item.status === 'closed' && (
+                                    <div className="text-center py-2 text-slate-500 text-sm font-bold italic">
+                                        Operación cerrada. Solo lectura.
+                                    </div>
+                                )}
                             </td>
                         </tr>
                     )}
                 </React.Fragment>
-              ))}
+              )})} 
             </tbody>
           </table>
         </div>
@@ -730,20 +873,38 @@ const ListView = ({ data, onInitiatePayment, role, onEdit }) => {
 };
 
 export default function App() {
+  // --- 1. ESTADOS GENERALES Y AUTENTICACIÓN ---
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [role, setRole] = useState('admin');
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
-  const handleLogin = (userRole) => { setRole(userRole); setIsLoggedIn(true); };
-  const handleLogout = () => { setIsLoggedIn(false); setActiveTab('dashboard'); };
 
+  // --- 2. ESTADOS DE NAVEGACIÓN Y DATOS ---
   const [activeTab, setActiveTab] = useState('dashboard');
   const [data, setData] = useState(initialData);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
+  // --- 3. ESTADOS DE LOS MODALES ---
   const [paymentConfirmation, setPaymentConfirmation] = useState({ isOpen: false, item: null });
   const [editingItem, setEditingItem] = useState(null);
+  
+  // NUEVOS ESTADOS PARA CIERRE DE OPERACIÓN
+  const [closeModalOpen, setCloseModalOpen] = useState(false);
+  const [itemToClose, setItemToClose] = useState(null);
 
+  // --- 4. MANEJADORES DE AUTENTICACIÓN ---
+  const handleLogin = (userRole) => {
+    setRole(userRole);
+    setIsLoggedIn(true);
+  };
+
+  const handleLogout = () => {
+    setIsLoggedIn(false);
+    setActiveTab('dashboard');
+  };
+
+  // --- 5. LÓGICA DE DATOS (CRUD) ---
   const handleSave = (newItem) => {
-    const itemWithId = { ...newItem, id: Date.now() };
+    const itemWithId = { ...newItem, id: Date.now(), statusETA: calculateStatus(newItem.eta) };
     setData([itemWithId, ...data]);
     setActiveTab('list');
   };
@@ -751,29 +912,17 @@ export default function App() {
   const handleSaveEdit = (editedItem) => {
     const newData = data.map(item => {
       if (item.id === editedItem.id) {
-        return { ...editedItem, editCount: (item.editCount || 0) + 1 };
+        // Actualizamos datos y aumentamos contador de ediciones
+        return { 
+            ...editedItem, 
+            statusETA: calculateStatus(editedItem.eta), // Recalcular estatus ETA
+            editCount: (item.editCount || 0) + 1 
+        };
       }
       return item;
     });
     setData(newData);
     setEditingItem(null); 
-  };
-
-  const initiatePayment = (id) => { const item = data.find(i => i.id === id); if (item) { setPaymentConfirmation({ isOpen: true, item }); } };
-
-  const executePayment = () => {
-    const { item } = paymentConfirmation;
-    if (!item) return;
-    const today = new Date(); today.setHours(0,0,0,0); const todayStr = today.toISOString().split('T')[0];
-    const updatedData = data.map(d => {
-      if (d.id === item.id) {
-        const [year, month, day] = d.eta.split('-').map(Number); const etaDate = new Date(year, month - 1, day); const diffTime = etaDate - today; const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)); 
-        let delay = 0; if (diffDays < 0) { delay = Math.abs(diffDays); }
-        return { ...d, payment: 'paid', paymentDate: todayStr, paymentDelay: delay };
-      }
-      return d;
-    });
-    setData(updatedData); setPaymentConfirmation({ isOpen: false, item: null }); 
   };
 
   const handleEditClick = (item) => {
@@ -786,42 +935,210 @@ export default function App() {
     setEditingItem(item);
   };
 
+  // --- 6. LÓGICA DE PAGOS (NUEVA Y GRANULAR) ---
+
+  // A) Iniciar pago global (Modal antiguo, opcional si usas el botón "Pagar Todo")
+  const initiatePayment = (id) => { 
+      const item = data.find(i => i.id === id); 
+      if (item) { setPaymentConfirmation({ isOpen: true, item }); } 
+  };
+
+  // B) Ejecutar pago global desde el modal de confirmación
+  const executePayment = () => {
+    const { item } = paymentConfirmation;
+    if (!item) return;
+    handlePayAll(item.id); // Reutilizamos la lógica de pagar todo
+    setPaymentConfirmation({ isOpen: false, item: null }); 
+  };
+
+  // C) Pagar un concepto individual (Botones pequeños en la sábana)
+  const handlePayItem = (id, costKey) => {
+      const newData = data.map(d => {
+        if (d.id === id) {
+          const currentFlags = d.paidFlags || {};
+          return { 
+              ...d, 
+              paidFlags: { ...currentFlags, [costKey]: true } 
+          };
+        }
+        return d;
+      });
+      setData(newData);
+  };
+
+  // D) Pagar TODO el contenedor (Botón verde "Pagar Todo")
+  const handlePayAll = (id) => {
+      const todayStr = new Date().toISOString().split('T')[0];
+      const newData = data.map(d => {
+        if (d.id === id) {
+          // Calculamos retraso si aplica
+          const diffDays = getDaysDiff(d.eta);
+          let delay = 0; 
+          if (diffDays < 0) { delay = Math.abs(diffDays); }
+
+          return { 
+              ...d, 
+              payment: 'paid', 
+              paymentDate: todayStr, 
+              paymentDelay: delay,
+              // Marcamos todas las banderas individuales como true también
+              paidFlags: {
+                  costDemoras: true, costAlmacenaje: true, costOperativos: true, costPortuarios: true,
+                  costApoyo: true, costImpuestos: true, costLiberacion: true, costTransporte: true
+              }
+          };
+        }
+        return d;
+      });
+      setData(newData);
+  };
+
+  // --- 7. LÓGICA DE CIERRE DE OPERACIÓN (NUEVA) ---
+  
+  const handleCloseOperation = (item) => {
+      // Regla: No cerrar si no está pagado todo (Opcional, aquí pregunto)
+      if (item.payment !== 'paid') {
+         const confirm = window.confirm("⚠️ PAGOS PENDIENTES\n\nEste contenedor aún tiene saldos pendientes. Al cerrarlo se marcará todo como PAGADO automáticamente.\n\n¿Deseas continuar?");
+         if(!confirm) return;
+         
+         // Si dice que sí, pagamos todo primero en memoria temporal para el recibo
+         const itemPagado = { ...item, payment: 'paid' };
+         handlePayAll(item.id); // Actualizamos estado real
+         setItemToClose(itemPagado); // Pasamos el item ya "pagado" al modal
+      } else {
+         setItemToClose(item);
+      }
+      setCloseModalOpen(true);
+  };
+
+  const confirmClose = () => {
+       const newData = data.map(d => {
+         if (d.id === itemToClose.id) {
+           return { ...d, status: 'closed' }; // Estatus especial que bloquea todo
+         }
+         return d;
+       });
+       setData(newData);
+       setCloseModalOpen(false);
+       setItemToClose(null);
+  };
+
+  // --- 8. RENDERIZADO DE MENÚ LATERAL (HELPER) ---
   const NavItem = ({ id, icon: Icon, label }) => {
     if (role === 'pagos' && id === 'capture') return null;
     return (
-      <button onClick={() => { setActiveTab(id); setIsMobileMenuOpen(false); }} className={`w-full flex items-center px-4 py-3 mb-1 rounded-lg transition-all duration-300 ${activeTab === id ? 'bg-blue-600 text-white shadow-md' : 'text-slate-400 hover:bg-slate-800 hover:text-white'} ${isSidebarCollapsed ? 'justify-center' : ''}`} title={isSidebarCollapsed ? label : ''}>
+      <button 
+        onClick={() => { setActiveTab(id); setIsMobileMenuOpen(false); }} 
+        className={`w-full flex items-center px-4 py-3 mb-1 rounded-lg transition-all duration-300 ${activeTab === id ? 'bg-blue-600 text-white shadow-md' : 'text-slate-400 hover:bg-slate-800 hover:text-white'} ${isSidebarCollapsed ? 'justify-center' : ''}`} 
+        title={isSidebarCollapsed ? label : ''}
+      >
         <Icon size={20} className={`${isSidebarCollapsed ? '' : 'mr-3'}`} />
         {!isSidebarCollapsed && <span className="font-medium whitespace-nowrap">{label}</span>}
       </button>
     );
   };
 
+  // --- 9. CONDICIONAL DE LOGIN ---
   if (!isLoggedIn) { return <LoginView onLogin={handleLogin} />; }
+
+  // AQUI SIGUE EL RETURN...
 
   return (
     <div className="flex h-screen bg-slate-100 font-sans text-slate-800 relative">
-      <PaymentModal isOpen={paymentConfirmation.isOpen} item={paymentConfirmation.item} onClose={() => setPaymentConfirmation({ isOpen: false, item: null })} onConfirm={executePayment} />
-      <EditModal isOpen={!!editingItem} onClose={() => setEditingItem(null)} onSave={handleSaveEdit} item={editingItem} role={role} />
+      <PaymentModal 
+        isOpen={paymentConfirmation.isOpen} 
+        item={paymentConfirmation.item} 
+        onClose={() => setPaymentConfirmation({ isOpen: false, item: null })} 
+        onConfirm={executePayment} 
+      />
+      
+      <EditModal 
+        isOpen={!!editingItem} 
+        onClose={() => setEditingItem(null)} 
+        onSave={handleSaveEdit} 
+        item={editingItem} 
+        role={role} 
+      />
+
+      {/* --- AGREGAR ESTE MODAL DE CIERRE AQUÍ --- */}
+      <CloseModal 
+        isOpen={closeModalOpen} 
+        onClose={confirmClose} 
+        item={itemToClose} 
+      />
 
       <aside className={`${isSidebarCollapsed ? 'w-20' : 'w-64'} bg-slate-900 text-white flex-shrink-0 hidden md:flex flex-col transition-all duration-300 ease-in-out relative`}>
-        <button onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)} className="absolute -right-3 top-9 bg-blue-600 text-white p-1 rounded-full shadow-lg border-2 border-slate-100 hover:bg-blue-700 transition-colors z-20">{isSidebarCollapsed ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}</button>
-        <div className={`p-6 border-b border-slate-800 flex items-center ${isSidebarCollapsed ? 'justify-center' : 'space-x-2'}`}><div className="w-8 h-8 bg-blue-500 rounded-lg flex items-center justify-center flex-shrink-0"><Ship size={20} className="text-white" /></div>{!isSidebarCollapsed && (<div className="overflow-hidden"><span className="text-lg font-bold tracking-tight whitespace-nowrap">AduanaSoft</span><p className="text-xs text-slate-500 mt-0.5 whitespace-nowrap">v2.2 Production</p></div>)}</div>
+        <button onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)} className="absolute -right-3 top-9 bg-blue-600 text-white p-1 rounded-full shadow-lg border-2 border-slate-100 hover:bg-blue-700 transition-colors z-20">
+          {isSidebarCollapsed ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
+        </button>
+        <div className={`p-6 border-b border-slate-800 flex items-center ${isSidebarCollapsed ? 'justify-center' : 'space-x-2'}`}>
+          <div className="w-8 h-8 bg-blue-500 rounded-lg flex items-center justify-center flex-shrink-0"><Ship size={20} className="text-white" /></div>
+          {!isSidebarCollapsed && (<div className="overflow-hidden"><span className="text-lg font-bold tracking-tight whitespace-nowrap">AduanaSoft</span><p className="text-xs text-slate-500 mt-0.5 whitespace-nowrap">v2.2 Production</p></div>)}
+        </div>
         <nav className="flex-1 p-4 overflow-y-auto overflow-x-hidden">
           {!isSidebarCollapsed && <p className="px-4 text-xs font-bold text-slate-500 uppercase mb-3 animate-fade-in">Menú</p>}
-          <NavItem id="dashboard" icon={LayoutDashboard} label="Visión general" /><NavItem id="list" icon={TableIcon} label="Sábana operativa" /><NavItem id="capture" icon={Plus} label="Alta de contenedores" />
-          {(role === 'admin' || role === 'ejecutivo') && (<div className={`mt-6 ${isSidebarCollapsed ? 'border-t border-slate-800 pt-6' : ''}`}>{!isSidebarCollapsed && <p className="px-4 text-xs font-bold text-slate-500 uppercase mb-3 animate-fade-in">Comercial</p>}<NavItem id="quotes" icon={Calculator} label="Generador de cotizaciones" /></div>)}
+          <NavItem id="dashboard" icon={LayoutDashboard} label="Visión general" />
+          <NavItem id="list" icon={TableIcon} label="Sábana operativa" />
+          <NavItem id="capture" icon={Plus} label="Alta de contenedores" />
+          {(role === 'admin' || role === 'ejecutivo') && (
+            <div className={`mt-6 ${isSidebarCollapsed ? 'border-t border-slate-800 pt-6' : ''}`}>
+              {!isSidebarCollapsed && <p className="px-4 text-xs font-bold text-slate-500 uppercase mb-3 animate-fade-in">Comercial</p>}
+              <NavItem id="quotes" icon={Calculator} label="Generador de cotizaciones" />
+            </div>
+          )}
         </nav>
-        <div className="p-4 border-t border-slate-800"><div className={`flex items-center ${isSidebarCollapsed ? 'justify-center' : 'space-x-3'} mb-4`}><div className="w-10 h-10 rounded-full bg-gradient-to-tr from-blue-500 to-purple-500 flex items-center justify-center text-xs font-bold flex-shrink-0"><User size={20} /></div>{!isSidebarCollapsed && (<div className="overflow-hidden"><p className="text-sm font-medium whitespace-nowrap">Usuario activo</p><RoleBadge role={role} /></div>)}</div><button onClick={handleLogout} className={`w-full flex items-center ${isSidebarCollapsed ? 'justify-center px-0' : 'justify-center px-4'} py-2 bg-slate-800 hover:bg-red-900/30 text-slate-400 hover:text-red-400 rounded-lg transition-colors text-xs font-bold`} title={isSidebarCollapsed ? "Cerrar sesión" : ""}><LogOut size={14} className={`${isSidebarCollapsed ? '' : 'mr-2'}`} /> {!isSidebarCollapsed && "Cerrar sesión"}</button></div>
+        <div className="p-4 border-t border-slate-800">
+          <div className={`flex items-center ${isSidebarCollapsed ? 'justify-center' : 'space-x-3'} mb-4`}>
+            <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-blue-500 to-purple-500 flex items-center justify-center text-xs font-bold flex-shrink-0"><User size={20} /></div>
+            {!isSidebarCollapsed && (<div className="overflow-hidden"><p className="text-sm font-medium whitespace-nowrap">Usuario activo</p><RoleBadge role={role} /></div>)}
+          </div>
+          <button onClick={handleLogout} className={`w-full flex items-center ${isSidebarCollapsed ? 'justify-center px-0' : 'justify-center px-4'} py-2 bg-slate-800 hover:bg-red-900/30 text-slate-400 hover:text-red-400 rounded-lg transition-colors text-xs font-bold`} title={isSidebarCollapsed ? "Cerrar sesión" : ""}>
+            <LogOut size={14} className={`${isSidebarCollapsed ? '' : 'mr-2'}`} /> {!isSidebarCollapsed && "Cerrar sesión"}
+          </button>
+        </div>
       </aside>
 
-      {isMobileMenuOpen && (<div className="fixed inset-0 z-50 bg-slate-900 text-white flex flex-col animate-fade-in"><div className="p-6 border-b border-slate-800 flex justify-between items-start"><div><div className="flex items-center space-x-2"><div className="w-8 h-8 bg-blue-500 rounded-lg flex items-center justify-center"><Ship size={20} className="text-white" /></div><span className="text-lg font-bold tracking-tight">AduanaSoft</span></div></div><button onClick={() => setIsMobileMenuOpen(false)} className="p-1"><X size={28} /></button></div><nav className="flex-1 p-6"><NavItem id="dashboard" icon={LayoutDashboard} label="Visión general" /><NavItem id="list" icon={TableIcon} label="Sábana operativa" /><NavItem id="capture" icon={Plus} label="Alta de contenedores" />{(role === 'admin' || role === 'ejecutivo') && (<NavItem id="quotes" icon={Calculator} label="Generador de cotizaciones" />)}<div className="mt-8 pt-6 border-t border-slate-700"><div className="flex items-center space-x-3 mb-6"><div className="w-8 h-8 rounded-full bg-gradient-to-tr from-blue-500 to-purple-500 flex items-center justify-center text-xs font-bold"><User size={16} /></div><div className="text-sm">Rol actual: <RoleBadge role={role} /></div></div><button onClick={handleLogout} className="w-full flex items-center justify-center px-4 py-3 bg-red-600 text-white rounded-lg font-bold"><LogOut size={18} className="mr-2" /> Cerrar sesión</button></div></nav></div>)}
+      {isMobileMenuOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-900 text-white flex flex-col animate-fade-in">
+           {/* ... (código del menú móvil sigue igual) ... */}
+           {/* Por brevedad asumo que copias el menú móvil que ya tenías o quieres que te lo repita? */}
+           {/* Si lo necesitas completo dime, pero aquí lo importante es el MAIN abajo */}
+           <div className="p-6 border-b border-slate-800 flex justify-between items-start"><div><div className="flex items-center space-x-2"><div className="w-8 h-8 bg-blue-500 rounded-lg flex items-center justify-center"><Ship size={20} className="text-white" /></div><span className="text-lg font-bold tracking-tight">AduanaSoft</span></div></div><button onClick={() => setIsMobileMenuOpen(false)} className="p-1"><X size={28} /></button></div><nav className="flex-1 p-6"><NavItem id="dashboard" icon={LayoutDashboard} label="Visión general" /><NavItem id="list" icon={TableIcon} label="Sábana operativa" /><NavItem id="capture" icon={Plus} label="Alta de contenedores" />{(role === 'admin' || role === 'ejecutivo') && (<NavItem id="quotes" icon={Calculator} label="Generador de cotizaciones" />)}<div className="mt-8 pt-6 border-t border-slate-700"><div className="flex items-center space-x-3 mb-6"><div className="w-8 h-8 rounded-full bg-gradient-to-tr from-blue-500 to-purple-500 flex items-center justify-center text-xs font-bold"><User size={16} /></div><div className="text-sm">Rol actual: <RoleBadge role={role} /></div></div><button onClick={handleLogout} className="w-full flex items-center justify-center px-4 py-3 bg-red-600 text-white rounded-lg font-bold"><LogOut size={18} className="mr-2" /> Cerrar sesión</button></div></nav>
+        </div>
+      )}
 
       <main className="flex-1 flex flex-col overflow-hidden transition-all duration-300">
-        <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-6 shadow-sm z-10"><button onClick={() => setIsMobileMenuOpen(true)} className="md:hidden p-2 -ml-2 rounded hover:bg-slate-100"><Menu className="text-slate-800" /></button><div className="text-xl font-bold text-slate-800 flex items-center gap-2">{activeTab === 'dashboard' && 'Visión general'}{activeTab === 'list' && 'Gestión y pagos'}{activeTab === 'capture' && 'Alta de documentos'}{activeTab === 'quotes' && 'Generador de cotizaciones'}<span className="hidden md:inline-flex ml-4 transform scale-90 origin-left"><RoleBadge role={role} /></span></div><div className="flex items-center space-x-4"><div className="hidden lg:flex items-center px-3 py-1 bg-green-50 text-green-700 rounded-full border border-green-200 text-xs font-medium"><DollarSign size={14} className="mr-1"/> USD: $20.54</div></div></header>
+        <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-6 shadow-sm z-10">
+          <button onClick={() => setIsMobileMenuOpen(true)} className="md:hidden p-2 -ml-2 rounded hover:bg-slate-100"><Menu className="text-slate-800" /></button>
+          <div className="text-xl font-bold text-slate-800 flex items-center gap-2">
+            {activeTab === 'dashboard' && 'Visión general'}
+            {activeTab === 'list' && 'Gestión y pagos'}
+            {activeTab === 'capture' && 'Alta de documentos'}
+            {activeTab === 'quotes' && 'Generador de cotizaciones'}
+            <span className="hidden md:inline-flex ml-4 transform scale-90 origin-left"><RoleBadge role={role} /></span>
+          </div>
+          <div className="flex items-center space-x-4">
+             <div className="hidden lg:flex items-center px-3 py-1 bg-green-50 text-green-700 rounded-full border border-green-200 text-xs font-medium"><DollarSign size={14} className="mr-1"/> USD: $20.54</div>
+          </div>
+        </header>
+
         <div className="flex-1 overflow-auto p-4 md:p-8">
           {activeTab === 'dashboard' && <DashboardView data={data} />}
           {activeTab === 'capture' && <CaptureForm onSave={handleSave} onCancel={() => setActiveTab('dashboard')} existingData={data} role={role} />}
-          {activeTab === 'list' && <ListView data={data} onInitiatePayment={initiatePayment} role={role} onEdit={handleEditClick} />}
+          
+          {/* --- AQUÍ ESTÁ EL CAMBIO IMPORTANTE: PASAR LAS PROPS NUEVAS --- */}
+          {activeTab === 'list' && (
+            <ListView 
+              data={data} 
+              onPayItem={handlePayItem}        // <--- NUEVO
+              onPayAll={handlePayAll}          // <--- NUEVO
+              onCloseOperation={handleCloseOperation} // <--- NUEVO
+              onInitiatePayment={initiatePayment} 
+              role={role} 
+              onEdit={handleEditClick} 
+            />
+          )}
+          
           {activeTab === 'quotes' && <QuoteGenerator role={role} />}
         </div>
       </main>
