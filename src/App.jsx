@@ -480,6 +480,11 @@ const LoginView = ({ onLogin }) => {
 
 const QuoteGenerator = ({ role }) => {
   const [quoteData, setQuoteData] = useState({
+    // Datos Generales
+    clientName: '',
+    currency: 'MXN', // <--- NUEVO: Selector de Divisa
+    
+    // Datos Operativos
     bl: '',
     container: '',
     eta: '',
@@ -489,11 +494,12 @@ const QuoteGenerator = ({ role }) => {
     demurrageDays: 0,
     storageDays: 0,
     naviera: '',
-    clientName: '', // Nuevo: Nombre del cliente para el membrete
     
+    // Costos
     costDemoras: 0,
     costAlmacenaje: 0,
     costOperativos: 0,
+    costPortuarios: 0, // <--- NUEVO: Gastos Portuarios
     costApoyo: 0,
     costImpuestos: 0,
     costLiberacion: 0,
@@ -502,6 +508,7 @@ const QuoteGenerator = ({ role }) => {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
+    // Detectar si es un campo numérico
     const isNumber = name.startsWith('cost') || name.endsWith('Days');
     setQuoteData({ 
         ...quoteData, 
@@ -509,8 +516,10 @@ const QuoteGenerator = ({ role }) => {
     });
   };
 
+  // Suma total
   const subtotal = 
     quoteData.costDemoras + quoteData.costAlmacenaje + quoteData.costOperativos + 
+    quoteData.costPortuarios + // Sumamos el nuevo campo
     quoteData.costApoyo + quoteData.costImpuestos + quoteData.costLiberacion + 
     quoteData.costTransporte;
 
@@ -521,25 +530,23 @@ const QuoteGenerator = ({ role }) => {
     let y = 0;    // Posición Y
 
     // Colores
-    const corporateBlue = [15, 23, 42]; // Slate-900 (AduanaSoft)
-    const accentBlue = [37, 99, 235];   // Blue-600
-    const border = [80, 80, 80];        // Gris oscuro para bordes de tabla
+    const corporateBlue = [15, 23, 42]; 
     const rowGreen = [220, 252, 231];
     const rowYellow = [254, 249, 195];
     const textRed = [185, 28, 28];
+    const border = [80, 80, 80];
 
-    // --- 1. MEMBRETE SUPERIOR (HEADER) ---
-    // Franja decorativa
+    // --- 1. MEMBRETE SUPERIOR ---
     doc.setFillColor(...corporateBlue);
     doc.rect(0, 0, 210, 35, 'F');
     
-    // Logo (Simulado con texto/figura)
+    // Logo
     doc.setFillColor(255, 255, 255);
-    doc.circle(25, 17, 8, 'F'); // Círculo blanco logo
+    doc.circle(25, 17, 8, 'F');
     doc.setTextColor(...corporateBlue);
     doc.setFont("helvetica", "bold");
     doc.setFontSize(14);
-    doc.text("A", 22.5, 22); // Letra A del logo
+    doc.text("A", 22.5, 22);
 
     // Nombre Empresa
     doc.setTextColor(255, 255, 255);
@@ -549,12 +556,11 @@ const QuoteGenerator = ({ role }) => {
     doc.setFont("helvetica", "normal");
     doc.text("SOLUCIONES LOGÍSTICAS INTEGRALES", 38, 26);
 
-    // Datos de Contacto (Derecha Header)
+    // Datos Contacto
     doc.setFontSize(9);
     doc.text("Av. del Puerto 123, Manzanillo, Col.", 200, 12, { align: 'right' });
     doc.text("Tel: +52 (314) 333-0000", 200, 17, { align: 'right' });
     doc.text("contacto@aduanasoft.com", 200, 22, { align: 'right' });
-    doc.text("RFC: ADU990101XYZ", 200, 27, { align: 'right' });
 
     // --- 2. TÍTULO Y CLIENTE ---
     y = 50;
@@ -573,9 +579,9 @@ const QuoteGenerator = ({ role }) => {
 
     // --- 3. TABLA DE DATOS ---
     const drawRow = (label, value, bgColor = null, textColor = [0,0,0], boldValue = false) => {
-        const rowHeight = 8;
+        const rowHeight = 7.5; // Un poco más compactas para que quepan todos
         
-        // Etiqueta
+        // Etiqueta (Izquierda)
         doc.setDrawColor(...border);
         doc.setFillColor(255, 255, 255);
         if (bgColor) doc.setFillColor(...bgColor);
@@ -584,21 +590,21 @@ const QuoteGenerator = ({ role }) => {
         doc.setFont("helvetica", "normal");
         doc.setFontSize(9);
         doc.setTextColor(0, 0, 0);
-        doc.text(label, m + 85, y + 5.5, { align: 'right' });
+        doc.text(label, m + 85, y + 5, { align: 'right' });
 
-        // Valor
+        // Valor (Derecha)
         doc.setFillColor(255, 255, 255);
         if (bgColor) doc.setFillColor(...bgColor);
         doc.rect(m + 90, y, 80, rowHeight, 'FD');
 
         doc.setFont("helvetica", boldValue ? "bold" : "normal");
         doc.setTextColor(...textColor);
-        doc.text(value ? value.toString() : "-", m + 130, y + 5.5, { align: 'center' });
+        doc.text(value ? value.toString() : "-", m + 130, y + 5, { align: 'center' });
 
         y += rowHeight;
     };
 
-    // Filas
+    // Filas de Datos
     drawRow("BL / EMBARQUE", quoteData.bl);
     drawRow("CONTENEDOR", quoteData.container);
     drawRow("ETA", formatDate(quoteData.eta));
@@ -609,13 +615,16 @@ const QuoteGenerator = ({ role }) => {
     drawRow("DIAS DE ALMACENAJE", quoteData.storageDays);
     drawRow("NAVIERA", quoteData.naviera);
 
-    // Separador visual
+    // Separador
     y += 2; 
 
+    // Filas de Costos (Usando la divisa seleccionada)
     const formatMoney = (val) => `$ ${val.toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
+    
     drawRow("DEMORAS", quoteData.costDemoras > 0 ? formatMoney(quoteData.costDemoras) : "-");
     drawRow("ALMACENAJE", formatMoney(quoteData.costAlmacenaje));
     drawRow("COSTOS OPERATIVOS", formatMoney(quoteData.costOperativos));
+    drawRow("GASTOS PORTUARIOS", formatMoney(quoteData.costPortuarios)); // <--- NUEVO EN PDF
     drawRow("APOYO EXTRAORDINARIO", formatMoney(quoteData.costApoyo), null, textRed, true);
     drawRow("IMPUESTOS", formatMoney(quoteData.costImpuestos));
     drawRow("LIBERACION", quoteData.costLiberacion > 0 ? formatMoney(quoteData.costLiberacion) : "-");
@@ -623,25 +632,15 @@ const QuoteGenerator = ({ role }) => {
     
     // Total
     y += 2;
-    drawRow("TOTAL ESTIMADO (MXN)", formatMoney(subtotal), rowYellow, [0,0,0], true);
+    drawRow(`TOTAL ESTIMADO (${quoteData.currency})`, formatMoney(subtotal), rowYellow, [0,0,0], true);
 
-    // --- 4. PIE DE PÁGINA (MEMBRETE INFERIOR) ---
+    // --- 4. FOOTER ---
     const pageHeight = doc.internal.pageSize.height;
-    
-    // Notas legales antes del footer
-    doc.setFontSize(7);
-    doc.setTextColor(100, 100, 100);
-    doc.text("* Esta cotización tiene una vigencia de 15 días.", m, 240);
-    doc.text("* Tarifas sujetas a cambios sin previo aviso por parte de terceros (Navieras/Terminales).", m, 244);
-    
-    // Franja inferior
     doc.setFillColor(...corporateBlue);
     doc.rect(0, pageHeight - 20, 210, 20, 'F');
-    
     doc.setTextColor(255, 255, 255);
     doc.setFontSize(8);
-    doc.text("www.aduanasoft.com", 105, pageHeight - 12, { align: 'center' });
-    doc.text("Este documento es una representación impresa de un comprobante digital.", 105, pageHeight - 7, { align: 'center' });
+    doc.text("www.aduanasoft.com | Documento Oficial", 105, pageHeight - 9, { align: 'center' });
 
     doc.save(`Cotizacion_${quoteData.container || 'Cliente'}.pdf`);
   };
@@ -649,7 +648,7 @@ const QuoteGenerator = ({ role }) => {
   return (
     <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-6 pb-12 animate-fade-in h-[calc(100vh-100px)] overflow-hidden">
       
-      {/* --- IZQUIERDA: EDITOR --- */}
+      {/* --- EDITOR --- */}
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-y-auto h-full flex flex-col">
         <div className="p-6 flex-1">
             <h2 className="text-xl font-bold text-slate-800 mb-4 flex items-center">
@@ -658,19 +657,27 @@ const QuoteGenerator = ({ role }) => {
 
             <div className="mb-6 bg-slate-50 p-4 rounded-lg border border-slate-100">
                 <h3 className="text-xs font-bold text-slate-400 uppercase mb-3 flex items-center">Datos Generales</h3>
-                <div className="mb-4">
-                    <label className="text-xs font-bold text-slate-600">Nombre del Cliente</label>
-                    <input name="clientName" value={quoteData.clientName} onChange={handleChange} className="w-full p-2 border rounded text-sm bg-white" placeholder="Ej. Comercializadora del Norte S.A." />
+                
+                <div className="flex gap-4 mb-4">
+                    <div className="flex-1">
+                        <label className="text-xs font-bold text-slate-600">Nombre del Cliente</label>
+                        <input name="clientName" value={quoteData.clientName} onChange={handleChange} className="w-full p-2 border rounded text-sm bg-white" placeholder="Ej. Comercializadora del Norte S.A." />
+                    </div>
+                    <div className="w-32">
+                        <label className="text-xs font-bold text-slate-600">Divisa</label>
+                        <select name="currency" value={quoteData.currency} onChange={handleChange} className="w-full p-2 border rounded text-sm bg-white font-bold text-blue-600">
+                            <option value="MXN">MXN</option>
+                            <option value="USD">USD</option>
+                        </select>
+                    </div>
                 </div>
                 
                 <h3 className="text-xs font-bold text-slate-400 uppercase mb-3 flex items-center mt-4"><Ship size={14} className="mr-1"/> Datos Operativos</h3>
                 <div className="grid grid-cols-2 gap-3">
                     <div className="col-span-2"><label className="text-xs font-bold text-slate-600">BL</label><input name="bl" value={quoteData.bl} onChange={handleChange} className="w-full p-2 border rounded text-sm bg-white uppercase font-mono" /></div>
                     <div className="col-span-2"><label className="text-xs font-bold text-slate-600">Contenedor</label><input name="container" value={quoteData.container} onChange={handleChange} className="w-full p-2 border rounded text-sm bg-white uppercase font-mono" /></div>
-                    
                     <div><label className="text-xs font-bold text-slate-600">ETA</label><input type="date" name="eta" value={quoteData.eta} onChange={handleChange} className="w-full p-2 border rounded text-sm" /></div>
                     <div><label className="text-xs font-bold text-green-700">F. Entrega</label><input type="date" name="deliveryDate" value={quoteData.deliveryDate} onChange={handleChange} className="w-full p-2 border border-green-300 bg-green-50 rounded text-sm" /></div>
-                    
                     <div><label className="text-xs font-bold text-slate-600">Puerto</label><input name="port" value={quoteData.port} onChange={handleChange} className="w-full p-2 border rounded text-sm" /></div>
                     <div><label className="text-xs font-bold text-slate-600">Terminal</label><input name="terminal" value={quoteData.terminal} onChange={handleChange} className="w-full p-2 border rounded text-sm" /></div>
                     <div><label className="text-xs font-bold text-slate-600">Días Demoras</label><input type="number" name="demurrageDays" value={quoteData.demurrageDays} onChange={handleChange} className="w-full p-2 border rounded text-sm" /></div>
@@ -680,12 +687,13 @@ const QuoteGenerator = ({ role }) => {
             </div>
 
             <div className="bg-white border border-slate-200 rounded-lg p-4">
-                <h3 className="text-xs font-bold text-slate-400 uppercase mb-3 flex items-center"><DollarSign size={14} className="mr-1"/> Costos</h3>
+                <h3 className="text-xs font-bold text-slate-400 uppercase mb-3 flex items-center"><DollarSign size={14} className="mr-1"/> Costos ({quoteData.currency})</h3>
                 <div className="space-y-3">
                     {[
                         { l: 'Demoras', k: 'costDemoras' },
                         { l: 'Almacenaje', k: 'costAlmacenaje' },
                         { l: 'Costos Operativos', k: 'costOperativos' },
+                        { l: 'Gastos Portuarios', k: 'costPortuarios' }, // <--- NUEVO INPUT
                         { l: 'Apoyo', k: 'costApoyo', color: 'text-red-600' },
                         { l: 'Impuestos', k: 'costImpuestos' },
                         { l: 'Liberación', k: 'costLiberacion' },
@@ -697,7 +705,7 @@ const QuoteGenerator = ({ role }) => {
                         </div>
                     ))}
                     <div className="flex items-center justify-between pt-3 mt-2 border-t border-slate-200 bg-yellow-50 p-2 -mx-2 rounded">
-                        <label className="text-sm font-bold text-slate-800 uppercase">Total</label>
+                        <label className="text-sm font-bold text-slate-800 uppercase">Total ({quoteData.currency})</label>
                         <span className="text-lg font-mono font-bold text-slate-900">${subtotal.toLocaleString()}</span>
                     </div>
                 </div>
@@ -706,19 +714,18 @@ const QuoteGenerator = ({ role }) => {
         <div className="p-4 border-t border-slate-200 bg-slate-50"><button onClick={handleDownloadPDF} className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg shadow-lg flex items-center justify-center transition-all"><Download size={20} className="mr-2"/> Descargar PDF Membretado</button></div>
       </div>
 
-      {/* --- DERECHA: PREVISUALIZACIÓN MEMBRETADA --- */}
+      {/* --- PREVISUALIZACIÓN --- */}
       <div className="hidden lg:flex bg-slate-200 p-8 rounded-xl overflow-y-auto h-full shadow-inner justify-center items-start">
         <div className="bg-white shadow-2xl w-full max-w-[210mm] min-h-[297mm] relative flex flex-col font-sans text-slate-800 text-sm scale-90 origin-top">
             
-            {/* MEMBRETE VISUAL */}
+            {/* Header Visual */}
             <div className="bg-slate-900 h-24 flex items-center px-8 justify-between text-white">
                 <div className="flex items-center gap-4">
                     <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center text-slate-900 font-bold text-xl">A</div>
                     <div><h1 className="text-2xl font-bold tracking-widest">ADUANASOFT</h1><p className="text-[10px] tracking-wide opacity-80">SOLUCIONES LOGÍSTICAS</p></div>
                 </div>
                 <div className="text-right text-[10px] opacity-90 space-y-0.5">
-                    <p className="flex items-center justify-end gap-1"><MapPin size={10}/> Av. del Puerto 123, Manzanillo</p>
-                    <p className="flex items-center justify-end gap-1"><Phone size={10}/> +52 (314) 333-0000</p>
+                    <p className="flex items-center justify-end gap-1"><MapPin size={10}/> Av. del Puerto 123</p>
                     <p className="flex items-center justify-end gap-1"><Globe size={10}/> www.aduanasoft.com</p>
                 </div>
             </div>
@@ -729,7 +736,7 @@ const QuoteGenerator = ({ role }) => {
                 
                 <div className="mb-6"><span className="text-xs font-bold text-slate-500 uppercase">Cliente:</span> <span className="text-lg font-bold block">{quoteData.clientName || "..."}</span></div>
 
-                {/* TABLA VISUAL */}
+                {/* Tabla Visual */}
                 <div className="border border-slate-800 text-xs">
                     {[
                         { l: "BL / EMBARQUE", v: quoteData.bl },
@@ -754,6 +761,7 @@ const QuoteGenerator = ({ role }) => {
                         { l: "DEMORAS", v: quoteData.costDemoras },
                         { l: "ALMACENAJE", v: quoteData.costAlmacenaje },
                         { l: "COSTOS OPERATIVOS", v: quoteData.costOperativos },
+                        { l: "GASTOS PORTUARIOS", v: quoteData.costPortuarios }, // <--- NUEVO EN PREVIEW
                         { l: "APOYO", v: quoteData.costApoyo, color: "text-red-600" },
                         { l: "IMPUESTOS", v: quoteData.costImpuestos },
                         { l: "LIBERACION", v: quoteData.costLiberacion },
@@ -766,21 +774,19 @@ const QuoteGenerator = ({ role }) => {
                     ))}
 
                     <div className="flex bg-yellow-100 font-bold text-sm">
-                        <div className="w-1/2 p-3 border-r border-slate-800 text-right">TOTAL ESTIMADO</div>
+                        <div className="w-1/2 p-3 border-r border-slate-800 text-right">TOTAL ESTIMADO ({quoteData.currency})</div>
                         <div className="w-1/2 p-3 text-center">${subtotal.toLocaleString()}</div>
                     </div>
                 </div>
             </div>
 
-            {/* FOOTER VISUAL */}
-            <div className="bg-slate-900 text-white text-[10px] text-center p-4">
-                www.aduanasoft.com | Documento Oficial
-            </div>
+            <div className="bg-slate-900 text-white text-[10px] text-center p-4">www.aduanasoft.com</div>
         </div>
       </div>
     </div>
   );
 };
+
 const DashboardView = ({ data }) => {
   const total = data.length;
   const warning = data.filter(i => i.status === 'warning' && i.payment === 'pending').length;
