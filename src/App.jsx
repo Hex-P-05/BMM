@@ -724,6 +724,7 @@ const CaptureForm = ({ onSave, onCancel, existingData, role }) => {
 };
 
 // --- LISTVIEW (SÁBANA) CON DESGLOSE VISIBLE ---
+// --- LISTVIEW (SÁBANA) CON SCROLL HORIZONTAL Y COLUMNAS FIJAS ---
 const ListView = ({ data, onPayItem, onPayAll, onCloseOperation, role, onEdit }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [expandedRow, setExpandedRow] = useState(null);
@@ -739,7 +740,6 @@ const ListView = ({ data, onPayItem, onPayAll, onCloseOperation, role, onEdit })
 
   const toggleRow = (id) => setExpandedRow(expandedRow === id ? null : id);
 
-  // Mapeo de claves de costo a nombres legibles
   const costMap = [
     { k: 'costDemoras', l: 'Demoras' }, { k: 'costAlmacenaje', l: 'Almacenaje' },
     { k: 'costOperativos', l: 'Operativos' }, { k: 'costPortuarios', l: 'Portuarios' },
@@ -747,118 +747,199 @@ const ListView = ({ data, onPayItem, onPayAll, onCloseOperation, role, onEdit })
     { k: 'costLiberacion', l: 'Liberación' }, { k: 'costTransporte', l: 'Transporte' }
   ];
 
+  const renderDaysDiff = (etaString) => {
+    const diff = getDaysDiff(etaString);
+    if (diff < 0) return <span className="text-[10px] font-bold text-red-600 block">Hace {Math.abs(diff)} días</span>;
+    if (diff === 0) return <span className="text-[10px] font-bold text-orange-600 block">¡Llega hoy!</span>;
+    return <span className="text-[10px] font-medium text-slate-400 block">Faltan {diff} días</span>;
+  };
+
   return (
     <div className="space-y-4 animate-fade-in">
       <div className="flex justify-between items-center bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
         <h2 className="text-xl font-bold text-slate-800">Sábana operativa</h2>
         <div className="relative w-72">
             <Search className="absolute left-3 top-2.5 text-slate-400" size={18} />
-            <input type="text" placeholder="Buscar..." className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm" onChange={(e) => setSearchTerm(e.target.value)} />
+            <input type="text" placeholder="Buscar BL, Cliente..." className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm" onChange={(e) => setSearchTerm(e.target.value)} />
         </div>
       </div>
 
-      <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+      <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden relative">
+        {/* Contenedor con scroll horizontal */}
         <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse min-w-[800px]">
+          <table className="w-full text-left border-collapse min-w-[1600px]">
             <thead>
-                <tr className="bg-slate-50 border-b border-slate-200 text-xs font-bold text-slate-500 uppercase">
-                    <th className="p-4 w-10"></th>
-                    <th className="p-4">Concepto</th>
-                    <th className="p-4">BL / Contenedor</th>
-                    <th className="p-4">Estatus Global</th>
-                    <th className="p-4 text-right">Monto total</th>
-                    <th className="p-4 text-center">Acciones</th>
+                <tr className="bg-slate-50 border-b border-slate-200 text-xs font-bold text-slate-500 uppercase h-12">
+                    {/* COLUMNAS FIJAS (STICKY) */}
+                    <th className="p-4 w-12 sticky left-0 z-20 bg-slate-50"></th>
+                    <th className="p-4 w-48 sticky left-12 z-20 bg-slate-50 border-r border-slate-200">Concepto</th>
+                    <th className="p-4 w-48 sticky left-60 z-20 bg-slate-50 border-r border-slate-300 shadow-lg md:shadow-none">BL / Contenedor</th>
+                    
+                    {/* COLUMNAS SCROLLEABLES (Aquí agregamos ETA y Días Libres de nuevo) */}
+                    <th className="p-4 w-40">ETA & Semáforo</th>
+                    <th className="p-4 w-32 text-center">Días libres</th>
+                    <th className="p-4 w-32 text-center">Estatus Op.</th>
+                    <th className="p-4 w-40 text-right">Monto total</th>
+                    <th className="p-4 w-40 text-center">Fecha Pago</th>
+                    <th className="p-4 w-40 text-center">Acciones</th>
+                    {/* Espacio extra por si quieres agregar más columnas a futuro */}
+                    <th className="p-4 text-center">Observaciones</th>
                 </tr>
             </thead>
             <tbody className="text-sm">
               {filteredData.map((item) => {
-                // Verificamos si todo está pagado (simulado con payment === 'paid')
                 const isFullyPaid = item.payment === 'paid'; 
-                // Simulamos flags de pago individuales si no existen en la data (esto iría en tu DB real)
                 const paidFlags = item.paidFlags || {}; 
 
                 return (
                 <React.Fragment key={item.id}>
-                    <tr className={`hover:bg-slate-50 border-b border-slate-100 transition-colors ${expandedRow === item.id ? 'bg-blue-50/50' : ''}`}>
-                        <td className="p-4 text-center cursor-pointer" onClick={() => toggleRow(item.id)}>
-                            {expandedRow === item.id ? <ChevronUp size={18} className="text-slate-400"/> : <ChevronDown size={18} className="text-slate-400"/>}
+                    <tr className={`hover:bg-slate-50 border-b border-slate-100 transition-colors ${expandedRow === item.id ? 'bg-blue-50/30' : ''}`}>
+                        
+                        {/* 1. FLECHA (STICKY LEFT 0) */}
+                        <td className="p-4 text-center cursor-pointer sticky left-0 z-10 bg-white border-r border-slate-100" onClick={() => toggleRow(item.id)}>
+                            {expandedRow === item.id ? <ChevronUp size={18} className="text-blue-500"/> : <ChevronDown size={18} className="text-slate-400"/>}
                         </td>
-                        <td className="p-4"><div className="font-bold text-slate-700">{item.client}</div><div className="inline-block mt-1 px-2 py-0.5 bg-slate-100 border rounded text-xs font-mono text-slate-600">{item.concept}</div></td>
-                        <td className="p-4"><div className="font-mono font-medium">{item.bl}</div><div className="text-xs text-slate-500">{item.container}</div></td>
+
+                        {/* 2. CLIENTE (STICKY LEFT 12) */}
+                        <td className="p-4 sticky left-12 z-10 bg-white border-r border-slate-100">
+                            <div className="font-bold text-slate-700 truncate w-40" title={item.client}>{item.client}</div>
+                            <div className="inline-block mt-1 px-2 py-0.5 bg-slate-100 border rounded text-[10px] font-mono text-slate-600 truncate max-w-[150px]">{item.concept}</div>
+                        </td>
+
+                        {/* 3. BL / CONTENEDOR (STICKY LEFT 60 - EL QUE QUERÍAS FIJO) */}
+                        <td className="p-4 sticky left-60 z-10 bg-white border-r border-slate-300 shadow-[4px_0_10px_-2px_rgba(0,0,0,0.1)]">
+                            <div className="font-mono font-bold text-blue-700">{item.bl}</div>
+                            <div className="text-xs text-slate-500 font-bold">{item.container}</div>
+                        </td>
+
+                        {/* --- COLUMNAS NORMALES (SCROLLEABLES) --- */}
+                        
+                        {/* 4. ETA Y SEMÁFORO (RECUPERADO) */}
                         <td className="p-4">
-                            {item.status === 'closed' 
-                                ? <span className="px-2 py-1 bg-slate-800 text-white rounded text-xs font-bold">CERRADO</span> 
-                                : <StatusBadge item={item} />
+                            <div className="flex flex-col">
+                                <span className="font-bold text-slate-700 text-xs mb-1">{formatDate(item.eta)}</span>
+                                <StatusBadge item={item} />
+                                {renderDaysDiff(item.eta)}
+                            </div>
+                        </td>
+
+                        {/* 5. DÍAS LIBRES (RECUPERADO) */}
+                        <td className="p-4 text-center">
+                            <div className="inline-flex flex-col items-center justify-center p-2 bg-slate-50 rounded-lg border border-slate-200 min-w-[60px]">
+                                <span className="text-[10px] text-slate-400 uppercase font-bold mb-1">Libres</span>
+                                <div className="flex items-center text-slate-700 font-bold">
+                                    <Clock size={14} className="mr-1 text-slate-400"/> {item.freeDays}
+                                </div>
+                            </div>
+                        </td>
+
+                        {/* 6. ESTATUS OPERATIVO (CERRADO/ACTIVO) */}
+                        <td className="p-4 text-center">
+                             {item.status === 'closed' 
+                                ? <span className="px-2 py-1 bg-slate-800 text-white rounded text-[10px] font-bold uppercase tracking-wider">Cerrado</span> 
+                                : <span className="px-2 py-1 bg-green-100 text-green-700 rounded text-[10px] font-bold uppercase tracking-wider border border-green-200">Activo</span>
                             }
                         </td>
-                        <td className="p-4 text-right font-medium"><span className="text-[10px] text-slate-400 mr-1 font-bold align-top">{item.currency}</span>${item.amount.toLocaleString()}</td>
+
+                        {/* 7. MONTO */}
+                        <td className="p-4 text-right font-medium">
+                            <div className="text-lg font-bold text-slate-700">${item.amount.toLocaleString()}</div>
+                            <div className="text-[10px] text-slate-400 font-bold">{item.currency}</div>
+                        </td>
+
+                        {/* 8. FECHA PAGO */}
+                        <td className="p-4 text-center text-xs text-slate-500">
+                            {item.payment === 'paid' ? (
+                                <div>
+                                    <span className="block font-bold text-emerald-600">PAGADO</span>
+                                    <span className="text-[10px]">{formatDate(item.paymentDate)}</span>
+                                </div>
+                            ) : '-'}
+                        </td>
+
+                        {/* 9. ACCIONES */}
                         <td className="p-4 flex justify-center space-x-2">
                             {canSeeEdit && item.status !== 'closed' && (
-                                <button onClick={() => onEdit(item)} className="p-1.5 text-slate-400 hover:text-blue-600 rounded bg-white border border-slate-200 shadow-sm"><Edit size={16}/></button>
+                                <button onClick={() => onEdit(item)} className="p-2 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg border border-transparent hover:border-blue-100 transition-all" title="Editar">
+                                    <Edit size={18}/>
+                                </button>
                             )}
+                        </td>
+
+                        {/* 10. OBSERVACIONES (ESPACIO EXTRA) */}
+                        <td className="p-4 text-xs text-slate-400 italic truncate max-w-[200px]">
+                            Sin observaciones registradas...
                         </td>
                     </tr>
                     
-                    {/* ZONA EXPANDIDA DE PAGOS */}
+                    {/* --- ZONA EXPANDIDA (ACORDEÓN DE PAGOS) --- */}
                     {expandedRow === item.id && (
                         <tr className="bg-slate-50 animate-fade-in">
-                            <td colSpan="6" className="p-6 border-b border-slate-200 shadow-inner">
-                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-                                    {costMap.map((c) => {
-                                        const monto = item[c.k] || 0;
-                                        const isPaid = paidFlags[c.k] || isFullyPaid; // Si es global paid, todo es paid
-                                        
-                                        if (monto === 0) return null; // No mostrar si es 0
+                            {/* Ocupa todo el ancho, pero debemos respetar los stickies visualmente si queremos, 
+                                aunque en 'sticky' el contenido expandido suele ir debajo normal. 
+                                Aquí haremos un truco: el contenido expandido tendrá un padding-left grande 
+                                para no chocar con los stickies visualmente si scrolleas a la izquierda. */}
+                            <td colSpan="12" className="p-0 border-b border-slate-200 shadow-inner">
+                                <div className="pl-[360px] p-6 relative"> {/* pl-[360px] para empujar el contenido después de las columnas fijas */}
+                                    
+                                    {/* Indicador visual de que esto pertenece al BL fijo */}
+                                    <div className="absolute left-0 top-0 bottom-0 w-[360px] bg-slate-100 border-r border-slate-200 z-10 flex items-center justify-center text-slate-300">
+                                        <Anchor size={48} opacity={0.1} />
+                                    </div>
 
-                                        return (
-                                            <div key={c.k} className="bg-white p-3 rounded-lg border border-slate-200 flex flex-col justify-between shadow-sm">
-                                                <div className="flex justify-between items-start mb-2">
-                                                    <span className="text-xs font-bold text-slate-500 uppercase">{c.l}</span>
-                                                    <span className="font-mono font-bold text-slate-800">${monto.toLocaleString()}</span>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                                        {costMap.map((c) => {
+                                            const monto = item[c.k] || 0;
+                                            const isPaid = paidFlags[c.k] || isFullyPaid;
+                                            
+                                            // Renderizamos incluso si es 0 para que se vea la estructura completa, 
+                                            // o puedes poner "if (monto === 0) return null;" si prefieres ocultarlos.
+                                            
+                                            return (
+                                                <div key={c.k} className={`p-3 rounded-lg border flex flex-col justify-between shadow-sm transition-all ${monto > 0 ? 'bg-white border-slate-200' : 'bg-slate-50 border-slate-100 opacity-60'}`}>
+                                                    <div className="flex justify-between items-start mb-2">
+                                                        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">{c.l}</span>
+                                                        <span className={`font-mono font-bold ${monto > 0 ? 'text-slate-800' : 'text-slate-300'}`}>${monto.toLocaleString()}</span>
+                                                    </div>
+                                                    
+                                                    {monto > 0 && canPay && item.status !== 'closed' && (
+                                                        <button 
+                                                            disabled={isPaid}
+                                                            onClick={() => onPayItem(item.id, c.k)}
+                                                            className={`w-full py-1.5 text-[10px] font-bold rounded flex items-center justify-center transition-colors uppercase tracking-wide ${
+                                                                isPaid 
+                                                                ? 'bg-emerald-50 text-emerald-600 border border-emerald-100 cursor-default' 
+                                                                : 'bg-white border border-blue-600 text-blue-600 hover:bg-blue-600 hover:text-white'
+                                                            }`}
+                                                        >
+                                                            {isPaid ? <><Check size={10} className="mr-1"/> Pagado</> : 'Pagar Item'}
+                                                        </button>
+                                                    )}
                                                 </div>
-                                                {/* Botón Individual */}
-                                                {canPay && item.status !== 'closed' && (
-                                                    <button 
-                                                        disabled={isPaid}
-                                                        onClick={() => onPayItem(item.id, c.k)}
-                                                        className={`w-full py-1.5 text-xs font-bold rounded flex items-center justify-center transition-colors ${
-                                                            isPaid 
-                                                            ? 'bg-green-100 text-green-700 cursor-default' 
-                                                            : 'bg-blue-600 text-white hover:bg-blue-700'
-                                                        }`}
-                                                    >
-                                                        {isPaid ? <><Check size={12} className="mr-1"/> Pagado</> : 'Pagar'}
-                                                    </button>
-                                                )}
-                                            </div>
-                                        );
-                                    })}
-                                </div>
+                                            );
+                                        })}
+                                    </div>
 
-                                {/* BARRA DE ACCIONES DE CIERRE */}
-                                {canPay && item.status !== 'closed' && (
-                                    <div className="flex justify-end gap-3 pt-4 border-t border-slate-200">
-                                        {!isFullyPaid && (
-                                            <button 
-                                                onClick={() => onPayAll(item.id)}
-                                                className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-bold rounded-lg shadow-sm flex items-center"
-                                            >
-                                                <CheckCircle size={16} className="mr-2"/> Pagar Todo
+                                    {canPay && item.status !== 'closed' && (
+                                        <div className="flex justify-end gap-3 pt-4 border-t border-slate-200">
+                                            {!isFullyPaid && (
+                                                <button onClick={() => onPayAll(item.id)} className="px-5 py-2 bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-bold rounded-lg shadow-sm flex items-center transition-transform hover:-translate-y-0.5">
+                                                    <CheckCircle size={16} className="mr-2"/> SALDAR TODO
+                                                </button>
+                                            )}
+                                            <button onClick={() => onCloseOperation(item)} className="px-5 py-2 bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold rounded-lg shadow-sm flex items-center transition-transform hover:-translate-y-0.5">
+                                                <Lock size={16} className="mr-2"/> CERRAR OPERACIÓN
                                             </button>
-                                        )}
-                                        <button 
-                                            onClick={() => onCloseOperation(item)}
-                                            className="px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white text-sm font-bold rounded-lg shadow-sm flex items-center"
-                                        >
-                                            <Lock size={16} className="mr-2"/> Cerrar Operación
-                                        </button>
-                                    </div>
-                                )}
-                                {item.status === 'closed' && (
-                                    <div className="text-center py-2 text-slate-500 text-sm font-bold italic">
-                                        Operación cerrada. Solo lectura.
-                                    </div>
-                                )}
+                                        </div>
+                                    )}
+                                    {item.status === 'closed' && (
+                                        <div className="w-full bg-slate-100 border border-slate-200 rounded p-3 text-center">
+                                            <p className="text-slate-500 text-xs font-bold flex items-center justify-center">
+                                                <Lock size={12} className="mr-2"/> Operación cerrada y archivada. No se permiten más cambios.
+                                            </p>
+                                        </div>
+                                    )}
+                                </div>
                             </td>
                         </tr>
                     )}
