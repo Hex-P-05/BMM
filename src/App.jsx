@@ -130,29 +130,30 @@ const calculateStatus = (etaString) => {
 };
 
 // --- DATOS INICIALES (MOCKS CON TODOS LOS CAMPOS DE PAGOS) ---
+// --- DATOS INICIALES (MOCKS ACTUALIZADOS) ---
 const rawData = [
   { 
     id: 1, bl: 'HLCU12345678', provider: 'HAPAG', client: 'Importadora México S.A.', clientCode: 'IMP', reason: 'FLETE', container: 'MSKU987654', eta: addDays(45), freeDays: 7, editCount: 0, payment: 'paid', paymentDate: '2025-06-10', paymentDelay: 0, currency: 'MXN', concept: 'HAPAG IMP 1 FLETE',
-    // DESGLOSE COMPLETO
-    costDemoras: 0, 
-    costAlmacenaje: 0, 
-    costOperativos: 5000, 
-    costPortuarios: 2000, 
-    costApoyo: 0, 
-    costImpuestos: 1000, 
-    costLiberacion: 0, 
-    costTransporte: 7000,
-    amount: 15000 // La suma total
+    // DATOS NUEVOS
+    terminal: 'CONTECON', 
+    observation: 'Contenedor con carga frágil.',
+    // COSTOS
+    costDemoras: 0, costAlmacenaje: 0, costOperativos: 5000, costPortuarios: 2000, costApoyo: 0, costImpuestos: 1000, costLiberacion: 0, costTransporte: 7000,
+    amount: 15000, status: 'active', paidFlags: {} 
   },
   { 
     id: 2, bl: 'MAEU87654321', provider: 'MAERSK', client: 'Logística Global', clientCode: 'LOG', reason: 'DEMORAS', container: 'TCLU123000', eta: addDays(-5), freeDays: 14, editCount: 1, payment: 'paid', paymentDate: '2025-06-12', paymentDelay: 5, currency: 'USD', concept: 'MAERSK LOG 1 DEMORAS',
+    terminal: 'TIMSA', 
+    observation: '',
     costDemoras: 15000, costAlmacenaje: 5000, costOperativos: 1000, costPortuarios: 0, costApoyo: 0, costImpuestos: 500, costLiberacion: 0, costTransporte: 1000,
-    amount: 22500 
+    amount: 22500, status: 'active', paidFlags: {}
   },
   { 
     id: 3, bl: 'COSU11223344', provider: 'COSCO', client: 'Textiles del Norte', clientCode: 'TEX', reason: 'GARANTÍA', container: 'MRKU554433', eta: addDays(5), freeDays: 21, editCount: 2, payment: 'pending', paymentDate: null, paymentDelay: 0, currency: 'MXN', concept: 'COSCO TEX 1 GARANTÍA',
+    terminal: 'SSA MÉXICO', 
+    observation: 'Requiere revisión previa.',
     costDemoras: 0, costAlmacenaje: 0, costOperativos: 0, costPortuarios: 0, costApoyo: 18000, costImpuestos: 0, costLiberacion: 0, costTransporte: 0,
-    amount: 18000 
+    amount: 18000, status: 'active', paidFlags: {}
   },
 ];
 
@@ -247,7 +248,6 @@ const EditModal = ({ isOpen, onClose, onSave, item, role }) => {
     
     if (name.startsWith('cost')) {
         const newData = { ...editData, [name]: val };
-        // Recalcular Total Automático
         const total = 
             (newData.costDemoras || 0) + (newData.costAlmacenaje || 0) + (newData.costOperativos || 0) + 
             (newData.costPortuarios || 0) + (newData.costApoyo || 0) + (newData.costImpuestos || 0) + 
@@ -260,16 +260,11 @@ const EditModal = ({ isOpen, onClose, onSave, item, role }) => {
 
   const handleSave = () => { onSave(editData); };
 
-  // Definición de los 8 campos de pago para el renderizado
   const costInputs = [
-    { key: 'costDemoras', label: 'Demoras' }, 
-    { key: 'costAlmacenaje', label: 'Almacenaje' },
-    { key: 'costOperativos', label: 'Costos operativos' }, 
-    { key: 'costPortuarios', label: 'Gastos portuarios' },
-    { key: 'costApoyo', label: 'Apoyo' }, 
-    { key: 'costImpuestos', label: 'Impuestos' },
-    { key: 'costLiberacion', label: 'Liberación abandono' }, 
-    { key: 'costTransporte', label: 'Transporte' },
+    { key: 'costDemoras', label: 'Demoras' }, { key: 'costAlmacenaje', label: 'Almacenaje' },
+    { key: 'costOperativos', label: 'Costos operativos' }, { key: 'costPortuarios', label: 'Gastos portuarios' },
+    { key: 'costApoyo', label: 'Apoyo' }, { key: 'costImpuestos', label: 'Impuestos' },
+    { key: 'costLiberacion', label: 'Liberación abandono' }, { key: 'costTransporte', label: 'Transporte' },
   ];
 
   return (
@@ -278,12 +273,8 @@ const EditModal = ({ isOpen, onClose, onSave, item, role }) => {
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl relative z-10 overflow-hidden max-h-[90vh] overflow-y-auto m-4">
         <div className="bg-blue-50 p-6 border-b border-blue-100 flex justify-between items-center sticky top-0 z-20">
           <div>
-             <h3 className="text-lg font-bold text-slate-800 flex items-center">
-                <Edit size={20} className="mr-2 text-blue-600"/> Editar contenedor
-             </h3>
-             <p className="text-xs text-slate-500 hidden sm:block">
-               {isRestricted ? `Modo restringido (${item.editCount + 1}/2)` : 'Modo administrador'}
-             </p>
+             <h3 className="text-lg font-bold text-slate-800 flex items-center"><Edit size={20} className="mr-2 text-blue-600"/> Editar contenedor</h3>
+             <p className="text-xs text-slate-500 hidden sm:block">{isRestricted ? `Modo restringido (${item.editCount + 1}/2)` : 'Modo administrador'}</p>
           </div>
           <button onClick={onClose}><X size={24} className="text-slate-400 hover:text-slate-600"/></button>
         </div>
@@ -298,43 +289,39 @@ const EditModal = ({ isOpen, onClose, onSave, item, role }) => {
              <input disabled name="container" value={editData.container} onChange={handleChange} className="w-full p-2 border rounded bg-slate-100 text-slate-500 cursor-not-allowed" />
           </div>
           
+          {/* CAMPOS EDITABLES PARA REVALIDACIÓN */}
           <div className="col-span-1">
-             <label className="text-xs font-bold text-slate-700 mb-1 block flex items-center">
-                Fecha ETA 
-                {isRestricted && <span className="ml-2 text-[10px] bg-green-100 text-green-700 px-1 rounded">Editable</span>}
-             </label>
+             <label className="text-xs font-bold text-slate-700 mb-1 block flex items-center">Fecha ETA {isRestricted && <span className="ml-2 text-[10px] bg-green-100 text-green-700 px-1 rounded">Editable</span>}</label>
              <input type="date" name="eta" value={editData.eta} onChange={handleChange} className="w-full p-2 border border-slate-300 rounded focus:ring-2 focus:ring-blue-500 outline-none" />
           </div>
-
           <div className="col-span-1">
-             <label className="text-xs font-bold text-slate-700 mb-1 block flex items-center">
-                Días libres
-                {isRestricted && <span className="ml-2 text-[10px] bg-green-100 text-green-700 px-1 rounded">Editable</span>}
-             </label>
+             <label className="text-xs font-bold text-slate-700 mb-1 block flex items-center">Días libres {isRestricted && <span className="ml-2 text-[10px] bg-green-100 text-green-700 px-1 rounded">Editable</span>}</label>
              <input type="number" name="freeDays" value={editData.freeDays} onChange={handleChange} className="w-full p-2 border border-slate-300 rounded focus:ring-2 focus:ring-blue-500 outline-none" />
+          </div>
+
+          {/* CAMPOS INFORMATIVOS (BLOQUEADOS PARA REVALIDACIÓN) */}
+          <div className="col-span-1">
+             <label className="text-xs font-bold text-slate-500 mb-1 block">Terminal</label>
+             <input disabled={isRestricted} name="terminal" value={editData.terminal} onChange={handleChange} className={`w-full p-2 border rounded ${isRestricted ? 'bg-slate-100 text-slate-500 cursor-not-allowed' : ''}`} />
+          </div>
+          <div className="col-span-1">
+             <label className="text-xs font-bold text-slate-500 mb-1 block">Observaciones</label>
+             <input disabled={isRestricted} name="observation" value={editData.observation} onChange={handleChange} className={`w-full p-2 border rounded ${isRestricted ? 'bg-slate-100 text-slate-500 cursor-not-allowed' : ''}`} />
           </div>
 
           <div className="col-span-1 sm:col-span-2 border-t pt-4 mt-2">
              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-2">
-                <label className="text-xs font-bold text-slate-500 uppercase mb-2 sm:mb-0">Desglose de costos (Granularidad)</label>
+                <label className="text-xs font-bold text-slate-500 uppercase mb-2 sm:mb-0">Desglose de costos</label>
                 <span className="text-xs font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded border border-blue-100">Total: ${editData.amount.toLocaleString()}</span>
              </div>
              
-             {/* BUCLE PARA GENERAR LOS 8 INPUTS DE COSTOS */}
              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 {costInputs.map(field => (
                     <div key={field.key}>
                         <label className="text-[10px] font-medium text-slate-500 mb-1 block truncate" title={field.label}>{field.label}</label>
                         <div className="relative">
                             <span className="absolute left-2 top-1.5 text-xs text-slate-400">$</span>
-                            <input 
-                                disabled={isRestricted}
-                                type="number" 
-                                name={field.key} 
-                                value={editData[field.key]} 
-                                onChange={handleChange} 
-                                className={`w-full pl-4 p-2 border rounded text-xs text-right outline-none ${isRestricted ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'focus:ring-2 focus:ring-blue-500'}`} 
-                            />
+                            <input disabled={isRestricted} type="number" name={field.key} value={editData[field.key]} onChange={handleChange} className={`w-full pl-4 p-2 border rounded text-xs text-right outline-none ${isRestricted ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'focus:ring-2 focus:ring-blue-500'}`} />
                         </div>
                     </div>
                 ))}
@@ -655,7 +642,7 @@ const CaptureForm = ({ onSave, onCancel, existingData, role }) => {
 
   const [formData, setFormData] = useState({
     bl: '', provider: '', rfc: '', address: '', client: '', reason: 'GARANTÍA', container: '', eta: '', currency: 'MXN',
-    freeDays: 7,
+    freeDays: 7, terminal: '', observation: '', // <--- NUEVOS CAMPOS
     costDemoras: 0, costAlmacenaje: 0, costOperativos: 0, costPortuarios: 0,
     costApoyo: 0, costImpuestos: 0, costLiberacion: 0, costTransporte: 0
   });
@@ -707,7 +694,6 @@ const CaptureForm = ({ onSave, onCancel, existingData, role }) => {
   };
   const handleChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value });
 
-  // Lista de campos
   const costFieldsInputs = [
     { name: 'costDemoras', label: 'Demoras' }, { name: 'costAlmacenaje', label: 'Almacenaje' },
     { name: 'costOperativos', label: 'Costos operativos' }, { name: 'costPortuarios', label: 'Gastos portuarios' },
@@ -744,7 +730,10 @@ const CaptureForm = ({ onSave, onCancel, existingData, role }) => {
             <div><label className="text-sm font-medium text-slate-700">Fecha ETA</label><input required name="eta" type="date" className="w-full p-2 border rounded outline-none" onChange={handleChange} /></div>
             <div><label className="text-sm font-medium text-slate-700">Días libres</label><input required name="freeDays" type="number" value={formData.freeDays} className="w-full p-2 border rounded outline-none" onChange={handleChange} /></div>
             
-            {/* SECCIÓN DE COSTOS DESGLOSADOS (VISIBLE) */}
+            {/* NUEVOS CAMPOS: TERMINAL Y OBSERVACIONES */}
+            <div><label className="text-sm font-medium text-slate-700">Terminal</label><input name="terminal" className="w-full p-2 border rounded outline-none" placeholder="Ej. CONTECON" onChange={handleChange} /></div>
+            <div><label className="text-sm font-medium text-slate-700">Observaciones</label><input name="observation" className="w-full p-2 border rounded outline-none" placeholder="Comentarios adicionales..." onChange={handleChange} /></div>
+
             <div className="col-span-1 md:col-span-2 border-t pt-4">
                <div className="flex justify-between items-center mb-3">
                   <label className="text-sm font-bold text-slate-700">Desglose de costos (Granularidad)</label>
@@ -754,10 +743,7 @@ const CaptureForm = ({ onSave, onCancel, existingData, role }) => {
                   {costFieldsInputs.map(field => (
                       <div key={field.name}>
                           <label className="text-xs font-medium text-slate-500 mb-1 block">{field.label}</label>
-                          <div className="relative">
-                             <span className="absolute left-2 top-1.5 text-xs text-slate-400">$</span>
-                             <input type="number" name={field.name} className="w-full pl-5 p-1.5 border rounded text-sm text-right outline-none focus:border-blue-500" onChange={handleChange} placeholder="0" />
-                          </div>
+                          <div className="relative"><span className="absolute left-2 top-1.5 text-xs text-slate-400">$</span><input type="number" name={field.name} className="w-full pl-5 p-1.5 border rounded text-sm text-right outline-none focus:border-blue-500" onChange={handleChange} placeholder="0" /></div>
                       </div>
                   ))}
                </div>
