@@ -7,7 +7,7 @@ import {
   TrendingUp, TrendingDown, Activity, AlertCircle, Calculator, Trash2, 
   Download, Printer, Package, MapPin, Key, LogOut, Check, 
   ChevronLeft, ChevronRight, ChevronDown, ChevronUp, ShieldAlert, Eye, EyeOff, 
-  Anchor // <--- ¡ESTE ES EL CULPABLE! TIENE QUE ESTAR AQUÍ
+  Anchor, ClipboardCheck// <--- ¡ESTE ES EL CULPABLE! TIENE QUE ESTAR AQUÍ
 } from 'lucide-react';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -994,6 +994,218 @@ const ListView = ({ data, onPayItem, onPayAll, onCloseOperation, role, onEdit })
   );
 };
 
+// --- MÓDULO DE CIERRE DE CUENTA (ESTILO HOJA DE CÁLCULO) ---
+const AccountClosure = ({ data }) => {
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedItem, setSelectedItem] = useState(null);
+  const [showDropdown, setShowDropdown] = useState(false);
+
+  // Estado del formulario manual (Hoja de cálculo)
+  const [spreadsheet, setSpreadsheet] = useState({
+    venta: 0, almacenajes: 0, transporte: 0, demoras: 0, estadias: 0, otros: 0,
+    anticipo1: 0, anticipo2: 0, anticipo3: 0
+  });
+
+  // Filtrar contenedores para el buscador
+  const filteredOptions = data.filter(item => 
+    item.bl.toLowerCase().includes(searchTerm.toLowerCase()) || 
+    item.container.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  const handleSelect = (item) => {
+    setSelectedItem(item);
+    setSearchTerm(`${item.bl} - ${item.container}`);
+    setShowDropdown(false);
+    // Reiniciamos los valores manuales al cambiar de contenedor
+    setSpreadsheet({
+        venta: 0, almacenajes: 0, transporte: 0, demoras: 0, estadias: 0, otros: 0,
+        anticipo1: 0, anticipo2: 0, anticipo3: 0
+    });
+  };
+
+  const handleCalcChange = (e) => {
+    const { name, value } = e.target;
+    setSpreadsheet({ ...spreadsheet, [name]: parseFloat(value) || 0 });
+  };
+
+  // Cálculos automáticos
+  const totalCliente = spreadsheet.venta + spreadsheet.almacenajes + spreadsheet.transporte + spreadsheet.demoras + spreadsheet.estadias + spreadsheet.otros;
+  const totalAnticipo = spreadsheet.anticipo1 + spreadsheet.anticipo2 + spreadsheet.anticipo3;
+  const diferencia = totalCliente - totalAnticipo;
+
+  return (
+    <div className="max-w-5xl mx-auto animate-fade-in space-y-6 pb-12">
+      
+      {/* 1. SELECCIÓN DE CONTENEDOR (AUTOCOMPLETADO) */}
+      <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+        <h2 className="text-xl font-bold text-slate-800 mb-4 flex items-center">
+            <ClipboardCheck className="mr-2 text-blue-600"/> Cierre de Cuenta
+        </h2>
+        <div className="relative">
+            <label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Buscar Contenedor / BL</label>
+            <div className="flex items-center">
+                <Search className="absolute left-3 text-slate-400" size={18}/>
+                <input 
+                    type="text" 
+                    placeholder="Escribe para buscar..." 
+                    className="w-full pl-10 p-3 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 font-mono text-lg uppercase"
+                    value={searchTerm}
+                    onChange={(e) => { setSearchTerm(e.target.value); setShowDropdown(true); }}
+                    onFocus={() => setShowDropdown(true)}
+                />
+                {selectedItem && (
+                    <button onClick={() => { setSelectedItem(null); setSearchTerm(''); }} className="ml-2 p-2 text-red-500 hover:bg-red-50 rounded"><X/></button>
+                )}
+            </div>
+            
+            {/* Dropdown de resultados */}
+            {showDropdown && searchTerm && !selectedItem && (
+                <div className="absolute top-full left-0 right-0 bg-white border border-slate-200 shadow-xl rounded-b-lg z-50 max-h-60 overflow-y-auto">
+                    {filteredOptions.map(item => (
+                        <div key={item.id} onClick={() => handleSelect(item)} className="p-3 hover:bg-blue-50 cursor-pointer border-b border-slate-50">
+                            <div className="font-bold text-slate-700">{item.bl}</div>
+                            <div className="text-xs text-slate-500">{item.client} - {item.container}</div>
+                        </div>
+                    ))}
+                    {filteredOptions.length === 0 && <div className="p-3 text-slate-400 text-sm">No se encontraron resultados.</div>}
+                </div>
+            )}
+        </div>
+      </div>
+
+      {/* 2. HOJA DE CIERRE (VISIBLE SOLO SI SELECCIONAS ALGO) */}
+      {selectedItem ? (
+        <div className="bg-white shadow-2xl border border-slate-300 w-full max-w-4xl mx-auto font-sans">
+            
+            {/* ENCABEZADO NEGRO (DATOS AUTOCOMPLETADOS) */}
+            <div className="bg-black text-white p-4 grid grid-cols-2 md:grid-cols-4 gap-4 items-center border-b-4 border-slate-600">
+                <div className="md:col-span-2">
+                    <h3 className="text-lg font-bold text-yellow-400 uppercase tracking-widest">Cierre de Cuenta</h3>
+                    <div className="text-sm font-bold mt-1">{selectedItem.client}</div>
+                    <div className="text-xs text-gray-400">{selectedItem.bl}</div>
+                </div>
+                <div className="text-right md:text-left">
+                    <div className="text-xs text-gray-400 uppercase">ETA</div>
+                    <div className="font-mono font-bold text-lg">{formatDate(selectedItem.eta)}</div>
+                </div>
+                <div className="text-right">
+                    <div className="text-xs text-gray-400 uppercase">FECHA CIERRE</div>
+                    <div className="font-mono font-bold text-lg">{new Date().toLocaleDateString()}</div>
+                </div>
+            </div>
+
+            {/* CUERPO DE LA TABLA */}
+            <div className="p-8 space-y-1">
+                
+                {/* SECCIÓN CARGOS (MANUAL) */}
+                {[
+                    { label: 'VENTA DE CONTENEDOR', name: 'venta' },
+                    { label: 'ALMACENAJES', name: 'almacenajes' },
+                    { label: 'TRANSPORTE', name: 'transporte' },
+                    { label: 'DEMORAS', name: 'demoras' },
+                    { label: 'ESTADÍAS', name: 'estadias' },
+                    { label: 'OTROS', name: 'otros' }
+                ].map((row, idx) => (
+                    <div key={idx} className="flex border-b border-slate-200 hover:bg-slate-50">
+                        <div className="w-1/2 p-2 bg-orange-50 border-r border-slate-200 font-bold text-slate-700 uppercase text-sm flex items-center justify-end pr-4">
+                            {row.label}
+                        </div>
+                        <div className="w-1/2 p-1 relative">
+                            <span className="absolute left-3 top-3 text-slate-400 font-bold">$</span>
+                            <input 
+                                type="number" 
+                                name={row.name}
+                                value={spreadsheet[row.name] || ''}
+                                onChange={handleCalcChange}
+                                className="w-full h-full p-2 pl-8 text-right font-mono text-slate-800 outline-none bg-transparent focus:bg-white"
+                                placeholder="0.00"
+                            />
+                        </div>
+                    </div>
+                ))}
+
+                {/* TOTAL CLIENTE (CALCULADO) */}
+                <div className="flex border-t-2 border-black mt-2">
+                    <div className="w-1/2 p-3 bg-orange-200 border-r border-black font-extrabold text-red-900 uppercase text-sm flex items-center justify-end pr-4">
+                        TOTAL CLIENTE
+                    </div>
+                    <div className="w-1/2 p-3 bg-orange-100 text-right font-mono font-bold text-xl text-slate-900">
+                        ${totalCliente.toLocaleString()}
+                    </div>
+                </div>
+
+                {/* ESPACIO */}
+                <div className="h-6"></div>
+
+                {/* SECCIÓN ANTICIPOS (MANUAL) */}
+                {[
+                    { label: 'ANTICIPO 1', name: 'anticipo1' },
+                    { label: 'ANTICIPO 2', name: 'anticipo2' },
+                    { label: 'ANTICIPO 3', name: 'anticipo3' }
+                ].map((row, idx) => (
+                    <div key={idx} className="flex border-b border-slate-200 hover:bg-slate-50">
+                        <div className="w-1/2 p-2 bg-green-50 border-r border-slate-200 font-bold text-green-800 uppercase text-sm flex items-center justify-end pr-4">
+                            {row.label}
+                        </div>
+                        <div className="w-1/2 p-1 relative">
+                            <span className="absolute left-3 top-3 text-slate-400 font-bold">$</span>
+                            <input 
+                                type="number" 
+                                name={row.name}
+                                value={spreadsheet[row.name] || ''}
+                                onChange={handleCalcChange}
+                                className="w-full h-full p-2 pl-8 text-right font-mono text-slate-800 outline-none bg-transparent focus:bg-white"
+                                placeholder="0.00"
+                            />
+                        </div>
+                    </div>
+                ))}
+
+                {/* TOTAL ANTICIPO (CALCULADO) */}
+                <div className="flex border-t-2 border-green-600">
+                    <div className="w-1/2 p-3 bg-green-200 border-r border-green-600 font-extrabold text-green-900 uppercase text-sm flex items-center justify-end pr-4">
+                        TOTAL ANTICIPO
+                    </div>
+                    <div className="w-1/2 p-3 bg-green-100 text-right font-mono font-bold text-xl text-green-900">
+                        ${totalAnticipo.toLocaleString()}
+                    </div>
+                </div>
+
+                {/* ESPACIO */}
+                <div className="h-6"></div>
+
+                {/* DIFERENCIA FINAL (ROJO) */}
+                <div className="flex border-4 border-red-800 shadow-lg transform scale-105 origin-center my-4">
+                    <div className="w-1/2 p-4 bg-red-300 border-r-4 border-red-800 font-extrabold text-red-950 uppercase text-lg flex items-center justify-end pr-4">
+                        DIFERENCIA
+                    </div>
+                    <div className="w-1/2 p-4 bg-red-200 text-right font-mono font-extrabold text-3xl text-red-900">
+                        ${diferencia.toLocaleString()}
+                    </div>
+                </div>
+
+            </div>
+            
+            {/* BOTÓN GUARDAR / IMPRIMIR */}
+            <div className="p-4 bg-slate-100 border-t border-slate-300 flex justify-end">
+                <button className="px-6 py-3 bg-slate-900 text-white font-bold rounded-lg shadow-lg hover:bg-black flex items-center">
+                    <Printer size={20} className="mr-2"/> Imprimir Cierre
+                </button>
+            </div>
+        </div>
+      ) : (
+        /* ESTADO VACÍO */
+        <div className="text-center py-20 opacity-50">
+            <div className="inline-block p-6 bg-slate-200 rounded-full mb-4">
+                <ClipboardCheck size={64} className="text-slate-400"/>
+            </div>
+            <p className="text-xl font-bold text-slate-500">Selecciona un contenedor para comenzar el cierre</p>
+        </div>
+      )}
+    </div>
+  );
+};
+
 export default function App() {
   // --- 1. ESTADOS GENERALES Y AUTENTICACIÓN ---
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -1008,21 +1220,12 @@ export default function App() {
   // --- 3. ESTADOS DE LOS MODALES ---
   const [paymentConfirmation, setPaymentConfirmation] = useState({ isOpen: false, item: null });
   const [editingItem, setEditingItem] = useState(null);
-  
-  // NUEVOS ESTADOS PARA CIERRE DE OPERACIÓN
   const [closeModalOpen, setCloseModalOpen] = useState(false);
   const [itemToClose, setItemToClose] = useState(null);
 
   // --- 4. MANEJADORES DE AUTENTICACIÓN ---
-  const handleLogin = (userRole) => {
-    setRole(userRole);
-    setIsLoggedIn(true);
-  };
-
-  const handleLogout = () => {
-    setIsLoggedIn(false);
-    setActiveTab('dashboard');
-  };
+  const handleLogin = (userRole) => { setRole(userRole); setIsLoggedIn(true); };
+  const handleLogout = () => { setIsLoggedIn(false); setActiveTab('dashboard'); };
 
   // --- 5. LÓGICA DE DATOS (CRUD) ---
   const handleSave = (newItem) => {
@@ -1034,10 +1237,9 @@ export default function App() {
   const handleSaveEdit = (editedItem) => {
     const newData = data.map(item => {
       if (item.id === editedItem.id) {
-        // Actualizamos datos y aumentamos contador de ediciones
         return { 
             ...editedItem, 
-            statusETA: calculateStatus(editedItem.eta), // Recalcular estatus ETA
+            statusETA: calculateStatus(editedItem.eta), 
             editCount: (item.editCount || 0) + 1 
         };
       }
@@ -1057,57 +1259,41 @@ export default function App() {
     setEditingItem(item);
   };
 
-  // --- 6. LÓGICA DE PAGOS (NUEVA Y GRANULAR) ---
-
-  // A) Iniciar pago global (Modal antiguo, opcional si usas el botón "Pagar Todo")
+  // --- 6. LÓGICA DE PAGOS ---
   const initiatePayment = (id) => { 
       const item = data.find(i => i.id === id); 
       if (item) { setPaymentConfirmation({ isOpen: true, item }); } 
   };
 
-  // B) Ejecutar pago global desde el modal de confirmación
   const executePayment = () => {
     const { item } = paymentConfirmation;
     if (!item) return;
-    handlePayAll(item.id); // Reutilizamos la lógica de pagar todo
+    handlePayAll(item.id);
     setPaymentConfirmation({ isOpen: false, item: null }); 
   };
 
-  // C) Pagar un concepto individual (Botones pequeños en la sábana)
   const handlePayItem = (id, costKey) => {
       const newData = data.map(d => {
         if (d.id === id) {
           const currentFlags = d.paidFlags || {};
-          return { 
-              ...d, 
-              paidFlags: { ...currentFlags, [costKey]: true } 
-          };
+          return { ...d, paidFlags: { ...currentFlags, [costKey]: true } };
         }
         return d;
       });
       setData(newData);
   };
 
-  // D) Pagar TODO el contenedor (Botón verde "Pagar Todo")
   const handlePayAll = (id) => {
       const todayStr = new Date().toISOString().split('T')[0];
       const newData = data.map(d => {
         if (d.id === id) {
-          // Calculamos retraso si aplica
           const diffDays = getDaysDiff(d.eta);
           let delay = 0; 
           if (diffDays < 0) { delay = Math.abs(diffDays); }
 
           return { 
-              ...d, 
-              payment: 'paid', 
-              paymentDate: todayStr, 
-              paymentDelay: delay,
-              // Marcamos todas las banderas individuales como true también
-              paidFlags: {
-                  costDemoras: true, costAlmacenaje: true, costOperativos: true, costPortuarios: true,
-                  costApoyo: true, costImpuestos: true, costLiberacion: true, costTransporte: true
-              }
+              ...d, payment: 'paid', paymentDate: todayStr, paymentDelay: delay,
+              paidFlags: { costDemoras: true, costAlmacenaje: true, costOperativos: true, costPortuarios: true, costApoyo: true, costImpuestos: true, costLiberacion: true, costTransporte: true }
           };
         }
         return d;
@@ -1115,18 +1301,14 @@ export default function App() {
       setData(newData);
   };
 
-  // --- 7. LÓGICA DE CIERRE DE OPERACIÓN (NUEVA) ---
-  
+  // --- 7. LÓGICA DE CIERRE ---
   const handleCloseOperation = (item) => {
-      // Regla: No cerrar si no está pagado todo (Opcional, aquí pregunto)
       if (item.payment !== 'paid') {
          const confirm = window.confirm("⚠️ PAGOS PENDIENTES\n\nEste contenedor aún tiene saldos pendientes. Al cerrarlo se marcará todo como PAGADO automáticamente.\n\n¿Deseas continuar?");
          if(!confirm) return;
-         
-         // Si dice que sí, pagamos todo primero en memoria temporal para el recibo
          const itemPagado = { ...item, payment: 'paid' };
-         handlePayAll(item.id); // Actualizamos estado real
-         setItemToClose(itemPagado); // Pasamos el item ya "pagado" al modal
+         handlePayAll(item.id); 
+         setItemToClose(itemPagado);
       } else {
          setItemToClose(item);
       }
@@ -1135,9 +1317,7 @@ export default function App() {
 
   const confirmClose = () => {
        const newData = data.map(d => {
-         if (d.id === itemToClose.id) {
-           return { ...d, status: 'closed' }; // Estatus especial que bloquea todo
-         }
+         if (d.id === itemToClose.id) { return { ...d, status: 'closed' }; }
          return d;
        });
        setData(newData);
@@ -1145,63 +1325,39 @@ export default function App() {
        setItemToClose(null);
   };
 
-  // --- 8. RENDERIZADO DE MENÚ LATERAL (HELPER) ---
+  // --- 8. HELPER MENU ---
   const NavItem = ({ id, icon: Icon, label }) => {
     if (role === 'pagos' && id === 'capture') return null;
     return (
-      <button 
-        onClick={() => { setActiveTab(id); setIsMobileMenuOpen(false); }} 
-        className={`w-full flex items-center px-4 py-3 mb-1 rounded-lg transition-all duration-300 ${activeTab === id ? 'bg-blue-600 text-white shadow-md' : 'text-slate-400 hover:bg-slate-800 hover:text-white'} ${isSidebarCollapsed ? 'justify-center' : ''}`} 
-        title={isSidebarCollapsed ? label : ''}
-      >
+      <button onClick={() => { setActiveTab(id); setIsMobileMenuOpen(false); }} className={`w-full flex items-center px-4 py-3 mb-1 rounded-lg transition-all duration-300 ${activeTab === id ? 'bg-blue-600 text-white shadow-md' : 'text-slate-400 hover:bg-slate-800 hover:text-white'} ${isSidebarCollapsed ? 'justify-center' : ''}`} title={isSidebarCollapsed ? label : ''}>
         <Icon size={20} className={`${isSidebarCollapsed ? '' : 'mr-3'}`} />
         {!isSidebarCollapsed && <span className="font-medium whitespace-nowrap">{label}</span>}
       </button>
     );
   };
 
-  // --- 9. CONDICIONAL DE LOGIN ---
   if (!isLoggedIn) { return <LoginView onLogin={handleLogin} />; }
-
-  // AQUI SIGUE EL RETURN...
 
   return (
     <div className="flex h-screen bg-slate-100 font-sans text-slate-800 relative">
-      <PaymentModal 
-        isOpen={paymentConfirmation.isOpen} 
-        item={paymentConfirmation.item} 
-        onClose={() => setPaymentConfirmation({ isOpen: false, item: null })} 
-        onConfirm={executePayment} 
-      />
-      
-      <EditModal 
-        isOpen={!!editingItem} 
-        onClose={() => setEditingItem(null)} 
-        onSave={handleSaveEdit} 
-        item={editingItem} 
-        role={role} 
-      />
-
-      {/* --- AGREGAR ESTE MODAL DE CIERRE AQUÍ --- */}
-      <CloseModal 
-        isOpen={closeModalOpen} 
-        onClose={confirmClose} 
-        item={itemToClose} 
-      />
+      <PaymentModal isOpen={paymentConfirmation.isOpen} item={paymentConfirmation.item} onClose={() => setPaymentConfirmation({ isOpen: false, item: null })} onConfirm={executePayment} />
+      <EditModal isOpen={!!editingItem} onClose={() => setEditingItem(null)} onSave={handleSaveEdit} item={editingItem} role={role} />
+      <CloseModal isOpen={closeModalOpen} onClose={confirmClose} item={itemToClose} />
 
       <aside className={`${isSidebarCollapsed ? 'w-20' : 'w-64'} bg-slate-900 text-white flex-shrink-0 hidden md:flex flex-col transition-all duration-300 ease-in-out relative`}>
-        <button onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)} className="absolute -right-3 top-9 bg-blue-600 text-white p-1 rounded-full shadow-lg border-2 border-slate-100 hover:bg-blue-700 transition-colors z-20">
-          {isSidebarCollapsed ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
-        </button>
-        <div className={`p-6 border-b border-slate-800 flex items-center ${isSidebarCollapsed ? 'justify-center' : 'space-x-2'}`}>
-          <div className="w-8 h-8 bg-blue-500 rounded-lg flex items-center justify-center flex-shrink-0"><Ship size={20} className="text-white" /></div>
-          {!isSidebarCollapsed && (<div className="overflow-hidden"><span className="text-lg font-bold tracking-tight whitespace-nowrap">AduanaSoft</span><p className="text-xs text-slate-500 mt-0.5 whitespace-nowrap">v2.2 Production</p></div>)}
-        </div>
+        <button onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)} className="absolute -right-3 top-9 bg-blue-600 text-white p-1 rounded-full shadow-lg border-2 border-slate-100 hover:bg-blue-700 transition-colors z-20">{isSidebarCollapsed ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}</button>
+        <div className={`p-6 border-b border-slate-800 flex items-center ${isSidebarCollapsed ? 'justify-center' : 'space-x-2'}`}><div className="w-8 h-8 bg-blue-500 rounded-lg flex items-center justify-center flex-shrink-0"><Ship size={20} className="text-white" /></div>{!isSidebarCollapsed && (<div className="overflow-hidden"><span className="text-lg font-bold tracking-tight whitespace-nowrap">AduanaSoft</span><p className="text-xs text-slate-500 mt-0.5 whitespace-nowrap">v2.2 Production</p></div>)}</div>
+        
         <nav className="flex-1 p-4 overflow-y-auto overflow-x-hidden">
           {!isSidebarCollapsed && <p className="px-4 text-xs font-bold text-slate-500 uppercase mb-3 animate-fade-in">Menú</p>}
+          
           <NavItem id="dashboard" icon={LayoutDashboard} label="Visión general" />
           <NavItem id="list" icon={TableIcon} label="Sábana operativa" />
           <NavItem id="capture" icon={Plus} label="Alta de contenedores" />
+          
+          {/* AQUÍ ESTÁ EL NUEVO BOTÓN DE CIERRE DE CUENTA */}
+          <NavItem id="closure" icon={ClipboardCheck} label="Cierre de cuenta" /> 
+
           {(role === 'admin' || role === 'ejecutivo') && (
             <div className={`mt-6 ${isSidebarCollapsed ? 'border-t border-slate-800 pt-6' : ''}`}>
               {!isSidebarCollapsed && <p className="px-4 text-xs font-bold text-slate-500 uppercase mb-3 animate-fade-in">Comercial</p>}
@@ -1209,58 +1365,49 @@ export default function App() {
             </div>
           )}
         </nav>
-        <div className="p-4 border-t border-slate-800">
-          <div className={`flex items-center ${isSidebarCollapsed ? 'justify-center' : 'space-x-3'} mb-4`}>
-            <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-blue-500 to-purple-500 flex items-center justify-center text-xs font-bold flex-shrink-0"><User size={20} /></div>
-            {!isSidebarCollapsed && (<div className="overflow-hidden"><p className="text-sm font-medium whitespace-nowrap">Usuario activo</p><RoleBadge role={role} /></div>)}
-          </div>
-          <button onClick={handleLogout} className={`w-full flex items-center ${isSidebarCollapsed ? 'justify-center px-0' : 'justify-center px-4'} py-2 bg-slate-800 hover:bg-red-900/30 text-slate-400 hover:text-red-400 rounded-lg transition-colors text-xs font-bold`} title={isSidebarCollapsed ? "Cerrar sesión" : ""}>
-            <LogOut size={14} className={`${isSidebarCollapsed ? '' : 'mr-2'}`} /> {!isSidebarCollapsed && "Cerrar sesión"}
-          </button>
-        </div>
+
+        <div className="p-4 border-t border-slate-800"><div className={`flex items-center ${isSidebarCollapsed ? 'justify-center' : 'space-x-3'} mb-4`}><div className="w-10 h-10 rounded-full bg-gradient-to-tr from-blue-500 to-purple-500 flex items-center justify-center text-xs font-bold flex-shrink-0"><User size={20} /></div>{!isSidebarCollapsed && (<div className="overflow-hidden"><p className="text-sm font-medium whitespace-nowrap">Usuario activo</p><RoleBadge role={role} /></div>)}</div><button onClick={handleLogout} className={`w-full flex items-center ${isSidebarCollapsed ? 'justify-center px-0' : 'justify-center px-4'} py-2 bg-slate-800 hover:bg-red-900/30 text-slate-400 hover:text-red-400 rounded-lg transition-colors text-xs font-bold`} title={isSidebarCollapsed ? "Cerrar sesión" : ""}><LogOut size={14} className={`${isSidebarCollapsed ? '' : 'mr-2'}`} /> {!isSidebarCollapsed && "Cerrar sesión"}</button></div>
       </aside>
 
       {isMobileMenuOpen && (
         <div className="fixed inset-0 z-50 bg-slate-900 text-white flex flex-col animate-fade-in">
-           {/* ... (código del menú móvil sigue igual) ... */}
-           {/* Por brevedad asumo que copias el menú móvil que ya tenías o quieres que te lo repita? */}
-           {/* Si lo necesitas completo dime, pero aquí lo importante es el MAIN abajo */}
-           <div className="p-6 border-b border-slate-800 flex justify-between items-start"><div><div className="flex items-center space-x-2"><div className="w-8 h-8 bg-blue-500 rounded-lg flex items-center justify-center"><Ship size={20} className="text-white" /></div><span className="text-lg font-bold tracking-tight">AduanaSoft</span></div></div><button onClick={() => setIsMobileMenuOpen(false)} className="p-1"><X size={28} /></button></div><nav className="flex-1 p-6"><NavItem id="dashboard" icon={LayoutDashboard} label="Visión general" /><NavItem id="list" icon={TableIcon} label="Sábana operativa" /><NavItem id="capture" icon={Plus} label="Alta de contenedores" />{(role === 'admin' || role === 'ejecutivo') && (<NavItem id="quotes" icon={Calculator} label="Generador de cotizaciones" />)}<div className="mt-8 pt-6 border-t border-slate-700"><div className="flex items-center space-x-3 mb-6"><div className="w-8 h-8 rounded-full bg-gradient-to-tr from-blue-500 to-purple-500 flex items-center justify-center text-xs font-bold"><User size={16} /></div><div className="text-sm">Rol actual: <RoleBadge role={role} /></div></div><button onClick={handleLogout} className="w-full flex items-center justify-center px-4 py-3 bg-red-600 text-white rounded-lg font-bold"><LogOut size={18} className="mr-2" /> Cerrar sesión</button></div></nav>
+            <div className="p-6 border-b border-slate-800 flex justify-between items-start"><div><div className="flex items-center space-x-2"><div className="w-8 h-8 bg-blue-500 rounded-lg flex items-center justify-center"><Ship size={20} className="text-white" /></div><span className="text-lg font-bold tracking-tight">AduanaSoft</span></div></div><button onClick={() => setIsMobileMenuOpen(false)} className="p-1"><X size={28} /></button></div>
+            <nav className="flex-1 p-6">
+                <NavItem id="dashboard" icon={LayoutDashboard} label="Visión general" />
+                <NavItem id="list" icon={TableIcon} label="Sábana operativa" />
+                <NavItem id="capture" icon={Plus} label="Alta de contenedores" />
+                
+                {/* TAMBIÉN AGREGADO AL MENÚ MÓVIL */}
+                <NavItem id="closure" icon={ClipboardCheck} label="Cierre de cuenta" />
+
+                {(role === 'admin' || role === 'ejecutivo') && (<NavItem id="quotes" icon={Calculator} label="Generador de cotizaciones" />)}
+                <div className="mt-8 pt-6 border-t border-slate-700"><div className="flex items-center space-x-3 mb-6"><div className="w-8 h-8 rounded-full bg-gradient-to-tr from-blue-500 to-purple-500 flex items-center justify-center text-xs font-bold"><User size={16} /></div><div className="text-sm">Rol actual: <RoleBadge role={role} /></div></div><button onClick={handleLogout} className="w-full flex items-center justify-center px-4 py-3 bg-red-600 text-white rounded-lg font-bold"><LogOut size={18} className="mr-2" /> Cerrar sesión</button></div>
+            </nav>
         </div>
       )}
 
       <main className="flex-1 flex flex-col overflow-hidden transition-all duration-300">
-        <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-6 shadow-sm z-10">
-          <button onClick={() => setIsMobileMenuOpen(true)} className="md:hidden p-2 -ml-2 rounded hover:bg-slate-100"><Menu className="text-slate-800" /></button>
-          <div className="text-xl font-bold text-slate-800 flex items-center gap-2">
-            {activeTab === 'dashboard' && 'Visión general'}
-            {activeTab === 'list' && 'Gestión y pagos'}
-            {activeTab === 'capture' && 'Alta de documentos'}
-            {activeTab === 'quotes' && 'Generador de cotizaciones'}
-            <span className="hidden md:inline-flex ml-4 transform scale-90 origin-left"><RoleBadge role={role} /></span>
-          </div>
-          <div className="flex items-center space-x-4">
-             <div className="hidden lg:flex items-center px-3 py-1 bg-green-50 text-green-700 rounded-full border border-green-200 text-xs font-medium"><DollarSign size={14} className="mr-1"/> USD: $20.54</div>
-          </div>
-        </header>
-
+        <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-6 shadow-sm z-10"><button onClick={() => setIsMobileMenuOpen(true)} className="md:hidden p-2 -ml-2 rounded hover:bg-slate-100"><Menu className="text-slate-800" /></button><div className="text-xl font-bold text-slate-800 flex items-center gap-2">{activeTab === 'dashboard' && 'Visión general'}{activeTab === 'list' && 'Gestión y pagos'}{activeTab === 'capture' && 'Alta de documentos'}{activeTab === 'quotes' && 'Generador de cotizaciones'}{activeTab === 'closure' && 'Cierre de Cuenta'}<span className="hidden md:inline-flex ml-4 transform scale-90 origin-left"><RoleBadge role={role} /></span></div><div className="flex items-center space-x-4"><div className="hidden lg:flex items-center px-3 py-1 bg-green-50 text-green-700 rounded-full border border-green-200 text-xs font-medium"><DollarSign size={14} className="mr-1"/> USD: $20.54</div></div></header>
         <div className="flex-1 overflow-auto p-4 md:p-8">
+          
           {activeTab === 'dashboard' && <DashboardView data={data} />}
           {activeTab === 'capture' && <CaptureForm onSave={handleSave} onCancel={() => setActiveTab('dashboard')} existingData={data} role={role} />}
           
-          {/* --- AQUÍ ESTÁ EL CAMBIO IMPORTANTE: PASAR LAS PROPS NUEVAS --- */}
           {activeTab === 'list' && (
             <ListView 
-              data={data} 
-              onPayItem={handlePayItem}        // <--- NUEVO
-              onPayAll={handlePayAll}          // <--- NUEVO
-              onCloseOperation={handleCloseOperation} // <--- NUEVO
-              onInitiatePayment={initiatePayment} 
-              role={role} 
-              onEdit={handleEditClick} 
+                data={data} 
+                onPayItem={handlePayItem} 
+                onPayAll={handlePayAll} 
+                onCloseOperation={handleCloseOperation} 
+                onInitiatePayment={initiatePayment}
+                role={role} 
+                onEdit={handleEditClick} 
             />
           )}
-          
+
+          {/* AQUÍ SE RENDERIZA EL NUEVO MÓDULO */}
+          {activeTab === 'closure' && <AccountClosure data={data} />}
+
           {activeTab === 'quotes' && <QuoteGenerator role={role} />}
         </div>
       </main>
