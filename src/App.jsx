@@ -995,18 +995,18 @@ const ListView = ({ data, onPayItem, onPayAll, onCloseOperation, role, onEdit })
 };
 
 // --- MÓDULO DE CIERRE DE CUENTA (ESTILO HOJA DE CÁLCULO) ---
+// --- MÓDULO DE CIERRE DE CUENTA (CON GENERACIÓN DE PDF) ---
 const AccountClosure = ({ data }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedItem, setSelectedItem] = useState(null);
   const [showDropdown, setShowDropdown] = useState(false);
 
-  // Estado del formulario manual (Hoja de cálculo)
+  // Estado del formulario manual
   const [spreadsheet, setSpreadsheet] = useState({
     venta: 0, almacenajes: 0, transporte: 0, demoras: 0, estadias: 0, otros: 0,
     anticipo1: 0, anticipo2: 0, anticipo3: 0
   });
 
-  // Filtrar contenedores para el buscador
   const filteredOptions = data.filter(item => 
     item.bl.toLowerCase().includes(searchTerm.toLowerCase()) || 
     item.container.toLowerCase().includes(searchTerm.toLowerCase())
@@ -1016,7 +1016,6 @@ const AccountClosure = ({ data }) => {
     setSelectedItem(item);
     setSearchTerm(`${item.bl} - ${item.container}`);
     setShowDropdown(false);
-    // Reiniciamos los valores manuales al cambiar de contenedor
     setSpreadsheet({
         venta: 0, almacenajes: 0, transporte: 0, demoras: 0, estadias: 0, otros: 0,
         anticipo1: 0, anticipo2: 0, anticipo3: 0
@@ -1028,7 +1027,30 @@ const AccountClosure = ({ data }) => {
     setSpreadsheet({ ...spreadsheet, [name]: parseFloat(value) || 0 });
   };
 
-  // Cálculos automáticos
+  // --- NUEVA FUNCIÓN PARA GUARDAR PDF ---
+  const handleSavePDF = async () => {
+    const element = document.getElementById('closure-spreadsheet'); // Buscamos la hoja por ID
+    if(!element) return;
+    
+    try {
+      // 1. Capturamos el diseño exacto
+      const canvas = await html2canvas(element, { scale: 2, useCORS: true, backgroundColor: '#ffffff' });
+      
+      // 2. Preparamos el PDF
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF('p', 'mm', 'a4'); // A4 Vertical
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = (canvas.height * pdfWidth) / canvas.width; // Ajuste proporcional
+
+      // 3. Agregamos la imagen y guardamos
+      pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+      pdf.save(`Cierre_Cuenta_${selectedItem.bl}.pdf`);
+    } catch (error) {
+      console.error("Error generando PDF:", error);
+      alert("Hubo un error al generar el PDF.");
+    }
+  };
+
   const totalCliente = spreadsheet.venta + spreadsheet.almacenajes + spreadsheet.transporte + spreadsheet.demoras + spreadsheet.estadias + spreadsheet.otros;
   const totalAnticipo = spreadsheet.anticipo1 + spreadsheet.anticipo2 + spreadsheet.anticipo3;
   const diferencia = totalCliente - totalAnticipo;
@@ -1036,7 +1058,7 @@ const AccountClosure = ({ data }) => {
   return (
     <div className="max-w-5xl mx-auto animate-fade-in space-y-6 pb-12">
       
-      {/* 1. SELECCIÓN DE CONTENEDOR (AUTOCOMPLETADO) */}
+      {/* SELECCIÓN DE CONTENEDOR */}
       <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
         <h2 className="text-xl font-bold text-slate-800 mb-4 flex items-center">
             <ClipboardCheck className="mr-2 text-blue-600"/> Cierre de Cuenta
@@ -1058,7 +1080,6 @@ const AccountClosure = ({ data }) => {
                 )}
             </div>
             
-            {/* Dropdown de resultados */}
             {showDropdown && searchTerm && !selectedItem && (
                 <div className="absolute top-full left-0 right-0 bg-white border border-slate-200 shadow-xl rounded-b-lg z-50 max-h-60 overflow-y-auto">
                     {filteredOptions.map(item => (
@@ -1073,132 +1094,97 @@ const AccountClosure = ({ data }) => {
         </div>
       </div>
 
-      {/* 2. HOJA DE CIERRE (VISIBLE SOLO SI SELECCIONAS ALGO) */}
       {selectedItem ? (
         <div className="bg-white shadow-2xl border border-slate-300 w-full max-w-4xl mx-auto font-sans">
             
-            {/* ENCABEZADO NEGRO (DATOS AUTOCOMPLETADOS) */}
-            <div className="bg-black text-white p-4 grid grid-cols-2 md:grid-cols-4 gap-4 items-center border-b-4 border-slate-600">
-                <div className="md:col-span-2">
-                    <h3 className="text-lg font-bold text-yellow-400 uppercase tracking-widest">Cierre de Cuenta</h3>
-                    <div className="text-sm font-bold mt-1">{selectedItem.client}</div>
-                    <div className="text-xs text-gray-400">{selectedItem.bl}</div>
+            {/* --- ID AGREGADO AQUÍ PARA QUE EL PDF CAPTURE SOLO ESTA PARTE --- */}
+            <div id="closure-spreadsheet"> 
+                {/* ENCABEZADO NEGRO */}
+                <div className="bg-black text-white p-4 grid grid-cols-2 md:grid-cols-4 gap-4 items-center border-b-4 border-slate-600">
+                    <div className="md:col-span-2">
+                        <h3 className="text-lg font-bold text-yellow-400 uppercase tracking-widest">Cierre de Cuenta</h3>
+                        <div className="text-sm font-bold mt-1">{selectedItem.client}</div>
+                        <div className="text-xs text-gray-400">{selectedItem.bl}</div>
+                    </div>
+                    <div className="text-right md:text-left">
+                        <div className="text-xs text-gray-400 uppercase">ETA</div>
+                        <div className="font-mono font-bold text-lg">{formatDate(selectedItem.eta)}</div>
+                    </div>
+                    <div className="text-right">
+                        <div className="text-xs text-gray-400 uppercase">FECHA CIERRE</div>
+                        <div className="font-mono font-bold text-lg">{new Date().toLocaleDateString()}</div>
+                    </div>
                 </div>
-                <div className="text-right md:text-left">
-                    <div className="text-xs text-gray-400 uppercase">ETA</div>
-                    <div className="font-mono font-bold text-lg">{formatDate(selectedItem.eta)}</div>
-                </div>
-                <div className="text-right">
-                    <div className="text-xs text-gray-400 uppercase">FECHA CIERRE</div>
-                    <div className="font-mono font-bold text-lg">{new Date().toLocaleDateString()}</div>
-                </div>
-            </div>
 
-            {/* CUERPO DE LA TABLA */}
-            <div className="p-8 space-y-1">
-                
-                {/* SECCIÓN CARGOS (MANUAL) */}
-                {[
-                    { label: 'VENTA DE CONTENEDOR', name: 'venta' },
-                    { label: 'ALMACENAJES', name: 'almacenajes' },
-                    { label: 'TRANSPORTE', name: 'transporte' },
-                    { label: 'DEMORAS', name: 'demoras' },
-                    { label: 'ESTADÍAS', name: 'estadias' },
-                    { label: 'OTROS', name: 'otros' }
-                ].map((row, idx) => (
-                    <div key={idx} className="flex border-b border-slate-200 hover:bg-slate-50">
-                        <div className="w-1/2 p-2 bg-orange-50 border-r border-slate-200 font-bold text-slate-700 uppercase text-sm flex items-center justify-end pr-4">
-                            {row.label}
+                {/* CUERPO DE LA TABLA */}
+                <div className="p-8 space-y-1 bg-white">
+                    {[
+                        { label: 'VENTA DE CONTENEDOR', name: 'venta' },
+                        { label: 'ALMACENAJES', name: 'almacenajes' },
+                        { label: 'TRANSPORTE', name: 'transporte' },
+                        { label: 'DEMORAS', name: 'demoras' },
+                        { label: 'ESTADÍAS', name: 'estadias' },
+                        { label: 'OTROS', name: 'otros' }
+                    ].map((row, idx) => (
+                        <div key={idx} className="flex border-b border-slate-200">
+                            <div className="w-1/2 p-2 bg-orange-50 border-r border-slate-200 font-bold text-slate-700 uppercase text-sm flex items-center justify-end pr-4">
+                                {row.label}
+                            </div>
+                            <div className="w-1/2 p-1 relative">
+                                <span className="absolute left-3 top-3 text-slate-400 font-bold">$</span>
+                                <input type="number" name={row.name} value={spreadsheet[row.name] || ''} onChange={handleCalcChange} className="w-full h-full p-2 pl-8 text-right font-mono text-slate-800 outline-none bg-transparent" placeholder="0.00"/>
+                            </div>
                         </div>
-                        <div className="w-1/2 p-1 relative">
-                            <span className="absolute left-3 top-3 text-slate-400 font-bold">$</span>
-                            <input 
-                                type="number" 
-                                name={row.name}
-                                value={spreadsheet[row.name] || ''}
-                                onChange={handleCalcChange}
-                                className="w-full h-full p-2 pl-8 text-right font-mono text-slate-800 outline-none bg-transparent focus:bg-white"
-                                placeholder="0.00"
-                            />
-                        </div>
-                    </div>
-                ))}
+                    ))}
 
-                {/* TOTAL CLIENTE (CALCULADO) */}
-                <div className="flex border-t-2 border-black mt-2">
-                    <div className="w-1/2 p-3 bg-orange-200 border-r border-black font-extrabold text-red-900 uppercase text-sm flex items-center justify-end pr-4">
-                        TOTAL CLIENTE
+                    <div className="flex border-t-2 border-black mt-2">
+                        <div className="w-1/2 p-3 bg-orange-200 border-r border-black font-extrabold text-red-900 uppercase text-sm flex items-center justify-end pr-4">TOTAL CLIENTE</div>
+                        <div className="w-1/2 p-3 bg-orange-100 text-right font-mono font-bold text-xl text-slate-900">${totalCliente.toLocaleString()}</div>
                     </div>
-                    <div className="w-1/2 p-3 bg-orange-100 text-right font-mono font-bold text-xl text-slate-900">
-                        ${totalCliente.toLocaleString()}
+
+                    <div className="h-6"></div>
+
+                    {[
+                        { label: 'ANTICIPO 1', name: 'anticipo1' },
+                        { label: 'ANTICIPO 2', name: 'anticipo2' },
+                        { label: 'ANTICIPO 3', name: 'anticipo3' }
+                    ].map((row, idx) => (
+                        <div key={idx} className="flex border-b border-slate-200">
+                            <div className="w-1/2 p-2 bg-green-50 border-r border-slate-200 font-bold text-green-800 uppercase text-sm flex items-center justify-end pr-4">{row.label}</div>
+                            <div className="w-1/2 p-1 relative">
+                                <span className="absolute left-3 top-3 text-slate-400 font-bold">$</span>
+                                <input type="number" name={row.name} value={spreadsheet[row.name] || ''} onChange={handleCalcChange} className="w-full h-full p-2 pl-8 text-right font-mono text-slate-800 outline-none bg-transparent" placeholder="0.00"/>
+                            </div>
+                        </div>
+                    ))}
+
+                    <div className="flex border-t-2 border-green-600">
+                        <div className="w-1/2 p-3 bg-green-200 border-r border-green-600 font-extrabold text-green-900 uppercase text-sm flex items-center justify-end pr-4">TOTAL ANTICIPO</div>
+                        <div className="w-1/2 p-3 bg-green-100 text-right font-mono font-bold text-xl text-green-900">${totalAnticipo.toLocaleString()}</div>
+                    </div>
+
+                    <div className="h-6"></div>
+
+                    <div className="flex border-4 border-red-800 shadow-lg transform scale-105 origin-center my-4">
+                        <div className="w-1/2 p-4 bg-red-300 border-r-4 border-red-800 font-extrabold text-red-950 uppercase text-lg flex items-center justify-end pr-4">DIFERENCIA</div>
+                        <div className="w-1/2 p-4 bg-red-200 text-right font-mono font-extrabold text-3xl text-red-900">${diferencia.toLocaleString()}</div>
                     </div>
                 </div>
-
-                {/* ESPACIO */}
-                <div className="h-6"></div>
-
-                {/* SECCIÓN ANTICIPOS (MANUAL) */}
-                {[
-                    { label: 'ANTICIPO 1', name: 'anticipo1' },
-                    { label: 'ANTICIPO 2', name: 'anticipo2' },
-                    { label: 'ANTICIPO 3', name: 'anticipo3' }
-                ].map((row, idx) => (
-                    <div key={idx} className="flex border-b border-slate-200 hover:bg-slate-50">
-                        <div className="w-1/2 p-2 bg-green-50 border-r border-slate-200 font-bold text-green-800 uppercase text-sm flex items-center justify-end pr-4">
-                            {row.label}
-                        </div>
-                        <div className="w-1/2 p-1 relative">
-                            <span className="absolute left-3 top-3 text-slate-400 font-bold">$</span>
-                            <input 
-                                type="number" 
-                                name={row.name}
-                                value={spreadsheet[row.name] || ''}
-                                onChange={handleCalcChange}
-                                className="w-full h-full p-2 pl-8 text-right font-mono text-slate-800 outline-none bg-transparent focus:bg-white"
-                                placeholder="0.00"
-                            />
-                        </div>
-                    </div>
-                ))}
-
-                {/* TOTAL ANTICIPO (CALCULADO) */}
-                <div className="flex border-t-2 border-green-600">
-                    <div className="w-1/2 p-3 bg-green-200 border-r border-green-600 font-extrabold text-green-900 uppercase text-sm flex items-center justify-end pr-4">
-                        TOTAL ANTICIPO
-                    </div>
-                    <div className="w-1/2 p-3 bg-green-100 text-right font-mono font-bold text-xl text-green-900">
-                        ${totalAnticipo.toLocaleString()}
-                    </div>
-                </div>
-
-                {/* ESPACIO */}
-                <div className="h-6"></div>
-
-                {/* DIFERENCIA FINAL (ROJO) */}
-                <div className="flex border-4 border-red-800 shadow-lg transform scale-105 origin-center my-4">
-                    <div className="w-1/2 p-4 bg-red-300 border-r-4 border-red-800 font-extrabold text-red-950 uppercase text-lg flex items-center justify-end pr-4">
-                        DIFERENCIA
-                    </div>
-                    <div className="w-1/2 p-4 bg-red-200 text-right font-mono font-extrabold text-3xl text-red-900">
-                        ${diferencia.toLocaleString()}
-                    </div>
-                </div>
-
             </div>
             
-            {/* BOTÓN GUARDAR / IMPRIMIR */}
+            {/* BOTÓN ACTUALIZADO PARA GUARDAR PDF */}
             <div className="p-4 bg-slate-100 border-t border-slate-300 flex justify-end">
-                <button className="px-6 py-3 bg-slate-900 text-white font-bold rounded-lg shadow-lg hover:bg-black flex items-center">
-                    <Printer size={20} className="mr-2"/> Imprimir Cierre
+                <button 
+                    onClick={handleSavePDF} 
+                    className="px-6 py-3 bg-blue-600 text-white font-bold rounded-lg shadow-lg hover:bg-blue-700 flex items-center transition-transform hover:-translate-y-1"
+                >
+                    <Download size={20} className="mr-2"/> Guardar PDF
                 </button>
             </div>
         </div>
       ) : (
-        /* ESTADO VACÍO */
         <div className="text-center py-20 opacity-50">
-            <div className="inline-block p-6 bg-slate-200 rounded-full mb-4">
-                <ClipboardCheck size={64} className="text-slate-400"/>
-            </div>
+            <div className="inline-block p-6 bg-slate-200 rounded-full mb-4"><ClipboardCheck size={64} className="text-slate-400"/></div>
             <p className="text-xl font-bold text-slate-500">Selecciona un contenedor para comenzar el cierre</p>
         </div>
       )}
