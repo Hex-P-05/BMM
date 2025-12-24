@@ -21,6 +21,89 @@ const addDays = (days) => {
   return date.toISOString().split('T')[0];
 };
 
+// --- UTILIDAD DE GENERACIÓN DE PDF (MOTOR GRÁFICO) ---
+const generatePDF = (itemsToPrint, filename = 'Comprobantes.pdf') => {
+  const doc = new jsPDF();
+  
+  itemsToPrint.forEach((item, index) => {
+    if (index > 0) doc.addPage(); // Nueva página para cada recibo
+
+    // Fondo y Encabezado
+    doc.setFillColor(248, 250, 252); // Slate-50
+    doc.rect(0, 0, 210, 297, 'F'); // Fondo completo
+    
+    doc.setFillColor(37, 99, 235); // Azul header
+    doc.rect(0, 0, 210, 40, 'F');
+    
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(22);
+    doc.setFont("helvetica", "bold");
+    doc.text("AduanaSoft", 15, 20);
+    doc.setFontSize(12);
+    doc.setFont("helvetica", "normal");
+    doc.text("Comprobante de Cierre Operativo", 15, 30);
+
+    // Datos del Contenedor
+    doc.setTextColor(51, 65, 85); // Slate-700
+    doc.setFontSize(10);
+    doc.text(`Fecha de emisión: ${new Date().toLocaleDateString()}`, 150, 30, { align: 'right' });
+
+    doc.setFillColor(255, 255, 255);
+    doc.roundedRect(15, 50, 180, 35, 3, 3, 'F'); // Caja datos
+    
+    doc.setFont("helvetica", "bold");
+    doc.text("CLIENTE:", 25, 65);
+    doc.text("BL MASTER:", 110, 65);
+    doc.text("CONTENEDOR:", 110, 75);
+    
+    doc.setFont("helvetica", "normal");
+    doc.text(item.client, 50, 65);
+    doc.text(item.bl, 145, 65);
+    doc.text(item.container, 145, 75);
+
+    // Tabla de Costos
+    let yPos = 100;
+    doc.setFontSize(14);
+    doc.setFont("helvetica", "bold");
+    doc.text("Desglose de Costos", 15, 95);
+    
+    // Línea divisoria
+    doc.setDrawColor(203, 213, 225);
+    doc.line(15, 98, 195, 98);
+
+    const costs = [
+        { l: 'Demoras', v: item.costDemoras }, { l: 'Almacenaje', v: item.costAlmacenaje },
+        { l: 'Costos Operativos', v: item.costOperativos }, { l: 'Gastos Portuarios', v: item.costPortuarios },
+        { l: 'Apoyo Extraordinario', v: item.costApoyo }, { l: 'Impuestos', v: item.costImpuestos },
+        { l: 'Liberación Abandono', v: item.costLiberacion }, { l: 'Transporte', v: item.costTransporte }
+    ];
+
+    doc.setFontSize(10);
+    costs.forEach(c => {
+        if (c.v > 0) {
+            yPos += 10;
+            doc.setFont("helvetica", "normal");
+            doc.text(c.l, 25, yPos);
+            doc.setFont("helvetica", "bold");
+            doc.text(`$${c.v.toLocaleString()}`, 185, yPos, { align: 'right' });
+            doc.setDrawColor(241, 245, 249); // Línea sutil
+            doc.line(25, yPos + 3, 185, yPos + 3);
+        }
+    });
+
+    // Total
+    yPos += 20;
+    doc.setFillColor(30, 41, 59); // Slate-800
+    doc.roundedRect(120, yPos - 10, 75, 15, 2, 2, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(12);
+    doc.text("TOTAL PAGADO", 125, yPos);
+    doc.text(`$${item.amount.toLocaleString()} ${item.currency}`, 190, yPos, { align: 'right' });
+  });
+
+  doc.save(filename);
+};
+
 const formatDate = (dateString) => {
   if (!dateString) return '';
   const [year, month, day] = dateString.split('-');
@@ -273,24 +356,10 @@ const EditModal = ({ isOpen, onClose, onSave, item, role }) => {
 const CloseModal = ({ isOpen, onClose, item }) => {
   if (!isOpen || !item) return null;
 
-  // Calcula totales para el resumen
-  const totalPagado = item.amount; // Asumimos que al cerrar todo está pagado
-  const fechaCierre = new Date().toLocaleDateString();
-
-  const handleDownloadReceipt = async () => {
-    const element = document.getElementById('receipt-content');
-    if(!element) return;
-    try {
-      const canvas = await html2canvas(element, { scale: 2, backgroundColor: '#ffffff' });
-      const imgData = canvas.toDataURL('image/png');
-      const pdf = new jsPDF('p', 'mm', 'a4');
-      const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
-      pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
-      pdf.save(`Comprobante_Cierre_${item.bl}.pdf`);
-    } catch (error) {
-      console.error("Error PDF:", error);
-    }
+  // Manejador para cerrar Y descargar
+  const handleCloseAndDownload = () => {
+    generatePDF([item], `Comprobante_${item.bl}.pdf`); // Usamos la nueva función
+    onClose();
   };
 
   const costList = [
@@ -298,51 +367,35 @@ const CloseModal = ({ isOpen, onClose, item }) => {
     { l: 'Operativos', v: item.costOperativos }, { l: 'Portuarios', v: item.costPortuarios },
     { l: 'Apoyo', v: item.costApoyo }, { l: 'Impuestos', v: item.costImpuestos },
     { l: 'Liberación', v: item.costLiberacion }, { l: 'Transporte', v: item.costTransporte }
-  ].filter(c => c.v > 0); // Solo mostramos lo que costó algo
+  ].filter(c => c.v > 0);
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 animate-fade-in">
       <div className="absolute inset-0 bg-slate-900/80 backdrop-blur-sm" onClick={onClose}></div>
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg relative z-10 overflow-hidden flex flex-col max-h-[90vh]">
-        
-        {/* Cabecera del Modal */}
         <div className="bg-emerald-600 p-6 text-white flex justify-between items-center">
-          <div>
-            <h3 className="text-xl font-bold flex items-center"><CheckCircle className="mr-2"/> Operación Cerrada</h3>
-            <p className="text-emerald-100 text-sm">El contenedor ha finalizado su ciclo.</p>
-          </div>
+          <div><h3 className="text-xl font-bold flex items-center"><CheckCircle className="mr-2"/> Cerrar Operación</h3><p className="text-emerald-100 text-sm">Se generará el registro final del contenedor.</p></div>
           <button onClick={onClose}><X className="text-white hover:bg-emerald-700 rounded p-1" /></button>
         </div>
 
-        {/* Contenido Visual (Lo que se imprime) */}
         <div className="p-6 overflow-y-auto bg-slate-50 flex-1">
-          <div id="receipt-content" className="bg-white p-8 shadow-sm border border-slate-200 rounded-lg">
-            <div className="text-center border-b border-slate-100 pb-4 mb-4">
-              <h2 className="text-2xl font-bold text-slate-800 uppercase tracking-widest">Comprobante</h2>
-              <p className="text-xs text-slate-400">Ref: {item.bl} - {item.container}</p>
-              <p className="text-xs text-slate-400">Fecha Cierre: {fechaCierre}</p>
-            </div>
-            
-            <div className="space-y-2 text-sm mb-6">
-              {costList.map((c, i) => (
-                <div key={i} className="flex justify-between border-b border-slate-50 pb-1">
-                  <span className="text-slate-500">{c.l}</span>
-                  <span className="font-mono font-bold text-slate-700">${c.v.toLocaleString()}</span>
-                </div>
-              ))}
-            </div>
-
-            <div className="bg-slate-900 text-white p-3 rounded-lg flex justify-between items-center">
-              <span className="font-bold">TOTAL PAGADO</span>
-              <span className="text-xl font-bold">${totalPagado.toLocaleString()} {item.currency}</span>
-            </div>
+          <div className="bg-white p-6 shadow-sm border border-slate-200 rounded-lg">
+            <h4 className="text-sm font-bold text-slate-500 uppercase mb-4 text-center">Resumen Financiero</h4>
+            {costList.map((c, i) => (
+              <div key={i} className="flex justify-between border-b border-slate-50 pb-2 mb-2 text-sm"><span className="text-slate-600">{c.l}</span><span className="font-bold text-slate-800">${c.v.toLocaleString()}</span></div>
+            ))}
+            <div className="mt-4 p-3 bg-slate-100 rounded flex justify-between items-center font-bold text-slate-800 border border-slate-200"><span>TOTAL FINAL</span><span>${item.amount.toLocaleString()} {item.currency}</span></div>
           </div>
         </div>
 
-        {/* Footer con Botón de Descarga */}
-        <div className="p-4 border-t bg-white">
-          <button onClick={handleDownloadReceipt} className="w-full py-3 bg-slate-800 text-white font-bold rounded-xl hover:bg-slate-900 flex justify-center items-center gap-2 shadow-lg">
-            <Download size={18} /> Descargar PDF y Finalizar
+        <div className="p-4 border-t bg-white flex gap-3">
+          {/* BOTÓN 1: SOLO CERRAR (OK) */}
+          <button onClick={onClose} className="flex-1 py-3 bg-white border-2 border-slate-200 text-slate-600 font-bold rounded-xl hover:bg-slate-50 hover:text-slate-800 transition-colors">
+            Confirmar y Cerrar
+          </button>
+          {/* BOTÓN 2: DESCARGAR Y CERRAR */}
+          <button onClick={handleCloseAndDownload} className="flex-1 py-3 bg-emerald-600 text-white font-bold rounded-xl hover:bg-emerald-700 shadow-lg flex justify-center items-center gap-2">
+            <Download size={18} /> Descargar PDF
           </button>
         </div>
       </div>
@@ -724,10 +777,13 @@ const CaptureForm = ({ onSave, onCancel, existingData, role }) => {
   );
 };
 
-// --- LISTVIEW CON INFORMACIÓN EXPANDIDA ---
 const ListView = ({ data, onPayItem, onPayAll, onCloseOperation, role, onEdit }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [expandedRow, setExpandedRow] = useState(null);
+  
+  // --- NUEVO: ESTADO PARA SELECCIÓN MÚLTIPLE ---
+  const [selectedIds, setSelectedIds] = useState([]);
+
   const tableContainerRef = React.useRef(null);
 
   const filteredData = data.filter(item => 
@@ -741,13 +797,34 @@ const ListView = ({ data, onPayItem, onPayAll, onCloseOperation, role, onEdit })
 
   const toggleRow = (id) => setExpandedRow(expandedRow === id ? null : id);
 
+  // --- LÓGICA DE SELECCIÓN ---
+  const toggleSelectAll = () => {
+    if (selectedIds.length === filteredData.length) {
+        setSelectedIds([]); // Deseleccionar todo
+    } else {
+        setSelectedIds(filteredData.map(d => d.id)); // Seleccionar todo lo visible
+    }
+  };
+
+  const toggleSelectItem = (id) => {
+    if (selectedIds.includes(id)) {
+        setSelectedIds(selectedIds.filter(itemId => itemId !== id));
+    } else {
+        setSelectedIds([...selectedIds, id]);
+    }
+  };
+
+  // --- LÓGICA DE DESCARGA MASIVA ---
+  const handleBulkDownload = () => {
+      const itemsToPrint = data.filter(d => selectedIds.includes(d.id));
+      if (itemsToPrint.length === 0) return;
+      generatePDF(itemsToPrint, `Reporte_Masivo_${itemsToPrint.length}_ops.pdf`);
+  };
+
   const scrollTable = (direction) => {
     if (tableContainerRef.current) {
         const scrollAmount = 400;
-        tableContainerRef.current.scrollBy({
-            left: direction === 'left' ? -scrollAmount : scrollAmount,
-            behavior: 'smooth'
-        });
+        tableContainerRef.current.scrollBy({ left: direction === 'left' ? -scrollAmount : scrollAmount, behavior: 'smooth' });
     }
   };
 
@@ -768,7 +845,16 @@ const ListView = ({ data, onPayItem, onPayAll, onCloseOperation, role, onEdit })
   return (
     <div className="space-y-4 animate-fade-in h-full flex flex-col">
       <div className="flex flex-col md:flex-row justify-between items-center bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex-shrink-0 gap-4">
-        <h2 className="text-xl font-bold text-slate-800">Sábana operativa</h2>
+        <div className="flex items-center gap-4">
+            <h2 className="text-xl font-bold text-slate-800">Sábana operativa</h2>
+            {/* BOTÓN DE DESCARGA MASIVA (Aparece si hay seleccionados) */}
+            {selectedIds.length > 0 && (
+                <button onClick={handleBulkDownload} className="flex items-center px-3 py-1.5 bg-slate-800 text-white text-xs font-bold rounded-lg shadow-lg hover:bg-slate-900 transition-all animate-bounce-in">
+                    <Download size={14} className="mr-2"/> Descargar ({selectedIds.length}) seleccionados
+                </button>
+            )}
+        </div>
+        
         <div className="flex items-center gap-3 w-full md:w-auto">
             <div className="flex bg-slate-100 rounded-lg p-1 border border-slate-200">
                 <button onClick={() => scrollTable('left')} className="p-2 hover:bg-white rounded-md transition-all text-slate-500 hover:text-blue-600 shadow-sm"><ChevronLeft size={18}/></button>
@@ -777,24 +863,41 @@ const ListView = ({ data, onPayItem, onPayAll, onCloseOperation, role, onEdit })
             </div>
             <div className="relative flex-1 md:w-72">
                 <Search className="absolute left-3 top-2.5 text-slate-400" size={18} />
-                <input type="text" placeholder="Buscar BL, Cliente..." className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm" onChange={(e) => setSearchTerm(e.target.value)} />
+                <input type="text" placeholder="Buscar..." className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm" onChange={(e) => setSearchTerm(e.target.value)} />
             </div>
         </div>
       </div>
 
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden flex-1 relative">
         <div ref={tableContainerRef} className="overflow-auto h-[calc(100vh-200px)] w-full relative"> 
-          <table className="w-full text-left border-collapse min-w-[1800px]">
+          <table className="w-full text-left border-collapse min-w-[1900px]">
             <thead className="sticky top-0 z-40 shadow-sm">
                 <tr className="bg-slate-50 border-b border-slate-200 text-xs font-bold text-slate-500 uppercase h-12">
-                    <th className="p-4 w-12 sticky left-0 top-0 z-50 bg-slate-50 border-r border-b border-slate-200"></th>
-                    <th className="p-4 w-48 sticky left-12 top-0 z-50 bg-slate-50 border-r border-b border-slate-200">Concepto</th>
-                    <th className="p-4 w-48 sticky left-60 top-0 z-50 bg-slate-50 border-r border-b border-slate-300 shadow-lg md:shadow-none">BL / Contenedor</th>
+                    
+                    {/* CHECKBOX (STICKY 0) */}
+                    <th className="p-4 w-12 sticky left-0 top-0 z-50 bg-slate-50 border-r border-b border-slate-200 text-center">
+                        <input type="checkbox" onChange={toggleSelectAll} checked={selectedIds.length === filteredData.length && filteredData.length > 0} className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer"/>
+                    </th>
+
+                    {/* FLECHA (STICKY 12 -> Desplazado por el checkbox) */}
+                    <th className="p-4 w-12 sticky left-12 top-0 z-50 bg-slate-50 border-r border-b border-slate-200"></th>
+                    
+                    {/* CONCEPTO (STICKY 24) */}
+                    <th className="p-4 w-48 sticky left-24 top-0 z-50 bg-slate-50 border-r border-b border-slate-200">Concepto</th>
+                    
+                    {/* BL (STICKY 72) */}
+                    <th className="p-4 w-48 sticky left-72 top-0 z-50 bg-slate-50 border-r border-b border-slate-300 shadow-lg md:shadow-none">BL / Contenedor</th>
+                    
+                    {/* COLUMNAS NORMALES */}
                     <th className="p-4 w-40 bg-slate-50">ETA & Semáforo</th>
                     <th className="p-4 w-32 text-center bg-slate-50">Días libres</th>
                     <th className="p-4 w-32 text-center bg-slate-50">Estatus Op.</th>
                     <th className="p-4 w-40 text-right bg-slate-50">Monto total</th>
                     <th className="p-4 w-40 text-center bg-slate-50">Fecha Pago</th>
+                    
+                    {/* NUEVA COLUMNA: COMPROBANTE */}
+                    <th className="p-4 w-32 text-center bg-slate-50">Comprobante</th>
+
                     <th className="p-4 w-40 text-center bg-slate-50">Acciones</th>
                     <th className="p-4 text-center bg-slate-50 min-w-[200px]">Observaciones</th>
                     <th className="p-4 text-center bg-slate-50 min-w-[150px]">Naviera</th>
@@ -805,59 +908,54 @@ const ListView = ({ data, onPayItem, onPayAll, onCloseOperation, role, onEdit })
               {filteredData.map((item) => {
                 const isFullyPaid = item.payment === 'paid'; 
                 const paidFlags = item.paidFlags || {}; 
+                const isSelected = selectedIds.includes(item.id);
 
                 return (
                 <React.Fragment key={item.id}>
-                    <tr className={`hover:bg-slate-50 border-b border-slate-100 transition-colors ${expandedRow === item.id ? 'bg-blue-50/30' : ''}`}>
-                        <td className="p-4 text-center cursor-pointer sticky left-0 z-20 bg-white border-r border-slate-100" onClick={() => toggleRow(item.id)}>
+                    <tr className={`hover:bg-slate-50 border-b border-slate-100 transition-colors ${isSelected ? 'bg-blue-50' : ''} ${expandedRow === item.id ? 'bg-blue-50/30' : ''}`}>
+                        
+                        {/* 1. CHECKBOX (STICKY LEFT 0) */}
+                        <td className="p-4 text-center sticky left-0 z-20 bg-white border-r border-slate-100">
+                            <input type="checkbox" checked={isSelected} onChange={() => toggleSelectItem(item.id)} className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer"/>
+                        </td>
+
+                        {/* 2. FLECHA (STICKY LEFT 12) */}
+                        <td className="p-4 text-center cursor-pointer sticky left-12 z-20 bg-white border-r border-slate-100" onClick={() => toggleRow(item.id)}>
                             {expandedRow === item.id ? <ChevronUp size={18} className="text-blue-500"/> : <ChevronDown size={18} className="text-slate-400"/>}
                         </td>
-                        <td className="p-4 sticky left-12 z-20 bg-white border-r border-slate-100">
+
+                        {/* 3. CLIENTE (STICKY LEFT 24) */}
+                        <td className="p-4 sticky left-24 z-20 bg-white border-r border-slate-100">
                             <div className="font-bold text-slate-700 truncate w-40" title={item.client}>{item.client}</div>
                             <div className="inline-block mt-1 px-2 py-0.5 bg-slate-100 border rounded text-[10px] font-mono text-slate-600 truncate max-w-[150px]">{item.concept}</div>
                         </td>
-                        <td className="p-4 sticky left-60 z-20 bg-white border-r border-slate-300 shadow-[4px_0_10px_-2px_rgba(0,0,0,0.1)]">
+
+                        {/* 4. BL (STICKY LEFT 72) */}
+                        <td className="p-4 sticky left-72 z-20 bg-white border-r border-slate-300 shadow-[4px_0_10px_-2px_rgba(0,0,0,0.1)]">
                             <div className="font-mono font-bold text-blue-700">{item.bl}</div>
                             <div className="text-xs text-slate-500 font-bold">{item.container}</div>
                         </td>
-                        <td className="p-4">
-                            <div className="flex flex-col">
-                                <span className="font-bold text-slate-700 text-xs mb-1">{formatDate(item.eta)}</span>
-                                <StatusBadge item={item} />
-                                {renderDaysDiff(item.eta)}
-                            </div>
-                        </td>
+
+                        <td className="p-4"><div className="flex flex-col"><span className="font-bold text-slate-700 text-xs mb-1">{formatDate(item.eta)}</span><StatusBadge item={item} />{renderDaysDiff(item.eta)}</div></td>
+                        <td className="p-4 text-center"><div className="inline-flex flex-col items-center justify-center p-2 bg-slate-50 rounded-lg border border-slate-200 min-w-[60px]"><span className="text-[10px] text-slate-400 uppercase font-bold mb-1">Libres</span><div className="flex items-center text-slate-700 font-bold"><Clock size={14} className="mr-1 text-slate-400"/> {item.freeDays}</div></div></td>
+                        <td className="p-4 text-center">{item.status === 'closed' ? <span className="px-2 py-1 bg-slate-800 text-white rounded text-[10px] font-bold uppercase tracking-wider">Cerrado</span> : <span className="px-2 py-1 bg-green-100 text-green-700 rounded text-[10px] font-bold uppercase tracking-wider border border-green-200">Activo</span>}</td>
+                        <td className="p-4 text-right font-medium"><div className="text-lg font-bold text-slate-700">${item.amount.toLocaleString()}</div><div className="text-[10px] text-slate-400 font-bold">{item.currency}</div></td>
+                        <td className="p-4 text-center text-xs text-slate-500">{item.payment === 'paid' ? <div><span className="block font-bold text-emerald-600">PAGADO</span><span className="text-[10px]">{formatDate(item.paymentDate)}</span></div> : '-'}</td>
+                        
+                        {/* 9. NUEVA COLUMNA: COMPROBANTE */}
                         <td className="p-4 text-center">
-                            <div className="inline-flex flex-col items-center justify-center p-2 bg-slate-50 rounded-lg border border-slate-200 min-w-[60px]">
-                                <span className="text-[10px] text-slate-400 uppercase font-bold mb-1">Libres</span>
-                                <div className="flex items-center text-slate-700 font-bold">
-                                    <Clock size={14} className="mr-1 text-slate-400"/> {item.freeDays}
-                                </div>
-                            </div>
+                            {item.status === 'closed' ? (
+                                <button onClick={() => generatePDF([item], `Comprobante_${item.bl}.pdf`)} className="p-2 bg-emerald-50 text-emerald-600 hover:bg-emerald-600 hover:text-white rounded-lg border border-emerald-200 transition-all group" title="Descargar Comprobante">
+                                    <FileText size={18} className="group-hover:scale-110 transition-transform"/>
+                                </button>
+                            ) : (
+                                <span className="text-xs text-slate-300 italic">Pendiente</span>
+                            )}
                         </td>
-                        <td className="p-4 text-center">
-                             {item.status === 'closed' 
-                                ? <span className="px-2 py-1 bg-slate-800 text-white rounded text-[10px] font-bold uppercase tracking-wider">Cerrado</span> 
-                                : <span className="px-2 py-1 bg-green-100 text-green-700 rounded text-[10px] font-bold uppercase tracking-wider border border-green-200">Activo</span>
-                            }
-                        </td>
-                        <td className="p-4 text-right font-medium">
-                            <div className="text-lg font-bold text-slate-700">${item.amount.toLocaleString()}</div>
-                            <div className="text-[10px] text-slate-400 font-bold">{item.currency}</div>
-                        </td>
-                        <td className="p-4 text-center text-xs text-slate-500">
-                            {item.payment === 'paid' ? (
-                                <div>
-                                    <span className="block font-bold text-emerald-600">PAGADO</span>
-                                    <span className="text-[10px]">{formatDate(item.paymentDate)}</span>
-                                </div>
-                            ) : '-'}
-                        </td>
+
                         <td className="p-4 flex justify-center space-x-2">
                             {canSeeEdit && item.status !== 'closed' && (
-                                <button onClick={() => onEdit(item)} className="p-2 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg border border-transparent hover:border-blue-100 transition-all" title="Editar">
-                                    <Edit size={18}/>
-                                </button>
+                                <button onClick={() => onEdit(item)} className="p-2 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg border border-transparent hover:border-blue-100 transition-all" title="Editar"><Edit size={18}/></button>
                             )}
                         </td>
                         <td className="p-4 text-xs text-slate-400 italic truncate max-w-[200px]">Sin observaciones...</td>
@@ -867,43 +965,22 @@ const ListView = ({ data, onPayItem, onPayAll, onCloseOperation, role, onEdit })
                     
                     {expandedRow === item.id && (
                         <tr className="bg-slate-50 animate-fade-in">
-                            <td colSpan="12" className="p-0 border-b border-slate-200 shadow-inner">
-                                <div className="pl-[360px] p-6 relative min-w-max"> 
-                                    
-                                    {/* --- AQUÍ ESTÁ EL CAMBIO: Panel de Información en lugar del Ancla --- */}
-                                    <div className="absolute left-0 top-0 bottom-0 w-[360px] bg-slate-100 border-r border-slate-200 z-10 flex flex-col justify-center p-6 space-y-4">
-                                        {/* Sección Cliente/Concepto */}
-                                        <div>
-                                            <h4 className="text-xs font-bold text-slate-500 uppercase mb-1">Cliente & Concepto</h4>
-                                            <div className="font-bold text-slate-700 text-lg truncate" title={item.client}>{item.client}</div>
-                                            <div className="inline-block mt-1 px-3 py-1 bg-white border rounded-md text-xs font-mono text-slate-600 shadow-sm">
-                                                {item.concept}
-                                            </div>
-                                        </div>
-                                        {/* Sección BL/Contenedor */}
-                                        <div>
-                                            <h4 className="text-xs font-bold text-slate-500 uppercase mb-1">BL & Contenedor</h4>
-                                            <div className="font-mono font-bold text-blue-700 text-lg">{item.bl}</div>
-                                            <div className="text-sm text-slate-600 font-bold">{item.container}</div>
-                                        </div>
+                            <td colSpan="13" className="p-0 border-b border-slate-200 shadow-inner">
+                                <div className="pl-[410px] p-6 relative min-w-max"> 
+                                    <div className="absolute left-0 top-0 bottom-0 w-[410px] bg-slate-100 border-r border-slate-200 z-10 flex flex-col justify-center p-6 space-y-4">
+                                        <div><h4 className="text-xs font-bold text-slate-500 uppercase mb-1">Cliente & Concepto</h4><div className="font-bold text-slate-700 text-lg truncate" title={item.client}>{item.client}</div><div className="inline-block mt-1 px-3 py-1 bg-white border rounded-md text-xs font-mono text-slate-600 shadow-sm">{item.concept}</div></div>
+                                        <div><h4 className="text-xs font-bold text-slate-500 uppercase mb-1">BL & Contenedor</h4><div className="font-mono font-bold text-blue-700 text-lg">{item.bl}</div><div className="text-sm text-slate-600 font-bold">{item.container}</div></div>
                                     </div>
-                                    {/* ------------------------------------------------------------------ */}
 
                                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
                                         {costMap.map((c) => {
                                             const monto = item[c.k] || 0;
                                             const isPaid = paidFlags[c.k] || isFullyPaid;
-                                            
                                             return (
                                                 <div key={c.k} className={`p-3 rounded-lg border flex flex-col justify-between shadow-sm transition-all ${monto > 0 ? 'bg-white border-slate-200' : 'bg-slate-50 border-slate-100 opacity-60'}`}>
-                                                    <div className="flex justify-between items-start mb-2">
-                                                        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">{c.l}</span>
-                                                        <span className={`font-mono font-bold ${monto > 0 ? 'text-slate-800' : 'text-slate-300'}`}>${monto.toLocaleString()}</span>
-                                                    </div>
+                                                    <div className="flex justify-between items-start mb-2"><span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">{c.l}</span><span className={`font-mono font-bold ${monto > 0 ? 'text-slate-800' : 'text-slate-300'}`}>${monto.toLocaleString()}</span></div>
                                                     {monto > 0 && canPay && item.status !== 'closed' && (
-                                                        <button disabled={isPaid} onClick={() => onPayItem(item.id, c.k)} className={`w-full py-1.5 text-[10px] font-bold rounded flex items-center justify-center transition-colors uppercase tracking-wide ${isPaid ? 'bg-emerald-50 text-emerald-600 border border-emerald-100 cursor-default' : 'bg-white border border-blue-600 text-blue-600 hover:bg-blue-600 hover:text-white'}`}>
-                                                            {isPaid ? <><Check size={10} className="mr-1"/> Pagado</> : 'Pagar Item'}
-                                                        </button>
+                                                        <button disabled={isPaid} onClick={() => onPayItem(item.id, c.k)} className={`w-full py-1.5 text-[10px] font-bold rounded flex items-center justify-center transition-colors uppercase tracking-wide ${isPaid ? 'bg-emerald-50 text-emerald-600 border border-emerald-100 cursor-default' : 'bg-white border border-blue-600 text-blue-600 hover:bg-blue-600 hover:text-white'}`}>{isPaid ? <><Check size={10} className="mr-1"/> Pagado</> : 'Pagar Item'}</button>
                                                     )}
                                                 </div>
                                             );
@@ -916,13 +993,7 @@ const ListView = ({ data, onPayItem, onPayAll, onCloseOperation, role, onEdit })
                                             <button onClick={() => onCloseOperation(item)} className="px-5 py-2 bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold rounded-lg shadow-sm flex items-center transition-transform hover:-translate-y-0.5"><Lock size={16} className="mr-2"/> CERRAR OPERACIÓN</button>
                                         </div>
                                     )}
-                                    {item.status === 'closed' && (
-                                        <div className="w-full bg-slate-100 border border-slate-200 rounded p-3 text-center">
-                                            <p className="text-slate-500 text-xs font-bold flex items-center justify-center">
-                                                <Lock size={12} className="mr-2"/> Operación cerrada y archivada. No se permiten más cambios.
-                                            </p>
-                                        </div>
-                                    )}
+                                    {item.status === 'closed' && (<div className="w-full bg-slate-100 border border-slate-200 rounded p-3 text-center"><p className="text-slate-500 text-xs font-bold flex items-center justify-center"><Lock size={12} className="mr-2"/> Operación cerrada y archivada. No se permiten más cambios.</p></div>)}
                                 </div>
                             </td>
                         </tr>
