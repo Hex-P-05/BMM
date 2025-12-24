@@ -478,123 +478,273 @@ const LoginView = ({ onLogin }) => {
   );
 };
 
+// --- GENERADOR DE COTIZACIONES (PDF NATIVO) ---
 const QuoteGenerator = ({ role }) => {
-  if (role === 'pagos') return <div className="p-10 text-center text-red-500 font-bold">Acceso denegado: Solo admin y revalidaciones pueden cotizar.</div>;
-
-  const [quoteData, setQuoteData] = useState({
-    clienteNombre: '', clienteReferencia: '', fechaEmision: new Date().toISOString().split('T')[0],
-    bl: '', contenedor: '', eta: '', fechaEntrega: '', puerto: 'MANZANILLO', terminal: 'CONTECON', diasDemoras: 0, diasAlmacenaje: 0, naviera: '',
-    costoDemoras: 0, costoAlmacenaje: 0, costosOperativos: 0, costoGastosPortuarios: 0, apoyo: 0, impuestos: 0, liberacion: 0, transporte: 0,
-    currency: 'MXN'
+  const [clientInfo, setClientInfo] = useState({
+    name: '',
+    rfc: '',
+    address: '',
+    date: new Date().toISOString().split('T')[0],
+    validUntil: addDays(15) // Validez por defecto de 15 días
   });
 
-  const handleChange = (e) => {
-    const { name, value, type } = e.target;
-    setQuoteData({ ...quoteData, [name]: type === 'number' ? parseFloat(value) || 0 : value });
+  const [items, setItems] = useState([
+    { id: 1, description: 'Servicio de Maniobras en Terminal', amount: 0 },
+  ]);
+
+  // Agregar nueva línea
+  const addItem = () => {
+    setItems([...items, { id: Date.now(), description: '', amount: 0 }]);
   };
 
-  const subtotal = quoteData.costoDemoras + quoteData.costoAlmacenaje + quoteData.costosOperativos + quoteData.costoGastosPortuarios + quoteData.apoyo + quoteData.impuestos + quoteData.liberacion + quoteData.transporte;
-
-  const handleDownloadPDF = async () => {
-    const element = document.getElementById('invoice-content');
-    if(!element) return;
-    try {
-      const canvas = await html2canvas(element, { scale: 2, useCORS: true, logging: false, backgroundColor: '#ffffff' });
-      const imgData = canvas.toDataURL('image/png');
-      const pdf = new jsPDF('p', 'mm', 'a4');
-      const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
-      pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
-      const cleanRef = quoteData.clienteReferencia.replace(/[^a-zA-Z0-9-_]/g, '');
-      const fileName = cleanRef ? `${cleanRef}.pdf` : `Cotizacion_AduanaSoft_${Date.now()}.pdf`;
-      pdf.save(fileName);
-    } catch (error) {
-      console.error("Error al generar PDF:", error);
-      alert("Hubo un error al generar el PDF.");
-    }
+  // Eliminar línea
+  const removeItem = (id) => {
+    if (items.length === 1) return; // Mínimo 1 item
+    setItems(items.filter(i => i.id !== id));
   };
 
-  const tableRows = [
-    { label: '提货单// BL', value: quoteData.bl, isMoney: false },
-    { label: '容器 // CONTENEDOR', value: quoteData.contenedor, isMoney: false },
-    { label: '预计到达时间// ETA', value: formatDate(quoteData.eta), isMoney: false },
-    { label: '交货日期// FECHA DE ENTREGA', value: formatDate(quoteData.fechaEntrega), isMoney: false, className: 'bg-green-100' },
-    { label: '卸货港 // PUERTO', value: quoteData.puerto, isMoney: false },
-    { label: '码头 // TERMINAL', value: quoteData.terminal, isMoney: false },
-    { label: '延誤數日// DIAS DE DEMORAS', value: quoteData.diasDemoras, isMoney: false },
-    { label: '储存天數 // DIAS DE ALMACENAJE', value: quoteData.diasAlmacenaje, isMoney: false },
-    { label: '航运公司// NAVIERA', value: quoteData.naviera, isMoney: false },
-    { label: '延误// DEMORAS', value: quoteData.costoDemoras, isMoney: true },
-    { label: '贮存// ALMACENAJE', value: quoteData.costoAlmacenaje, isMoney: true },
-    { label: '營運成本// COSTOS OPERATIVOS', value: quoteData.costosOperativos, isMoney: true },
-    { label: '港口费用// GASTOS PORTUARIOS', value: quoteData.costoGastosPortuarios, isMoney: true },
-    { label: '支援// APOYO', value: quoteData.apoyo, isMoney: true, labelClass: 'text-red-500 font-bold' },
-    { label: '税收// IMPUESTOS', value: quoteData.impuestos, isMoney: true },
-    { label: '摆脱遗弃// LIBERACION DE ABANDONO', value: quoteData.liberacion, isMoney: true },
-    { label: '運輸// TRANSPORTE', value: quoteData.transporte, isMoney: true },
-  ];
+  // Actualizar item
+  const updateItem = (id, field, value) => {
+    const newItems = items.map(item => {
+      if (item.id === id) {
+        return { ...item, [field]: field === 'amount' ? (parseFloat(value) || 0) : value };
+      }
+      return item;
+    });
+    setItems(newItems);
+  };
 
-  const costFields = [
-    { id: 'costoDemoras', label: 'Demoras' }, { id: 'costoAlmacenaje', label: 'Almacenaje' }, { id: 'costosOperativos', label: 'Costos operativos' }, { id: 'costoGastosPortuarios', label: 'Gastos portuarios' },
-    { id: 'apoyo', label: 'Apoyo' }, { id: 'impuestos', label: 'Impuestos' }, { id: 'liberacion', label: 'Liberación abandono' }, { id: 'transporte', label: 'Transporte' },
-  ];
+  // Cálculos
+  const subtotal = items.reduce((acc, item) => acc + item.amount, 0);
+  const iva = subtotal * 0.16;
+  const total = subtotal + iva;
+
+  // --- FUNCIÓN GENERADORA DE PDF (NATIVA) ---
+  const handleDownloadPDF = () => {
+    const doc = new jsPDF();
+    const margin = 20;
+    let yPos = 20;
+
+    // COLORES CORPORATIVOS (Azul AduanaSoft)
+    const primaryColor = [37, 99, 235]; // Blue-600
+    const lightBg = [239, 246, 255];   // Blue-50
+    const borderColor = [191, 219, 254]; // Blue-200
+    const darkText = [30, 41, 59];     // Slate-800
+    const lightText = [100, 116, 139]; // Slate-500
+
+    // 1. HEADER
+    // Fondo Azul Encabezado
+    doc.setFillColor(...primaryColor);
+    doc.rect(0, 0, 210, 40, 'F');
+
+    // Títulos Blancos
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(22);
+    doc.setFont("helvetica", "bold");
+    doc.text("COTIZACIÓN", margin, 20);
+    
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "normal");
+    doc.text("Servicios Logísticos y Aduanales", margin, 26);
+
+    // Info de la Empresa (Derecha)
+    doc.setFontSize(10);
+    doc.text("AduanaSoft México S.A. de C.V.", 190, 15, { align: 'right' });
+    doc.text("RFC: ADU990101XYZ", 190, 20, { align: 'right' });
+    doc.text("Manzanillo, Colima", 190, 25, { align: 'right' });
+
+    // 2. INFO DEL CLIENTE Y FECHAS
+    yPos = 55;
+    
+    // Caja Cliente
+    doc.setDrawColor(...borderColor);
+    doc.setFillColor(255, 255, 255);
+    doc.roundedRect(margin, 45, 170, 25, 2, 2, 'S');
+
+    doc.setTextColor(...lightText);
+    doc.setFontSize(8);
+    doc.text("PREPARADO PARA:", margin + 5, 52);
+    doc.text("FECHA DE EMISIÓN:", 130, 52);
+    doc.text("VÁLIDA HASTA:", 130, 62);
+
+    doc.setTextColor(...darkText);
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "bold");
+    doc.text(clientInfo.name || "CLIENTE MOSTRADOR", margin + 5, 58);
+    doc.setFont("helvetica", "normal");
+    doc.text(clientInfo.rfc || "", margin + 5, 63);
+    
+    doc.text(formatDate(clientInfo.date), 155, 52);
+    doc.text(formatDate(clientInfo.validUntil), 155, 62);
+
+    // 3. TABLA DE CONCEPTOS
+    yPos = 85;
+
+    // Encabezados de Tabla
+    doc.setFillColor(...lightBg);
+    doc.rect(margin, yPos, 170, 10, 'F');
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(...primaryColor);
+    doc.text("DESCRIPCIÓN DEL SERVICIO", margin + 5, yPos + 7);
+    doc.text("IMPORTE", 185, yPos + 7, { align: 'right' });
+
+    yPos += 15;
+
+    // Filas
+    doc.setTextColor(...darkText);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(10);
+
+    items.forEach((item) => {
+        // Descripción
+        doc.text(item.description, margin + 5, yPos);
+        // Monto
+        doc.text(`$${item.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}`, 185, yPos, { align: 'right' });
+        
+        // Línea divisoria sutil
+        doc.setDrawColor(241, 245, 249);
+        doc.line(margin, yPos + 3, 190, yPos + 3);
+        
+        yPos += 10;
+    });
+
+    // 4. TOTALES
+    yPos += 10;
+    const xTotals = 130;
+    
+    // Subtotal
+    doc.setFont("helvetica", "normal");
+    doc.text("Subtotal:", xTotals, yPos);
+    doc.text(`$${subtotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}`, 185, yPos, { align: 'right' });
+    yPos += 8;
+
+    // IVA
+    doc.text("IVA (16%):", xTotals, yPos);
+    doc.text(`$${iva.toLocaleString(undefined, { minimumFractionDigits: 2 })}`, 185, yPos, { align: 'right' });
+    yPos += 10;
+
+    // Gran Total (Caja Azul)
+    doc.setFillColor(...primaryColor);
+    doc.roundedRect(xTotals - 5, yPos - 6, 65, 12, 1, 1, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.setFont("helvetica", "bold");
+    doc.text("TOTAL NETO", xTotals, yPos + 2);
+    doc.text(`$${total.toLocaleString(undefined, { minimumFractionDigits: 2 })}`, 185, yPos + 2, { align: 'right' });
+
+    // 5. PIE DE PÁGINA / TÉRMINOS
+    const footerY = 260;
+    doc.setTextColor(...lightText);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8);
+    
+    doc.text("TÉRMINOS Y CONDICIONES:", margin, footerY);
+    doc.text("- Esta cotización está sujeta a cambios sin previo aviso si no se confirma antes de la fecha de validez.", margin, footerY + 5);
+    doc.text("- Los precios expresados son en Moneda Nacional (MXN).", margin, footerY + 9);
+    doc.text("- No incluye maniobras extraordinarias no especificadas.", margin, footerY + 13);
+
+    doc.save(`Cotizacion_${clientInfo.name.substring(0, 10)}.pdf`);
+  };
 
   return (
-    <div className="flex flex-col lg:flex-row gap-6 h-full animate-fade-in pb-8">
-      <div className="lg:w-1/3 bg-white p-6 rounded-xl shadow-sm border border-slate-200 overflow-y-auto">
-        <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center border-b pb-2"><Edit size={18} className="mr-2 text-blue-600"/> Editar cotización</h3>
-        <div className="space-y-4">
-           <div className="bg-blue-50 p-4 rounded-lg border border-blue-100">
-             <h4 className="text-xs font-bold text-blue-800 uppercase mb-3">Datos del encabezado</h4>
-             <div className="space-y-2">
-                <input name="clienteNombre" placeholder="Razón social cliente" value={quoteData.clienteNombre} onChange={handleChange} className="w-full p-2 border rounded text-sm" />
-                <div className="grid grid-cols-2 gap-2"><input name="clienteReferencia" placeholder="Referencia (nombre PDF)" value={quoteData.clienteReferencia} onChange={handleChange} className="p-2 border rounded text-sm font-bold text-slate-700" /><input type="date" name="fechaEmision" value={quoteData.fechaEmision} onChange={handleChange} className="p-2 border rounded text-sm" /></div>
-             </div>
-          </div>
-           <div className="bg-slate-50 p-4 rounded-lg border border-slate-100">
-            <h4 className="text-xs font-bold text-slate-500 uppercase mb-3">Datos operativos</h4>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="col-span-2 grid grid-cols-2 gap-3"><input name="bl" placeholder="BL Master" value={quoteData.bl} onChange={handleChange} className="p-2 border rounded text-sm uppercase" /><input name="contenedor" placeholder="Contenedor" value={quoteData.contenedor} onChange={handleChange} className="p-2 border rounded text-sm uppercase" /></div>
-              <div className="col-span-1"><label className="text-[10px] text-slate-400 font-bold block mb-1">ETA</label><input type="date" name="eta" value={quoteData.eta} onChange={handleChange} className="w-full p-2 border rounded text-sm" /></div>
-              <div className="col-span-1"><label className="text-[10px] text-green-600 font-bold block mb-1">ENTREGA</label><input type="date" name="fechaEntrega" value={quoteData.fechaEntrega} onChange={handleChange} className="w-full p-2 border rounded text-sm bg-green-50 border-green-200" /></div>
-              <input name="puerto" placeholder="Puerto" value={quoteData.puerto} onChange={handleChange} className="p-2 border rounded text-sm" /><input name="terminal" placeholder="Terminal" value={quoteData.terminal} onChange={handleChange} className="p-2 border rounded text-sm" />
-              <div className="col-span-2"><input name="naviera" placeholder="Naviera" value={quoteData.naviera} onChange={handleChange} className="w-full p-2 border rounded text-sm" /></div>
-              <div className="col-span-2 grid grid-cols-2 gap-3 mt-2">
-                <div><label className="text-xs font-bold text-slate-500 mb-1 block">Días demoras</label><div className="flex items-center"><input type="number" name="diasDemoras" value={quoteData.diasDemoras} onChange={handleChange} className="w-full p-2 border border-r-0 rounded-l text-sm text-center outline-none" /><span className="bg-slate-200 border border-slate-300 rounded-r px-2 py-2 text-xs text-slate-600 font-bold">Días</span></div></div>
-                <div><label className="text-xs font-bold text-slate-500 mb-1 block">Días almacenaje</label><div className="flex items-center"><input type="number" name="diasAlmacenaje" value={quoteData.diasAlmacenaje} onChange={handleChange} className="w-full p-2 border border-r-0 rounded-l text-sm text-center outline-none" /><span className="bg-slate-200 border border-slate-300 rounded-r px-2 py-2 text-xs text-slate-600 font-bold">Días</span></div></div>
-              </div>
+    <div className="max-w-4xl mx-auto animate-fade-in space-y-6 pb-12">
+      <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+        <h2 className="text-xl font-bold text-slate-800 mb-6 flex items-center">
+            <Calculator className="mr-2 text-blue-600"/> Generador de Cotizaciones
+        </h2>
+
+        {/* DATOS DEL CLIENTE */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+            <div>
+                <label className="text-xs font-bold text-slate-500 uppercase">Cliente / Razón Social</label>
+                <input type="text" className="w-full p-2 border rounded outline-none focus:ring-2 focus:ring-blue-500" placeholder="Ej. Logística Internacional S.A." value={clientInfo.name} onChange={e => setClientInfo({...clientInfo, name: e.target.value})} />
             </div>
-          </div>
-          <div className="bg-slate-50 p-4 rounded-lg border border-slate-100">
-            <div className="flex justify-between items-center mb-3"><h4 className="text-xs font-bold text-slate-500 uppercase">Costos</h4><select name="currency" value={quoteData.currency} onChange={handleChange} className="text-xs p-1 border rounded font-bold text-blue-600 bg-white shadow-sm outline-none"><option value="MXN">MXN (Pesos)</option><option value="USD">USD (Dólares)</option></select></div>
-            <div className="space-y-3">{costFields.map((field) => (<div key={field.id} className="flex items-center justify-between"><label className="text-xs font-medium text-slate-600 w-1/3">{field.label}</label><div className="relative w-2/3"><span className="absolute left-3 top-2 text-xs text-slate-400 font-bold">$</span><input type="number" name={field.id} value={quoteData[field.id]} onChange={handleChange} placeholder="0.00" className="w-full p-2 pl-6 border rounded text-sm text-right font-mono focus:border-blue-500 outline-none" /></div></div>))}</div>
-          </div>
+            <div>
+                <label className="text-xs font-bold text-slate-500 uppercase">RFC</label>
+                <input type="text" className="w-full p-2 border rounded outline-none focus:ring-2 focus:ring-blue-500" placeholder="XAXX010101000" value={clientInfo.rfc} onChange={e => setClientInfo({...clientInfo, rfc: e.target.value})} />
+            </div>
+            <div>
+                <label className="text-xs font-bold text-slate-500 uppercase">Fecha Emisión</label>
+                <input type="date" className="w-full p-2 border rounded outline-none focus:ring-2 focus:ring-blue-500" value={clientInfo.date} onChange={e => setClientInfo({...clientInfo, date: e.target.value})} />
+            </div>
+            <div>
+                <label className="text-xs font-bold text-slate-500 uppercase">Válida Hasta</label>
+                <input type="date" className="w-full p-2 border rounded outline-none focus:ring-2 focus:ring-blue-500" value={clientInfo.validUntil} onChange={e => setClientInfo({...clientInfo, validUntil: e.target.value})} />
+            </div>
+        </div>
+
+        {/* TABLA DE CONCEPTOS */}
+        <div className="border border-slate-200 rounded-lg overflow-hidden mb-6">
+            <table className="w-full text-left">
+                <thead className="bg-slate-50 text-xs text-slate-500 uppercase font-bold">
+                    <tr>
+                        <th className="p-3">Descripción</th>
+                        <th className="p-3 text-right w-40">Importe</th>
+                        <th className="p-3 w-10"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {items.map((item) => (
+                        <tr key={item.id} className="border-t border-slate-100">
+                            <td className="p-2">
+                                <input 
+                                    type="text" 
+                                    className="w-full p-1 bg-transparent outline-none" 
+                                    placeholder="Descripción del servicio..." 
+                                    value={item.description}
+                                    onChange={(e) => updateItem(item.id, 'description', e.target.value)}
+                                />
+                            </td>
+                            <td className="p-2">
+                                <div className="flex items-center">
+                                    <span className="text-slate-400 text-sm mr-1">$</span>
+                                    <input 
+                                        type="number" 
+                                        className="w-full p-1 bg-transparent outline-none text-right font-mono" 
+                                        placeholder="0.00" 
+                                        value={item.amount}
+                                        onChange={(e) => updateItem(item.id, 'amount', e.target.value)}
+                                    />
+                                </div>
+                            </td>
+                            <td className="p-2 text-center">
+                                <button onClick={() => removeItem(item.id)} className="text-slate-300 hover:text-red-500 transition-colors"><Trash2 size={16}/></button>
+                            </td>
+                        </tr>
+                    ))}
+                </tbody>
+            </table>
+            <button onClick={addItem} className="w-full py-2 bg-slate-50 text-blue-600 text-xs font-bold uppercase hover:bg-slate-100 transition-colors border-t border-slate-200">
+                + Agregar Concepto
+            </button>
+        </div>
+
+        {/* TOTALES */}
+        <div className="flex justify-end">
+            <div className="w-64 space-y-2">
+                <div className="flex justify-between text-sm text-slate-600">
+                    <span>Subtotal:</span>
+                    <span className="font-mono">${subtotal.toLocaleString()}</span>
+                </div>
+                <div className="flex justify-between text-sm text-slate-600">
+                    <span>IVA (16%):</span>
+                    <span className="font-mono">${iva.toLocaleString()}</span>
+                </div>
+                <div className="flex justify-between text-lg font-bold text-slate-800 border-t pt-2 border-slate-200">
+                    <span>Total:</span>
+                    <span className="font-mono">${total.toLocaleString()}</span>
+                </div>
+            </div>
         </div>
       </div>
-      <div className="lg:w-2/3 bg-slate-200 rounded-xl p-8 overflow-y-auto flex flex-col items-center shadow-inner relative">
-        <div className="absolute top-4 right-4 z-10"><button onClick={handleDownloadPDF} className="bg-blue-600 text-white px-4 py-2 rounded-lg shadow-lg text-sm font-bold flex items-center hover:bg-blue-700 transition-transform transform hover:-translate-y-1"><Download size={16} className="mr-2" /> Descargar PDF</button></div>
-        <div id="invoice-content" className="bg-white w-[210mm] min-h-[297mm] p-12 shadow-2xl text-slate-900 font-sans border border-slate-300 relative flex flex-col justify-between">
-          <div>
-            <div className="flex justify-between items-start border-b-2 border-slate-800 pb-4 mb-4">
-              <div className="flex items-center"><div className="w-14 h-14 bg-blue-900 text-white rounded flex items-center justify-center mr-4"><Ship size={28} /></div><div><h1 className="text-xl font-bold text-slate-800 tracking-tight uppercase">AduanaSoft</h1><p className="text-[10px] text-slate-500 font-bold tracking-widest uppercase">Logística y despacho</p><p className="text-[9px] text-slate-400 mt-1">Av. Puerto Interior 55, Manzanillo, Colima.<br/>RFC: ADU20250101-XM3</p></div></div>
-              <div className="text-right"><h2 className="text-lg font-bold text-slate-400 uppercase tracking-widest">Cotización</h2><p className="text-[10px] text-slate-500 mt-1">Fecha: {formatDate(quoteData.fechaEmision)}</p></div>
-            </div>
-            <div className="mb-4 bg-slate-50 p-3 rounded border border-slate-100">
-               <div className="grid grid-cols-2 gap-4 text-xs"><div><span className="block text-[9px] font-bold text-slate-400 uppercase">Cliente / razón social</span><span className="font-bold text-slate-800 uppercase">{quoteData.clienteNombre || 'CLIENTE MOSTRADOR'}</span></div><div><span className="block text-[9px] font-bold text-slate-400 uppercase">Referencia</span><span className="font-bold text-slate-800 uppercase">{quoteData.clienteReferencia || 'S/N'}</span></div></div>
-            </div>
-            <div className="border-2 border-black">
-              <div className="bg-blue-100 border-b border-black py-1 text-center"><h2 className="text-base font-bold text-red-600 tracking-wide uppercase">价格 // COTIZACION</h2></div>
-              {tableRows.map((row, index) => (<div key={index} className={`flex border-b border-black last:border-0 text-xs ${row.className || ''}`}><div className="w-1/2 border-r border-black py-1 px-2 flex items-center justify-end text-right bg-white"><span className={`font-medium uppercase text-[11px] ${row.labelClass || 'text-black'}`}>{row.label}</span></div><div className="w-1/2 py-1 px-2 flex items-center justify-center bg-white"><span className="font-bold text-slate-800">{row.isMoney && <span className="text-[9px] mr-1 text-slate-500 font-normal">{quoteData.currency}</span>}{row.isMoney ? `$${row.value.toLocaleString(undefined, {minimumFractionDigits: 2})}` : (row.value || '-')}</span></div></div>))}
-              <div className="flex border-t-2 border-black bg-yellow-300"><div className="w-1/2 border-r border-black py-1 px-2 text-right flex items-center justify-end"><span className="text-sm font-bold">SUBTOTAL</span></div><div className="w-1/2 py-1 px-2 text-center flex flex-col justify-center"><span className="text-base font-bold"><span className="text-[10px] mr-1 font-normal">{quoteData.currency}</span>${subtotal.toLocaleString(undefined, {minimumFractionDigits: 2})}</span></div></div>
-            </div>
-          </div>
-          <div className="mt-4 border-t border-slate-300 pt-2">
-             <div className="flex justify-between items-end text-[9px] text-slate-400">
-                <div className="max-w-[60%]"><p className="font-bold uppercase text-slate-600 mb-1">Términos y condiciones</p><p>1. Esta cotización tiene una vigencia de 7 días naturales.</p><p>2. Precios sujetos a cambios sin previo aviso por parte de la naviera.</p></div>
-                <div className="text-right"><p className="mb-4">__________________________<br/>Firma de conformidad</p><p>AduanaSoft v2.2 | Página 1 de 1</p></div>
-             </div>
-          </div>
-        </div>
+
+      {/* BOTÓN DESCARGAR */}
+      <div className="flex justify-end">
+        <button 
+            onClick={handleDownloadPDF} 
+            className="px-8 py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl shadow-lg flex items-center transition-transform hover:-translate-y-1"
+        >
+            <Download size={20} className="mr-2"/> Descargar PDF
+        </button>
       </div>
     </div>
   );
