@@ -1,15 +1,12 @@
 import React, { useState, useMemo, useEffect } from 'react';
-// --- LIBRERÍAS PARA PDF ---
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas'; 
-// --------------------------
-
 import { 
   LayoutDashboard, FileText, Table as TableIcon, AlertTriangle, CheckCircle, 
   Clock, Ship, DollarSign, Plus, Search, Menu, X, User, Edit, Lock, 
   TrendingUp, TrendingDown, Activity, AlertCircle, Calculator, Trash2, 
   Download, Printer, Package, MapPin, Key, LogOut, Check, 
-  ChevronLeft, ChevronRight, ChevronDown, ChevronUp, ShieldAlert, Eye, EyeOff, Calendar, Anchor
+  ChevronLeft, ChevronRight, ChevronDown, ChevronUp, ShieldAlert, Eye, EyeOff
 } from 'lucide-react';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -48,11 +45,19 @@ const calculateStatus = (etaString) => {
   return 'ok';
 };
 
-// --- DATOS INICIALES ---
+// --- DATOS INICIALES (MOCKS CON TODOS LOS CAMPOS) ---
 const rawData = [
   { 
     id: 1, bl: 'HLCU12345678', provider: 'HAPAG', client: 'Importadora México S.A.', clientCode: 'IMP', reason: 'FLETE', container: 'MSKU987654', eta: addDays(45), freeDays: 7, editCount: 0, payment: 'paid', paymentDate: '2025-06-10', paymentDelay: 0, currency: 'MXN', concept: 'HAPAG IMP 1 FLETE',
-    costDemoras: 0, costAlmacenaje: 0, costOperativos: 5000, costPortuarios: 2000, costApoyo: 0, costImpuestos: 1000, costLiberacion: 0, costTransporte: 7000,
+    // DESGLOSE EXPLÍCITO
+    costDemoras: 0, 
+    costAlmacenaje: 0, 
+    costOperativos: 5000, 
+    costPortuarios: 2000, 
+    costApoyo: 0, 
+    costImpuestos: 1000, 
+    costLiberacion: 0, 
+    costTransporte: 7000,
     amount: 15000 
   },
   { 
@@ -64,11 +69,6 @@ const rawData = [
     id: 3, bl: 'COSU11223344', provider: 'COSCO', client: 'Textiles del Norte', clientCode: 'TEX', reason: 'GARANTÍA', container: 'MRKU554433', eta: addDays(5), freeDays: 21, editCount: 2, payment: 'pending', paymentDate: null, paymentDelay: 0, currency: 'MXN', concept: 'COSCO TEX 1 GARANTÍA',
     costDemoras: 0, costAlmacenaje: 0, costOperativos: 0, costPortuarios: 0, costApoyo: 18000, costImpuestos: 0, costLiberacion: 0, costTransporte: 0,
     amount: 18000 
-  },
-  { 
-    id: 4, bl: 'MSKU99887766', provider: 'ONE', client: 'Importadora México S.A.', clientCode: 'IMP', reason: 'ALMACENAJE', container: 'MSKU111222', eta: addDays(12), freeDays: 7, editCount: 0, payment: 'pending', paymentDate: null, paymentDelay: 0, currency: 'MXN', concept: 'ONE IMP 2 ALMACENAJE',
-    costDemoras: 0, costAlmacenaje: 10000, costOperativos: 500, costPortuarios: 500, costApoyo: 0, costImpuestos: 1000, costLiberacion: 0, costTransporte: 0,
-    amount: 12000 
   },
 ];
 
@@ -89,7 +89,7 @@ const COLORS = {
   ok: '#10B981', warning: '#F59E0B', danger: '#EF4444', expired: '#991B1B', primary: '#2563EB', secondary: '#8b5cf6'
 };
 
-// --- UI COMPONENTS ---
+// --- COMPONENTES UI AUXILIARES ---
 const StatusBadge = ({ item }) => {
   if (item.payment === 'paid') {
     return (
@@ -149,7 +149,7 @@ const KPICard = ({ title, value, icon: Icon, colorClass, trend, trendValue, subt
   </div>
 );
 
-// --- MODAL DE EDICIÓN RESPONSIVE ---
+// --- MODAL DE EDICIÓN (RESPONSIVE + GRANULARIDAD) ---
 const EditModal = ({ isOpen, onClose, onSave, item, role }) => {
   if (!isOpen || !item) return null;
 
@@ -158,10 +158,12 @@ const EditModal = ({ isOpen, onClose, onSave, item, role }) => {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
+    // Si es un campo de costo, convertir a número
     const val = name.startsWith('cost') ? (parseFloat(value) || 0) : value;
     
     if (name.startsWith('cost')) {
         const newData = { ...editData, [name]: val };
+        // Recalcular total automáticamente
         const total = 
             (newData.costDemoras || 0) + (newData.costAlmacenaje || 0) + (newData.costOperativos || 0) + 
             (newData.costPortuarios || 0) + (newData.costApoyo || 0) + (newData.costImpuestos || 0) + 
@@ -174,6 +176,7 @@ const EditModal = ({ isOpen, onClose, onSave, item, role }) => {
 
   const handleSave = () => { onSave(editData); };
 
+  // CONFIGURACIÓN DE CAMPOS DE COSTO
   const costInputs = [
     { key: 'costDemoras', label: 'Demoras' }, { key: 'costAlmacenaje', label: 'Almacenaje' },
     { key: 'costOperativos', label: 'Costos operativos' }, { key: 'costPortuarios', label: 'Gastos portuarios' },
@@ -184,7 +187,6 @@ const EditModal = ({ isOpen, onClose, onSave, item, role }) => {
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 animate-fade-in">
       <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={onClose}></div>
-      {/* Modal responsivo: w-full en movil, max-w-3xl en desktop */}
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl relative z-10 overflow-hidden max-h-[90vh] overflow-y-auto m-4">
         <div className="bg-blue-50 p-6 border-b border-blue-100 flex justify-between items-center sticky top-0 z-20">
           <div>
@@ -226,21 +228,26 @@ const EditModal = ({ isOpen, onClose, onSave, item, role }) => {
 
           <div className="col-span-1 sm:col-span-2 border-t pt-4 mt-2">
              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-2">
-                <label className="text-xs font-bold text-slate-500 uppercase mb-2 sm:mb-0">Desglose de costos</label>
+                <label className="text-xs font-bold text-slate-500 uppercase mb-2 sm:mb-0">Desglose de costos (Granularidad)</label>
                 <span className="text-xs font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded border border-blue-100">Total: ${editData.amount.toLocaleString()}</span>
              </div>
+             
+             {/* AQUÍ ESTÁ EL BUCLE QUE GENERA TODOS LOS INPUTS DE COSTOS */}
              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 {costInputs.map(field => (
                     <div key={field.key}>
                         <label className="text-[10px] font-medium text-slate-500 mb-1 block truncate" title={field.label}>{field.label}</label>
-                        <input 
-                            disabled={isRestricted}
-                            type="number" 
-                            name={field.key} 
-                            value={editData[field.key]} 
-                            onChange={handleChange} 
-                            className={`w-full p-2 border rounded text-xs text-right outline-none ${isRestricted ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'focus:ring-2 focus:ring-blue-500'}`} 
-                        />
+                        <div className="relative">
+                            <span className="absolute left-2 top-1.5 text-xs text-slate-400">$</span>
+                            <input 
+                                disabled={isRestricted}
+                                type="number" 
+                                name={field.key} 
+                                value={editData[field.key]} 
+                                onChange={handleChange} 
+                                className={`w-full pl-4 p-2 border rounded text-xs text-right outline-none ${isRestricted ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'focus:ring-2 focus:ring-blue-500'}`} 
+                            />
+                        </div>
                     </div>
                 ))}
              </div>
@@ -286,11 +293,11 @@ const PaymentModal = ({ isOpen, onClose, onConfirm, item }) => {
   );
 };
 
-// --- LOGIN VIEW (CON OJITO PARA VER CONTRASEÑA) ---
+// --- LOGIN VIEW (CON OJITO) ---
 const LoginView = ({ onLogin }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false); // Estado para el ojito
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
 
   const handleLogin = (e) => {
@@ -312,7 +319,6 @@ const LoginView = ({ onLogin }) => {
           </div>
           <h2 className="text-xl font-bold text-slate-800 mb-2 text-center">Bienvenido de nuevo</h2>
           <p className="text-slate-500 text-sm mb-6 text-center">Ingresa a tu cuenta para gestionar operaciones.</p>
-          
           <form onSubmit={handleLogin} className="space-y-4">
             <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Correo electrónico</label>
@@ -321,29 +327,22 @@ const LoginView = ({ onLogin }) => {
                     <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-all" placeholder="usuario@empresa.com" autoFocus />
                 </div>
             </div>
-            
-            {/* INPUT DE CONTRASEÑA CON OJITO */}
             <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Contraseña</label>
                 <div className="relative">
                     <Key className="absolute left-3 top-2.5 text-slate-400" size={18} />
                     <input 
-                        type={showPassword ? "text" : "password"} // Cambia el tipo dinámicamente
+                        type={showPassword ? "text" : "password"} 
                         value={password} 
                         onChange={(e) => setPassword(e.target.value)} 
                         className="w-full pl-10 pr-10 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-all" 
                         placeholder="••••••••" 
                     />
-                    <button 
-                        type="button"
-                        onClick={() => setShowPassword(!showPassword)}
-                        className="absolute right-3 top-2.5 text-slate-400 hover:text-slate-600 focus:outline-none"
-                    >
-                        {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                    <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-2.5 text-slate-400 hover:text-slate-600">
+                        {showPassword ? <EyeOff size={18}/> : <Eye size={18}/>}
                     </button>
                 </div>
             </div>
-
             {error && (<div className="bg-red-50 text-red-600 text-xs p-3 rounded flex items-center"><AlertCircle size={14} className="mr-2" />{error}</div>)}
             <button type="submit" className="w-full bg-blue-600 text-white font-bold py-2.5 rounded-lg hover:bg-blue-700 transition-colors shadow-lg shadow-blue-200">Iniciar sesión</button>
           </form>
@@ -512,6 +511,7 @@ const DashboardView = ({ data }) => {
   );
 };
 
+// --- CAPTURE FORM CON DESGLOSE VISIBLE ---
 const CaptureForm = ({ onSave, onCancel, existingData, role }) => {
   if (role === 'pagos') return <div className="p-10 text-center text-red-500 font-bold">Acceso denegado: Rol no autorizado para capturas.</div>;
 
@@ -569,6 +569,7 @@ const CaptureForm = ({ onSave, onCancel, existingData, role }) => {
   };
   const handleChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value });
 
+  // Lista de campos
   const costFieldsInputs = [
     { name: 'costDemoras', label: 'Demoras' }, { name: 'costAlmacenaje', label: 'Almacenaje' },
     { name: 'costOperativos', label: 'Costos operativos' }, { name: 'costPortuarios', label: 'Gastos portuarios' },
@@ -605,9 +606,10 @@ const CaptureForm = ({ onSave, onCancel, existingData, role }) => {
             <div><label className="text-sm font-medium text-slate-700">Fecha ETA</label><input required name="eta" type="date" className="w-full p-2 border rounded outline-none" onChange={handleChange} /></div>
             <div><label className="text-sm font-medium text-slate-700">Días libres</label><input required name="freeDays" type="number" value={formData.freeDays} className="w-full p-2 border rounded outline-none" onChange={handleChange} /></div>
             
+            {/* SECCIÓN DE COSTOS DESGLOSADOS (VISIBLE) */}
             <div className="col-span-1 md:col-span-2 border-t pt-4">
                <div className="flex justify-between items-center mb-3">
-                  <label className="text-sm font-bold text-slate-700">Desglose de costos</label>
+                  <label className="text-sm font-bold text-slate-700">Desglose de costos (Granularidad)</label>
                   <select name="currency" value={formData.currency} onChange={handleChange} className="text-xs p-1 border rounded font-bold text-blue-600 bg-white"><option value="MXN">MXN (Pesos)</option><option value="USD">USD (Dólares)</option></select>
                </div>
                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -637,6 +639,7 @@ const CaptureForm = ({ onSave, onCancel, existingData, role }) => {
   );
 };
 
+// --- LISTVIEW (SÁBANA) CON DESGLOSE VISIBLE ---
 const ListView = ({ data, onInitiatePayment, role, onEdit }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [expandedRow, setExpandedRow] = useState(null);
@@ -698,8 +701,16 @@ const ListView = ({ data, onInitiatePayment, role, onEdit }) => {
                     {expandedRow === item.id && (
                         <tr className="bg-slate-50 animate-fade-in">
                             <td colSpan="8" className="p-4 border-b border-slate-200 shadow-inner">
+                                {/* AQUÍ ESTÁ EL DESGLOSE DE PAGOS (GRANULARIDAD) */}
                                 <div className="grid grid-cols-2 md:grid-cols-4 gap-y-4 gap-x-8 px-8">
-                                    {[{ l: 'Demoras', v: item.costDemoras }, { l: 'Almacenaje', v: item.costAlmacenaje }, { l: 'Costos operativos', v: item.costOperativos }, { l: 'Gastos portuarios', v: item.costPortuarios }, { l: 'Apoyo', v: item.costApoyo }, { l: 'Impuestos', v: item.costImpuestos }, { l: 'Liberación abandono', v: item.costLiberacion }, { l: 'Transporte', v: item.costTransporte }].map((cost, idx) => (<div key={idx} className="flex justify-between border-b border-slate-200 pb-1"><span className="text-xs text-slate-500 font-medium">{cost.l}</span><span className="text-xs font-bold text-slate-700 font-mono">${(cost.v || 0).toLocaleString()}</span></div>))}
+                                    <div className="flex justify-between border-b border-slate-200 pb-1"><span className="text-xs text-slate-500 font-medium">Demoras</span><span className="text-xs font-bold text-slate-700 font-mono">${(item.costDemoras || 0).toLocaleString()}</span></div>
+                                    <div className="flex justify-between border-b border-slate-200 pb-1"><span className="text-xs text-slate-500 font-medium">Almacenaje</span><span className="text-xs font-bold text-slate-700 font-mono">${(item.costAlmacenaje || 0).toLocaleString()}</span></div>
+                                    <div className="flex justify-between border-b border-slate-200 pb-1"><span className="text-xs text-slate-500 font-medium">Costos operativos</span><span className="text-xs font-bold text-slate-700 font-mono">${(item.costOperativos || 0).toLocaleString()}</span></div>
+                                    <div className="flex justify-between border-b border-slate-200 pb-1"><span className="text-xs text-slate-500 font-medium">Gastos portuarios</span><span className="text-xs font-bold text-slate-700 font-mono">${(item.costPortuarios || 0).toLocaleString()}</span></div>
+                                    <div className="flex justify-between border-b border-slate-200 pb-1"><span className="text-xs text-slate-500 font-medium">Apoyo</span><span className="text-xs font-bold text-slate-700 font-mono">${(item.costApoyo || 0).toLocaleString()}</span></div>
+                                    <div className="flex justify-between border-b border-slate-200 pb-1"><span className="text-xs text-slate-500 font-medium">Impuestos</span><span className="text-xs font-bold text-slate-700 font-mono">${(item.costImpuestos || 0).toLocaleString()}</span></div>
+                                    <div className="flex justify-between border-b border-slate-200 pb-1"><span className="text-xs text-slate-500 font-medium">Liberación abandono</span><span className="text-xs font-bold text-slate-700 font-mono">${(item.costLiberacion || 0).toLocaleString()}</span></div>
+                                    <div className="flex justify-between border-b border-slate-200 pb-1"><span className="text-xs text-slate-500 font-medium">Transporte</span><span className="text-xs font-bold text-slate-700 font-mono">${(item.costTransporte || 0).toLocaleString()}</span></div>
                                     <div className="col-span-2 md:col-start-4 pt-2 flex justify-between items-center"><span className="text-sm font-bold text-slate-800 uppercase">Total calculado:</span><span className="text-lg font-bold text-blue-600 font-mono">${item.amount.toLocaleString()} <span className="text-xs text-slate-400">{item.currency}</span></span></div>
                                 </div>
                             </td>
