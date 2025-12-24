@@ -232,7 +232,6 @@ const KPICard = ({ title, value, icon: Icon, colorClass, trend, trendValue, subt
   </div>
 );
 
-// --- MODAL DE EDICIÓN ---
 const EditModal = ({ isOpen, onClose, onSave, item, role }) => {
   if (!isOpen || !item) return null;
 
@@ -254,8 +253,6 @@ const EditModal = ({ isOpen, onClose, onSave, item, role }) => {
         setEditData({ ...editData, [name]: value });
     }
   };
-
-  const handleSave = () => { onSave(editData); };
 
   const costInputs = [
     { key: 'costDemoras', label: 'Demoras' }, { key: 'costAlmacenaje', label: 'Almacenaje' },
@@ -312,20 +309,19 @@ const EditModal = ({ isOpen, onClose, onSave, item, role }) => {
                     </div>
                 ))}
              </div>
-             {isRestricted && <p className="text-[10px] text-red-400 mt-3 italic">* Contacte a Admin para otros cambios.</p>}
+             {isRestricted && <p className="text-[10px] text-red-400 mt-3 italic">* Costos editables solo por Administrador.</p>}
           </div>
         </div>
 
         <div className="p-4 bg-slate-50 border-t flex justify-end gap-3 sticky bottom-0 z-20">
            <button onClick={onClose} className="px-4 py-2 text-slate-600 hover:bg-slate-200 rounded text-sm font-bold">Cancelar</button>
-           <button onClick={handleSave} className="px-4 py-2 bg-blue-600 text-white rounded shadow hover:bg-blue-700 text-sm font-bold">Guardar cambios</button>
+           <button onClick={() => onSave(editData)} className="px-4 py-2 bg-blue-600 text-white rounded shadow hover:bg-blue-700 text-sm font-bold">Guardar cambios</button>
         </div>
       </div>
     </div>
   );
 };
 
-// --- MODAL CLOSE Y PAYMENT ---
 const CloseModal = ({ isOpen, onClose, item }) => {
   if (!isOpen || !item) return null;
 
@@ -336,7 +332,7 @@ const CloseModal = ({ isOpen, onClose, item }) => {
 
   const costList = [
     { l: 'Demoras', v: item.costDemoras }, { l: 'Almacenaje', v: item.costAlmacenaje },
-    { l: 'Operativos', v: item.costOperativos }, { l: 'Portuarios', v: item.costPortuarios },
+    { l: 'Costos operativos', v: item.costOperativos }, { l: 'Gastos portuarios', v: item.costPortuarios },
     { l: 'Apoyo', v: item.costApoyo }, { l: 'Impuestos', v: item.costImpuestos },
     { l: 'Liberación', v: item.costLiberacion }, { l: 'Transporte', v: item.costTransporte }
   ].filter(c => c.v > 0);
@@ -346,12 +342,12 @@ const CloseModal = ({ isOpen, onClose, item }) => {
       <div className="absolute inset-0 bg-slate-900/80 backdrop-blur-sm" onClick={onClose}></div>
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg relative z-10 overflow-hidden flex flex-col max-h-[90vh]">
         <div className="bg-emerald-600 p-6 text-white flex justify-between items-center">
-          <div><h3 className="text-xl font-bold flex items-center"><CheckCircle className="mr-2"/> Cerrar Operación</h3><p className="text-emerald-100 text-sm">Se generará el registro final del contenedor.</p></div>
+          <div><h3 className="text-xl font-bold flex items-center"><CheckCircle className="mr-2"/> Cerrar operación</h3><p className="text-emerald-100 text-sm">Se generará el registro final del contenedor.</p></div>
           <button onClick={onClose}><X className="text-white hover:bg-emerald-700 rounded p-1" /></button>
         </div>
         <div className="p-6 overflow-y-auto bg-slate-50 flex-1">
           <div className="bg-white p-6 shadow-sm border border-slate-200 rounded-lg">
-            <h4 className="text-sm font-bold text-slate-500 uppercase mb-4 text-center">Resumen Financiero</h4>
+            <h4 className="text-sm font-bold text-slate-500 uppercase mb-4 text-center">Resumen financiero</h4>
             {costList.map((c, i) => (
               <div key={i} className="flex justify-between border-b border-slate-50 pb-2 mb-2 text-sm"><span className="text-slate-600">{c.l}</span><span className="font-bold text-slate-800">${c.v.toLocaleString()}</span></div>
             ))}
@@ -359,7 +355,7 @@ const CloseModal = ({ isOpen, onClose, item }) => {
           </div>
         </div>
         <div className="p-4 border-t bg-white flex gap-3">
-          <button onClick={onClose} className="flex-1 py-3 bg-white border-2 border-slate-200 text-slate-600 font-bold rounded-xl hover:bg-slate-50 hover:text-slate-800 transition-colors">Confirmar y Cerrar</button>
+          <button onClick={onClose} className="flex-1 py-3 bg-white border-2 border-slate-200 text-slate-600 font-bold rounded-xl hover:bg-slate-50 hover:text-slate-800 transition-colors">Confirmar y cerrar</button>
           <button onClick={handleCloseAndDownload} className="flex-1 py-3 bg-emerald-600 text-white font-bold rounded-xl hover:bg-emerald-700 shadow-lg flex justify-center items-center gap-2"><Download size={18} /> Descargar PDF</button>
         </div>
       </div>
@@ -963,45 +959,64 @@ const CaptureForm = ({ onSave, onCancel, existingData, role, userName }) => {
 
 
 
-// --- LIST VIEW (SÁBANA OPERATIVA) CON TOGGLE DE VISTAS ---
 const ListView = ({ data, onPayItem, onPayAll, onCloseOperation, role, onEdit }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [expandedRow, setExpandedRow] = useState(null);
-  const [viewMode, setViewMode] = useState('full'); // 'full' (Revalidación) | 'simple' (Pagos)
-  const [selectedIds, setSelectedIds] = useState([]);
-  const tableContainerRef = React.useRef(null);
-
+  const [viewMode, setViewMode] = useState('full'); // 'full' o 'simple'
+  
+  const toggleRow = (id) => setExpandedRow(expandedRow === id ? null : id);
+  
+  // Filtros de búsqueda
   const filteredData = data.filter(item => 
     item.bl.toLowerCase().includes(searchTerm.toLowerCase()) || 
     (item.comentarios && item.comentarios.toLowerCase().includes(searchTerm.toLowerCase())) || 
     (item.contenedor && item.contenedor.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
-  const toggleRow = (id) => setExpandedRow(expandedRow === id ? null : id);
+  const isSimpleView = viewMode === 'simple';
+  
+  // PERMISOS (Aquí está la lógica clave que pediste)
   const canPay = role === 'admin' || role === 'pagos';
-  const isSimpleView = viewMode === 'simple'; // Vista Pagos
+  const canEdit = role === 'admin' || role === 'ejecutivo'; // Pagos da FALSE aquí
 
   return (
     <div className="space-y-4 animate-fade-in h-full flex flex-col">
+      {/* BARRA SUPERIOR: TÍTULO, TOGGLE Y BÚSQUEDA */}
       <div className="flex flex-col md:flex-row justify-between items-center bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex-shrink-0 gap-4">
         <div className="flex items-center gap-4">
             <h2 className="text-xl font-bold text-slate-800">Sábana operativa</h2>
-            {/* TOGGLE SWITCH */}
+            {/* Solo Admin y Pagos ven el toggle de vistas */}
             {(role === 'admin' || role === 'pagos') && (
                 <div className="flex items-center bg-slate-100 p-1 rounded-lg border border-slate-200">
-                    <button onClick={() => setViewMode('full')} className={`px-3 py-1 rounded-md text-xs font-bold transition-all ${viewMode === 'full' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>Vista Completa</button>
-                    <button onClick={() => setViewMode('simple')} className={`px-3 py-1 rounded-md text-xs font-bold transition-all ${viewMode === 'simple' ? 'bg-emerald-100 text-emerald-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>Vista Pagos</button>
+                    <button 
+                        onClick={() => setViewMode('full')} 
+                        className={`px-3 py-1 rounded-md text-xs font-bold ${viewMode === 'full' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500'}`}
+                    >
+                        Completa
+                    </button>
+                    <button 
+                        onClick={() => setViewMode('simple')} 
+                        className={`px-3 py-1 rounded-md text-xs font-bold ${viewMode === 'simple' ? 'bg-emerald-100 text-emerald-700 shadow-sm' : 'text-slate-500'}`}
+                    >
+                        Pagos
+                    </button>
                 </div>
             )}
         </div>
-        <div className="relative flex-1 md:w-72">
+        <div className="relative w-72">
             <Search className="absolute left-3 top-2.5 text-slate-400" size={18} />
-            <input type="text" placeholder="Buscar BL, Contenedor, Comentarios..." className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm" onChange={(e) => setSearchTerm(e.target.value)} />
+            <input 
+                type="text" 
+                placeholder="Buscar..." 
+                className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg outline-none text-sm" 
+                onChange={(e) => setSearchTerm(e.target.value)} 
+            />
         </div>
       </div>
 
+      {/* TABLA DE DATOS */}
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden flex-1 relative">
-        <div ref={tableContainerRef} className="overflow-auto h-[calc(100vh-200px)] w-full relative"> 
+        <div className="overflow-auto h-[calc(100vh-200px)] w-full relative"> 
           <table className="w-full text-left border-collapse min-w-[2000px]">
             <thead className="sticky top-0 z-40 shadow-sm">
                 <tr className="bg-slate-50 border-b border-slate-200 text-xs font-bold text-slate-500 uppercase h-12">
@@ -1011,9 +1026,9 @@ const ListView = ({ data, onPayItem, onPayAll, onCloseOperation, role, onEdit })
                     {!isSimpleView && <th className="p-4 w-16 text-center sticky left-12 z-50 bg-slate-50 border-r">Ej</th>}
                     
                     <th className="p-4 min-w-[200px] sticky left-12 z-40 bg-slate-50 border-r">Empresa</th>
-                    <th className="p-4 min-w-[250px] bg-slate-50">Comentarios (Concatenado)</th>
+                    <th className="p-4 min-w-[250px] bg-slate-50">Comentarios</th>
                     
-                    {!isSimpleView && <th className="p-4 min-w-[100px] bg-slate-50 text-center">Fecha Alta</th>}
+                    {!isSimpleView && <th className="p-4 min-w-[100px] bg-slate-50 text-center">Fecha</th>}
                     
                     <th className="p-4 min-w-[120px] bg-slate-50 font-bold text-slate-700">Contenedor</th>
                     <th className="p-4 min-w-[120px] bg-slate-50">Pedimento</th>
@@ -1021,22 +1036,18 @@ const ListView = ({ data, onPayItem, onPayAll, onCloseOperation, role, onEdit })
                     {!isSimpleView && <th className="p-4 min-w-[100px] bg-slate-50">Factura</th>}
                     
                     <th className="p-4 min-w-[150px] bg-slate-50 text-blue-800">Proveedor</th>
-                    
-                    {/* DATOS BANCARIOS (SIEMPRE VISIBLES EN VISTA PAGOS) */}
                     <th className="p-4 min-w-[100px] bg-slate-50 text-slate-400">Banco</th>
                     <th className="p-4 min-w-[120px] bg-slate-50 text-slate-400">Cuenta</th>
                     <th className="p-4 min-w-[150px] bg-slate-50 text-slate-400">CLABE</th>
+                    <th className="p-4 min-w-[120px] bg-slate-50 text-center">ETA</th>
+                    <th className="p-4 min-w-[150px] text-right bg-slate-50">Total</th>
                     
-                    <th className="p-4 min-w-[120px] bg-slate-50 text-center">ETA & Semáforo</th>
-                    <th className="p-4 min-w-[150px] text-right bg-slate-50">Importe Total</th>
-                    
-                    {!isSimpleView && <th className="p-4 text-center bg-slate-50">Acciones</th>}
+                    {/* COLUMNA ACCIONES: Solo visible si NO es vista simple Y si tiene permiso de editar */}
+                    {!isSimpleView && canEdit && <th className="p-4 text-center bg-slate-50">Acciones</th>}
                 </tr>
             </thead>
             <tbody className="text-sm">
-              {filteredData.map((item) => {
-                const isPaid = item.payment === 'paid'; 
-                return (
+              {filteredData.map((item) => (
                 <React.Fragment key={item.id}>
                     <tr className={`hover:bg-slate-50 border-b border-slate-100 transition-colors ${expandedRow === item.id ? 'bg-blue-50/30' : ''}`}>
                         <td className="p-4 text-center cursor-pointer sticky left-0 z-20 bg-white border-r border-slate-100" onClick={() => toggleRow(item.id)}>
@@ -1044,9 +1055,13 @@ const ListView = ({ data, onPayItem, onPayAll, onCloseOperation, role, onEdit })
                         </td>
 
                         {!isSimpleView && <td className="p-4 text-center sticky left-12 z-20 bg-white border-r font-bold text-slate-400">{item.ejecutivo}</td>}
-
+                        
                         <td className="p-4 font-bold text-slate-700 truncate">{item.empresa}</td>
-                        <td className="p-4"><span className="inline-block px-2 py-1 bg-yellow-50 border border-yellow-200 rounded text-xs font-mono font-bold text-slate-700 shadow-sm whitespace-nowrap">{item.comentarios}</span></td>
+                        <td className="p-4">
+                            <span className="inline-block px-2 py-1 bg-yellow-50 border border-yellow-200 rounded text-xs font-mono font-bold text-slate-700 shadow-sm whitespace-nowrap">
+                                {item.comentarios}
+                            </span>
+                        </td>
                         
                         {!isSimpleView && <td className="p-4 text-center text-xs">{formatDate(item.fechaAlta)}</td>}
                         
@@ -1056,26 +1071,32 @@ const ListView = ({ data, onPayItem, onPayAll, onCloseOperation, role, onEdit })
                         {!isSimpleView && <td className="p-4 text-xs">{item.factura || '-'}</td>}
                         
                         <td className="p-4 text-xs font-bold text-blue-700">{item.proveedor}</td>
-                        
                         <td className="p-4 text-[10px] text-slate-500">{item.banco}</td>
                         <td className="p-4 text-[10px] text-slate-500 font-mono">{item.cuenta}</td>
                         <td className="p-4 text-[10px] text-slate-500 font-mono">{item.clabe}</td>
                         
-                        <td className="p-4 text-center"><StatusBadge item={item} /> <div className="text-[10px] mt-1 text-slate-400">{formatDate(item.eta)}</div></td>
+                        <td className="p-4 text-center">
+                            <StatusBadge item={item} /> 
+                            <div className="text-[10px] mt-1 text-slate-400">{formatDate(item.eta)}</div>
+                        </td>
                         <td className="p-4 text-right font-bold text-slate-800">${item.amount.toLocaleString()}</td>
                         
-                        {!isSimpleView && (
+                        {/* BOTÓN EDITAR: Validado con canEdit (false para Pagos) */}
+                        {!isSimpleView && canEdit && (
                             <td className="p-4 text-center">
-                                <button onClick={() => onEdit(item)} className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded"><Edit size={16}/></button>
+                                <button onClick={() => onEdit(item)} className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded">
+                                    <Edit size={16}/>
+                                </button>
                             </td>
                         )}
                     </tr>
                     
+                    {/* DESGLOSE EXPANDIBLE */}
                     {expandedRow === item.id && (
-                        <tr className="bg-slate-50 animate-fade-in">
+                        <tr className="bg-slate-50">
                             <td colSpan={isSimpleView ? "12" : "15"} className="p-0 border-b border-slate-200 shadow-inner">
-                                <div className="p-6"> 
-                                    <h4 className="text-xs font-bold text-slate-500 uppercase mb-3 border-b pb-2">Desglose de Costos & Acciones de Pago</h4>
+                                <div className="p-6">
+                                    <h4 className="text-xs font-bold text-slate-500 uppercase mb-3 border-b pb-2">Desglose de costos</h4>
                                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
                                         {[
                                             {l:'Demoras', k:'costDemoras'}, {l:'Almacenaje', k:'costAlmacenaje'},
@@ -1087,23 +1108,33 @@ const ListView = ({ data, onPayItem, onPayAll, onCloseOperation, role, onEdit })
                                                 <span className="text-xs text-slate-500 font-bold uppercase">{c.l}</span>
                                                 <span className="font-mono font-bold text-slate-800">${(item[c.k] || 0).toLocaleString()}</span>
                                                 {canPay && (item[c.k] > 0) && (
-                                                    <button onClick={() => onPayItem(item.id, c.k)} disabled={item.paidFlags?.[c.k] || isPaid} className={`ml-2 p-1 rounded text-[10px] font-bold uppercase ${item.paidFlags?.[c.k] || isPaid ? 'bg-green-100 text-green-700' : 'bg-blue-600 text-white'}`}>
-                                                        {item.paidFlags?.[c.k] || isPaid ? 'Pagado' : 'Pagar'}
+                                                    <button 
+                                                        onClick={() => onPayItem(item.id, c.k)} 
+                                                        disabled={item.paidFlags?.[c.k] || item.payment === 'paid'} 
+                                                        className={`ml-2 p-1 rounded text-[10px] font-bold uppercase ${item.paidFlags?.[c.k] || item.payment === 'paid' ? 'bg-green-100 text-green-700' : 'bg-blue-600 text-white'}`}
+                                                    >
+                                                        {item.paidFlags?.[c.k] || item.payment === 'paid' ? 'Pagado' : 'Pagar'}
                                                     </button>
                                                 )}
                                             </div>
                                         ))}
                                     </div>
                                     <div className="flex justify-end gap-3">
-                                        {canPay && !isPaid && <button onClick={() => onPayAll(item.id)} className="px-4 py-2 bg-emerald-600 text-white font-bold rounded shadow hover:bg-emerald-700 text-xs">Saldar Total</button>}
-                                        <button onClick={() => onCloseOperation(item)} className="px-4 py-2 bg-slate-800 text-white font-bold rounded shadow hover:bg-slate-900 text-xs flex items-center"><Lock size={12} className="mr-2"/> Cerrar Operación</button>
+                                        {canPay && item.payment !== 'paid' && (
+                                            <button onClick={() => onPayAll(item.id)} className="px-4 py-2 bg-emerald-600 text-white font-bold rounded shadow hover:bg-emerald-700 text-xs">
+                                                Saldar total
+                                            </button>
+                                        )}
+                                        <button onClick={() => onCloseOperation(item)} className="px-4 py-2 bg-slate-800 text-white font-bold rounded shadow hover:bg-slate-900 text-xs flex items-center">
+                                            <Lock size={12} className="mr-2"/> Cerrar operación
+                                        </button>
                                     </div>
                                 </div>
                             </td>
                         </tr>
                     )}
                 </React.Fragment>
-              )})} 
+              ))} 
             </tbody>
           </table>
         </div>
@@ -1453,12 +1484,18 @@ export default function App() {
       setCloseModalOpen(true);
   };
 
-  const confirmClose = () => {
-       const newData = data.map(d => d.id === itemToClose.id ? { ...d, status: 'closed' } : d);
-       setData(newData);
-       setCloseModalOpen(false);
-       setItemToClose(null);
-  };
+    const confirmClose = () => {
+    const newData = data.map(d => {
+       // Aquí actualizamos explícitamente el estatus a 'closed'
+       if (d.id === itemToClose.id) {
+           return { ...d, status: 'closed' };
+       }
+       return d;
+    });
+    setData(newData);
+    setCloseModalOpen(false);
+    setItemToClose(null);
+};
 
   const NavItem = ({ id, icon: Icon, label }) => {
     if (role === 'pagos' && id === 'capture') return null;
