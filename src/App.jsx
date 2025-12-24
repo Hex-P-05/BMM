@@ -451,29 +451,311 @@ const LoginView = ({ onLogin }) => {
   );
 };
 
-// --- QUOTE GENERATOR (TU CÓDIGO ORIGINAL) ---
 const QuoteGenerator = ({ role }) => {
   const [quoteData, setQuoteData] = useState({
-    clientName: '', currency: 'MXN', bl: '', container: '', eta: '', deliveryDate: '', port: 'MANZANILLO', terminal: 'CONTECON', demurrageDays: 0, storageDays: 0, naviera: '',
-    costDemoras: 0, costAlmacenaje: 0, costOperativos: 0, costPortuarios: 0, costApoyo: 0, costImpuestos: 0, costLiberacion: 0, costTransporte: 0
+    // Datos Generales
+    clientName: '',
+    currency: 'MXN',
+    
+    // Datos Operativos
+    bl: '',
+    container: '',
+    eta: '',
+    deliveryDate: '',
+    port: 'MANZANILLO',
+    terminal: 'CONTECON',
+    demurrageDays: 0,
+    storageDays: 0,
+    naviera: '',
+    
+    // Costos
+    costDemoras: 0,
+    costAlmacenaje: 0,
+    costOperativos: 0,
+    costPortuarios: 0,
+    costApoyo: 0,
+    costImpuestos: 0,
+    costLiberacion: 0,
+    costTransporte: 0
   });
 
   const handleChange = (e) => {
     const { name, value } = e.target;
+    // Detectar si es un campo numérico
     const isNumber = name.startsWith('cost') || name.endsWith('Days');
-    setQuoteData({ ...quoteData, [name]: isNumber ? (parseFloat(value) || 0) : value });
+    setQuoteData({ 
+        ...quoteData, 
+        [name]: isNumber ? (parseFloat(value) || 0) : value 
+    });
   };
-  const subtotal = quoteData.costDemoras + quoteData.costAlmacenaje + quoteData.costOperativos + quoteData.costPortuarios + quoteData.costApoyo + quoteData.costImpuestos + quoteData.costLiberacion + quoteData.costTransporte;
 
-  // ... (PDF logic omitted for brevity as it was working, but included in final paste if needed. Keeping simple here) ...
-  // [Aquí iría tu handleDownloadPDF original]
+  // Suma total
+  const subtotal = 
+    quoteData.costDemoras + quoteData.costAlmacenaje + quoteData.costOperativos + 
+    quoteData.costPortuarios + quoteData.costApoyo + quoteData.costImpuestos + 
+    quoteData.costLiberacion + quoteData.costTransporte;
+
+  // --- GENERAR PDF MEMBRETADO ---
+  const handleDownloadPDF = () => {
+    const doc = new jsPDF();
+    const m = 20; // Margen X
+    let y = 0;    // Posición Y
+
+    // Colores
+    const corporateBlue = [15, 23, 42]; 
+    const rowGreen = [220, 252, 231];
+    const rowYellow = [254, 249, 195];
+    const textRed = [185, 28, 28];
+    const border = [80, 80, 80];
+
+    // --- 1. MEMBRETE SUPERIOR ---
+    doc.setFillColor(...corporateBlue);
+    doc.rect(0, 0, 210, 35, 'F');
+    
+    // Logo
+    doc.setFillColor(255, 255, 255);
+    doc.circle(25, 17, 8, 'F');
+    doc.setTextColor(...corporateBlue);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(14);
+    doc.text("A", 22.5, 22);
+
+    // Nombre Empresa
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(22);
+    doc.text("ADUANASOFT", 38, 20);
+    doc.setFontSize(8);
+    doc.setFont("helvetica", "normal");
+    doc.text("SOLUCIONES LOGÍSTICAS INTEGRALES", 38, 26);
+
+    // Datos Contacto
+    doc.setFontSize(9);
+    doc.text("Av. del Puerto 123, Manzanillo, Col.", 200, 12, { align: 'right' });
+    doc.text("Tel: +52 (314) 333-0000", 200, 17, { align: 'right' });
+    doc.text("contacto@aduanasoft.com", 200, 22, { align: 'right' });
+
+    // --- 2. TÍTULO Y CLIENTE ---
+    y = 50;
+    doc.setTextColor(0, 0, 0);
+    doc.setFontSize(16);
+    doc.setFont("helvetica", "bold");
+    doc.text("COTIZACIÓN DE SERVICIOS", 105, y, { align: 'center' });
+    
+    y += 10;
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "normal");
+    doc.text(`ATENCIÓN A: ${quoteData.clientName || "CLIENTE GENERAL"}`, m, y);
+    doc.text(`FECHA: ${new Date().toLocaleDateString()}`, 190, y, { align: 'right' });
+
+    y += 10;
+
+    // --- 3. TABLA DE DATOS ---
+    const drawRow = (label, value, bgColor = null, textColor = [0,0,0], boldValue = false) => {
+        const rowHeight = 7.5; 
+        
+        // Etiqueta (Izquierda)
+        doc.setDrawColor(...border);
+        doc.setFillColor(255, 255, 255);
+        if (bgColor) doc.setFillColor(...bgColor);
+        doc.rect(m, y, 90, rowHeight, 'FD'); 
+        
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(9);
+        doc.setTextColor(0, 0, 0);
+        doc.text(label, m + 85, y + 5, { align: 'right' });
+
+        // Valor (Derecha)
+        doc.setFillColor(255, 255, 255);
+        if (bgColor) doc.setFillColor(...bgColor);
+        doc.rect(m + 90, y, 80, rowHeight, 'FD');
+
+        doc.setFont("helvetica", boldValue ? "bold" : "normal");
+        doc.setTextColor(...textColor);
+        doc.text(value ? value.toString() : "-", m + 130, y + 5, { align: 'center' });
+
+        y += rowHeight;
+    };
+
+    // Filas de Datos
+    drawRow("BL / EMBARQUE", quoteData.bl);
+    drawRow("CONTENEDOR", quoteData.container);
+    drawRow("ETA", formatDate(quoteData.eta));
+    drawRow("FECHA DE ENTREGA", formatDate(quoteData.deliveryDate), rowGreen);
+    drawRow("PUERTO", quoteData.port);
+    drawRow("TERMINAL", quoteData.terminal);
+    drawRow("DIAS DE DEMORAS", quoteData.demurrageDays);
+    drawRow("DIAS DE ALMACENAJE", quoteData.storageDays);
+    drawRow("NAVIERA", quoteData.naviera);
+
+    // Separador
+    y += 2; 
+
+    // Filas de Costos
+    const formatMoney = (val) => `$ ${val.toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
+    
+    drawRow("DEMORAS", quoteData.costDemoras > 0 ? formatMoney(quoteData.costDemoras) : "-");
+    drawRow("ALMACENAJE", formatMoney(quoteData.costAlmacenaje));
+    drawRow("COSTOS OPERATIVOS", formatMoney(quoteData.costOperativos));
+    drawRow("GASTOS PORTUARIOS", formatMoney(quoteData.costPortuarios));
+    drawRow("APOYO EXTRAORDINARIO", formatMoney(quoteData.costApoyo), null, textRed, true);
+    drawRow("IMPUESTOS", formatMoney(quoteData.costImpuestos));
+    drawRow("LIBERACION", quoteData.costLiberacion > 0 ? formatMoney(quoteData.costLiberacion) : "-");
+    drawRow("TRANSPORTE", formatMoney(quoteData.costTransporte));
+    
+    // Total
+    y += 2;
+    drawRow(`TOTAL ESTIMADO (${quoteData.currency})`, formatMoney(subtotal), rowYellow, [0,0,0], true);
+
+    // --- 4. FOOTER ---
+    const pageHeight = doc.internal.pageSize.height;
+    doc.setFillColor(...corporateBlue);
+    doc.rect(0, pageHeight - 20, 210, 20, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(8);
+    doc.text("www.aduanasoft.com | Documento Oficial", 105, pageHeight - 9, { align: 'center' });
+
+    doc.save(`Cotizacion_${quoteData.container || 'Cliente'}.pdf`);
+  };
 
   return (
-      <div className="p-10 text-center text-slate-500">
-          <Calculator size={48} className="mx-auto mb-4 text-blue-300"/>
-          <h2 className="text-xl font-bold">Generador de Cotizaciones</h2>
-          <p>Módulo disponible (código original conservado).</p>
+    <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-6 pb-12 animate-fade-in h-[calc(100vh-100px)] overflow-hidden">
+      
+      {/* --- EDITOR --- */}
+      <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-y-auto h-full flex flex-col">
+        <div className="p-6 flex-1">
+            <h2 className="text-xl font-bold text-slate-800 mb-4 flex items-center">
+                <Calculator className="mr-2 text-blue-600"/> Cotizador Membretado
+            </h2>
+
+            <div className="mb-6 bg-slate-50 p-4 rounded-lg border border-slate-100">
+                <h3 className="text-xs font-bold text-slate-400 uppercase mb-3 flex items-center">Datos Generales</h3>
+                
+                <div className="flex gap-4 mb-4">
+                    <div className="flex-1">
+                        <label className="text-xs font-bold text-slate-600">Nombre del Cliente</label>
+                        <input name="clientName" value={quoteData.clientName} onChange={handleChange} className="w-full p-2 border rounded text-sm bg-white" placeholder="Ej. Comercializadora del Norte S.A." />
+                    </div>
+                    <div className="w-32">
+                        <label className="text-xs font-bold text-slate-600">Divisa</label>
+                        <select name="currency" value={quoteData.currency} onChange={handleChange} className="w-full p-2 border rounded text-sm bg-white font-bold text-blue-600">
+                            <option value="MXN">MXN</option>
+                            <option value="USD">USD</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <h3 className="text-xs font-bold text-slate-400 uppercase mb-3 flex items-center mt-4"><Ship size={14} className="mr-1"/> Datos Operativos</h3>
+                <div className="grid grid-cols-2 gap-3">
+                    <div className="col-span-2"><label className="text-xs font-bold text-slate-600">BL</label><input name="bl" value={quoteData.bl} onChange={handleChange} className="w-full p-2 border rounded text-sm bg-white uppercase font-mono" /></div>
+                    <div className="col-span-2"><label className="text-xs font-bold text-slate-600">Contenedor</label><input name="container" value={quoteData.container} onChange={handleChange} className="w-full p-2 border rounded text-sm bg-white uppercase font-mono" /></div>
+                    <div><label className="text-xs font-bold text-slate-600">ETA</label><input type="date" name="eta" value={quoteData.eta} onChange={handleChange} className="w-full p-2 border rounded text-sm" /></div>
+                    <div><label className="text-xs font-bold text-green-700">F. Entrega</label><input type="date" name="deliveryDate" value={quoteData.deliveryDate} onChange={handleChange} className="w-full p-2 border border-green-300 bg-green-50 rounded text-sm" /></div>
+                    <div><label className="text-xs font-bold text-slate-600">Puerto</label><input name="port" value={quoteData.port} onChange={handleChange} className="w-full p-2 border rounded text-sm" /></div>
+                    <div><label className="text-xs font-bold text-slate-600">Terminal</label><input name="terminal" value={quoteData.terminal} onChange={handleChange} className="w-full p-2 border rounded text-sm" /></div>
+                    <div><label className="text-xs font-bold text-slate-600">Días Demoras</label><input type="number" name="demurrageDays" value={quoteData.demurrageDays} onChange={handleChange} className="w-full p-2 border rounded text-sm" /></div>
+                    <div><label className="text-xs font-bold text-slate-600">Días Almacenaje</label><input type="number" name="storageDays" value={quoteData.storageDays} onChange={handleChange} className="w-full p-2 border rounded text-sm" /></div>
+                    <div className="col-span-2"><label className="text-xs font-bold text-slate-600">Naviera</label><input name="naviera" value={quoteData.naviera} onChange={handleChange} className="w-full p-2 border rounded text-sm" /></div>
+                </div>
+            </div>
+
+            <div className="bg-white border border-slate-200 rounded-lg p-4">
+                <h3 className="text-xs font-bold text-slate-400 uppercase mb-3 flex items-center"><DollarSign size={14} className="mr-1"/> Costos ({quoteData.currency})</h3>
+                <div className="space-y-3">
+                    {[
+                        { l: 'Demoras', k: 'costDemoras' },
+                        { l: 'Almacenaje', k: 'costAlmacenaje' },
+                        { l: 'Costos Operativos', k: 'costOperativos' },
+                        { l: 'Gastos Portuarios', k: 'costPortuarios' },
+                        { l: 'Apoyo', k: 'costApoyo', color: 'text-red-600' },
+                        { l: 'Impuestos', k: 'costImpuestos' },
+                        { l: 'Liberación', k: 'costLiberacion' },
+                        { l: 'Transporte', k: 'costTransporte' },
+                    ].map((field) => (
+                        <div key={field.k} className="flex items-center justify-between">
+                            <label className={`text-xs font-bold ${field.color || 'text-slate-600'} uppercase w-1/2`}>{field.l}</label>
+                            <div className="w-1/2 relative"><span className="absolute left-2 top-1.5 text-xs text-slate-400">$</span><input type="number" name={field.k} value={quoteData[field.k] || ''} onChange={handleChange} className="w-full p-1.5 pl-6 border rounded text-sm text-right outline-none focus:border-blue-500" placeholder="0.00"/></div>
+                        </div>
+                    ))}
+                    <div className="flex items-center justify-between pt-3 mt-2 border-t border-slate-200 bg-yellow-50 p-2 -mx-2 rounded">
+                        <label className="text-sm font-bold text-slate-800 uppercase">Total ({quoteData.currency})</label>
+                        <span className="text-lg font-mono font-bold text-slate-900">${subtotal.toLocaleString()}</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div className="p-4 border-t border-slate-200 bg-slate-50"><button onClick={handleDownloadPDF} className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg shadow-lg flex items-center justify-center transition-all"><Download size={20} className="mr-2"/> Descargar PDF Membretado</button></div>
       </div>
+
+      {/* --- PREVISUALIZACIÓN --- */}
+      <div className="hidden lg:flex bg-slate-200 p-8 rounded-xl overflow-y-auto h-full shadow-inner justify-center items-start">
+        <div className="bg-white shadow-2xl w-full max-w-[210mm] min-h-[297mm] relative flex flex-col font-sans text-slate-800 text-sm scale-90 origin-top">
+            
+            {/* Header Visual */}
+            <div className="bg-slate-900 h-24 flex items-center px-8 justify-between text-white">
+                <div className="flex items-center gap-4">
+                    <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center text-slate-900 font-bold text-xl">A</div>
+                    <div><h1 className="text-2xl font-bold tracking-widest">ADUANASOFT</h1><p className="text-[10px] tracking-wide opacity-80">SOLUCIONES LOGÍSTICAS</p></div>
+                </div>
+                <div className="text-right text-[10px] opacity-90 space-y-0.5">
+                    <p className="flex items-center justify-end gap-1"><MapPin size={10}/> Av. del Puerto 123</p>
+                    <p className="flex items-center justify-end gap-1"><Globe size={10}/> www.aduanasoft.com</p>
+                </div>
+            </div>
+
+            <div className="p-12 flex-1">
+                <h2 className="text-center text-xl font-bold text-slate-800 mb-2">COTIZACIÓN DE SERVICIOS</h2>
+                <div className="text-center text-xs text-slate-500 mb-8">{new Date().toLocaleDateString()}</div>
+                
+                <div className="mb-6"><span className="text-xs font-bold text-slate-500 uppercase">Cliente:</span> <span className="text-lg font-bold block">{quoteData.clientName || "..."}</span></div>
+
+                {/* Tabla Visual */}
+                <div className="border border-slate-800 text-xs">
+                    {[
+                        { l: "BL / EMBARQUE", v: quoteData.bl },
+                        { l: "CONTENEDOR", v: quoteData.container },
+                        { l: "ETA", v: formatDate(quoteData.eta) },
+                        { l: "FECHA ENTREGA", v: formatDate(quoteData.deliveryDate), bg: "bg-green-100" },
+                        { l: "PUERTO", v: quoteData.port },
+                        { l: "TERMINAL", v: quoteData.terminal },
+                        { l: "DIAS DEMORAS", v: quoteData.demurrageDays },
+                        { l: "DIAS ALMACENAJE", v: quoteData.storageDays },
+                        { l: "NAVIERA", v: quoteData.naviera },
+                    ].map((r, i) => (
+                        <div key={i} className={`flex border-b border-slate-800 ${r.bg || ''}`}>
+                            <div className="w-1/2 p-2 border-r border-slate-800 text-right font-bold bg-slate-50">{r.l}</div>
+                            <div className="w-1/2 p-2 text-center">{r.v || '-'}</div>
+                        </div>
+                    ))}
+
+                    <div className="h-4 bg-slate-200 border-b border-slate-800"></div>
+
+                    {[
+                        { l: "DEMORAS", v: quoteData.costDemoras },
+                        { l: "ALMACENAJE", v: quoteData.costAlmacenaje },
+                        { l: "COSTOS OPERATIVOS", v: quoteData.costOperativos },
+                        { l: "GASTOS PORTUARIOS", v: quoteData.costPortuarios },
+                        { l: "APOYO", v: quoteData.costApoyo, color: "text-red-600" },
+                        { l: "IMPUESTOS", v: quoteData.costImpuestos },
+                        { l: "LIBERACION", v: quoteData.costLiberacion },
+                        { l: "TRANSPORTE", v: quoteData.costTransporte },
+                    ].map((r, i) => (
+                        <div key={i + 10} className="flex border-b border-slate-800">
+                            <div className="w-1/2 p-2 border-r border-slate-800 text-right font-bold bg-slate-50">{r.l}</div>
+                            <div className={`w-1/2 p-2 text-center font-mono ${r.color || ''}`}>{r.v > 0 ? `$${r.v.toLocaleString()}` : '-'}</div>
+                        </div>
+                    ))}
+
+                    <div className="flex bg-yellow-100 font-bold text-sm">
+                        <div className="w-1/2 p-3 border-r border-slate-800 text-right">TOTAL ESTIMADO ({quoteData.currency})</div>
+                        <div className="w-1/2 p-3 text-center">${subtotal.toLocaleString()}</div>
+                    </div>
+                </div>
+            </div>
+
+            <div className="bg-slate-900 text-white text-[10px] text-center p-4">www.aduanasoft.com</div>
+        </div>
+      </div>
+    </div>
   );
 };
 
@@ -679,6 +961,8 @@ const CaptureForm = ({ onSave, onCancel, existingData, role, userName }) => {
   );
 };
 
+
+
 // --- LIST VIEW (SÁBANA OPERATIVA) CON TOGGLE DE VISTAS ---
 const ListView = ({ data, onPayItem, onPayAll, onCloseOperation, role, onEdit }) => {
   const [searchTerm, setSearchTerm] = useState('');
@@ -828,51 +1112,189 @@ const ListView = ({ data, onPayItem, onPayAll, onCloseOperation, role, onEdit })
   );
 };
 
-// --- ACCOUNT CLOSURE (TU CÓDIGO ORIGINAL CONSERVADO) ---
 const AccountClosure = ({ data }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedItem, setSelectedItem] = useState(null);
   const [showDropdown, setShowDropdown] = useState(false);
-  const [spreadsheet, setSpreadsheet] = useState({ venta: 0, almacenajes: 0, transporte: 0, demoras: 0, estadias: 0, otros: 0, anticipo1: 0, anticipo2: 0, anticipo3: 0 });
 
-  const filteredOptions = data.filter(item => item.bl.toLowerCase().includes(searchTerm.toLowerCase()) || item.contenedor.toLowerCase().includes(searchTerm.toLowerCase()));
+  // Estado del formulario manual
+  const [spreadsheet, setSpreadsheet] = useState({
+    venta: 0, almacenajes: 0, transporte: 0, demoras: 0, estadias: 0, otros: 0,
+    anticipo1: 0, anticipo2: 0, anticipo3: 0
+  });
+
+  const filteredOptions = data.filter(item => 
+    item.bl.toLowerCase().includes(searchTerm.toLowerCase()) || 
+    (item.contenedor && item.contenedor.toLowerCase().includes(searchTerm.toLowerCase()))
+  );
 
   const handleSelect = (item) => {
     setSelectedItem(item);
-    setSearchTerm(`${item.bl} - ${item.contenedor}`);
+    setSearchTerm(`${item.bl} - ${item.contenedor || item.container}`);
     setShowDropdown(false);
-    setSpreadsheet({ venta: 0, almacenajes: 0, transporte: 0, demoras: 0, estadias: 0, otros: 0, anticipo1: 0, anticipo2: 0, anticipo3: 0 });
+    setSpreadsheet({
+        venta: 0, almacenajes: 0, transporte: 0, demoras: 0, estadias: 0, otros: 0,
+        anticipo1: 0, anticipo2: 0, anticipo3: 0
+    });
   };
 
-  const handleCalcChange = (e) => { const { name, value } = e.target; setSpreadsheet({ ...spreadsheet, [name]: parseFloat(value) || 0 }); };
+  const handleCalcChange = (e) => {
+    const { name, value } = e.target;
+    setSpreadsheet({ ...spreadsheet, [name]: parseFloat(value) || 0 });
+  };
+
+  // Cálculos
   const totalCliente = spreadsheet.venta + spreadsheet.almacenajes + spreadsheet.transporte + spreadsheet.demoras + spreadsheet.estadias + spreadsheet.otros;
   const totalAnticipo = spreadsheet.anticipo1 + spreadsheet.anticipo2 + spreadsheet.anticipo3;
   const diferencia = totalCliente - totalAnticipo;
 
+  // --- FUNCIÓN DE PDF ---
   const handleSavePDF = () => {
-      // (Aquí va tu lógica de PDF original del cierre de cuenta)
-      // Para abreviar, un alert, pero si necesitas el código completo del PDF de Cierre, dímelo y lo pego.
-      // Asumiré que ya lo tienes o lo restauraré si es crítico en este paso.
-      alert("Generando PDF de cierre...");
+    const doc = new jsPDF();
+    const margin = 20;
+    let yPos = 20;
+
+    // Colores personalizados (RGB)
+    const black = [30, 30, 30];
+    const orangeBg = [255, 247, 237]; 
+    const orangeBorder = [253, 186, 116]; 
+    const greenBg = [240, 253, 244]; 
+    const greenBorder = [134, 239, 172]; 
+    const redBg = [254, 242, 242]; 
+    const redText = [185, 28, 28]; 
+
+    // 1. ENCABEZADO NEGRO
+    doc.setFillColor(...black);
+    doc.rect(0, 0, 210, 50, 'F'); 
+
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(18);
+    doc.setFont("helvetica", "bold");
+    doc.text("ESTADO DE CUENTA FINAL", margin, 20);
+
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "normal");
+    doc.text("Resumen de cierre operativo y financiero", margin, 26);
+    
+    doc.setFontSize(9);
+    doc.text(`CLIENTE: ${selectedItem.empresa || selectedItem.client}`, margin, 35);
+    doc.text(`FECHA: ${new Date().toLocaleDateString()}`, 190, 35, { align: 'right' });
+    
+    doc.text(`BL MASTER: ${selectedItem.bl}`, margin, 43);
+    doc.text(`CONTENEDOR: ${selectedItem.contenedor || selectedItem.container}`, 190, 43, { align: 'right' });
+
+    yPos = 70;
+
+    // Función auxiliar para dibujar filas
+    const drawRow = (label, value, bgColor, borderColor) => {
+        doc.setFillColor(...bgColor);
+        doc.setDrawColor(...borderColor);
+        doc.rect(margin, yPos, 85, 10, 'F');
+        doc.rect(margin, yPos, 85, 10, 'S');
+        doc.rect(margin + 85, yPos, 85, 10, 'S');
+        doc.setTextColor(50, 50, 50);
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(10);
+        doc.text(label, margin + 80, yPos + 7, { align: 'right' });
+        doc.setFont("helvetica", "normal");
+        doc.text(`$${value.toLocaleString()}`, margin + 165, yPos + 7, { align: 'right' });
+        yPos += 10;
+    };
+
+    // 2. SECCIÓN CARGOS (NARANJA)
+    doc.setFontSize(12);
+    doc.setTextColor(0, 0, 0);
+    doc.text("CARGOS AL CLIENTE", margin, yPos - 5);
+    
+    const cargos = [
+        { l: 'VENTA DE CONTENEDOR', v: spreadsheet.venta },
+        { l: 'ALMACENAJES', v: spreadsheet.almacenajes },
+        { l: 'TRANSPORTE', v: spreadsheet.transporte },
+        { l: 'DEMORAS', v: spreadsheet.demoras },
+        { l: 'ESTADÍAS', v: spreadsheet.estadias },
+        { l: 'OTROS', v: spreadsheet.otros },
+    ];
+
+    cargos.forEach(c => drawRow(c.l, c.v, orangeBg, orangeBorder));
+
+    doc.setFillColor(255, 237, 213); 
+    doc.rect(margin, yPos, 170, 12, 'F');
+    doc.setFont("helvetica", "bold");
+    doc.text("TOTAL CLIENTE", margin + 80, yPos + 8, { align: 'right' });
+    doc.text(`$${totalCliente.toLocaleString()}`, margin + 165, yPos + 8, { align: 'right' });
+    yPos += 20;
+
+    // 3. SECCIÓN ANTICIPOS (VERDE)
+    doc.setFontSize(12);
+    doc.setTextColor(0, 0, 0);
+    doc.text("ANTICIPOS RECIBIDOS", margin, yPos - 5);
+
+    const anticipos = [
+        { l: 'ANTICIPO 1', v: spreadsheet.anticipo1 },
+        { l: 'ANTICIPO 2', v: spreadsheet.anticipo2 },
+        { l: 'ANTICIPO 3', v: spreadsheet.anticipo3 },
+    ];
+
+    anticipos.forEach(a => drawRow(a.l, a.v, greenBg, greenBorder));
+
+    doc.setFillColor(220, 252, 231); 
+    doc.rect(margin, yPos, 170, 12, 'F');
+    doc.setFont("helvetica", "bold");
+    doc.text("TOTAL ANTICIPOS", margin + 80, yPos + 8, { align: 'right' });
+    doc.text(`$${totalAnticipo.toLocaleString()}`, margin + 165, yPos + 8, { align: 'right' });
+    yPos += 25;
+
+    // 4. DIFERENCIA (ROJO GRAN FINAL)
+    doc.setDrawColor(185, 28, 28); 
+    doc.setLineWidth(1);
+    doc.setFillColor(...redBg);
+    doc.roundedRect(margin, yPos, 170, 25, 3, 3, 'FD'); 
+
+    doc.setTextColor(...redText);
+    doc.setFontSize(14);
+    doc.text("DIFERENCIA A PAGAR / SALDO", margin + 85, yPos + 10, { align: 'center' });
+    
+    doc.setFontSize(22);
+    doc.setFont("helvetica", "bold");
+    doc.text(`$${diferencia.toLocaleString()}`, margin + 85, yPos + 20, { align: 'center' });
+
+    doc.setFontSize(8);
+    doc.setTextColor(150, 150, 150);
+    doc.text("Este documento es un comprobante interno de cierre de cuenta.", 105, 280, { align: 'center' });
+
+    doc.save(`Cierre_${selectedItem.bl}.pdf`);
   };
 
   return (
     <div className="max-w-5xl mx-auto animate-fade-in space-y-6 pb-12">
+      {/* SELECCIÓN DE CONTENEDOR */}
       <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
-        <h2 className="text-xl font-bold text-slate-800 mb-4 flex items-center"><ClipboardCheck className="mr-2 text-blue-600"/> Cierre de Cuenta</h2>
+        <h2 className="text-xl font-bold text-slate-800 mb-4 flex items-center">
+            <ClipboardCheck className="mr-2 text-blue-600"/> Cierre de Cuenta
+        </h2>
         <div className="relative">
             <label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Buscar Contenedor / BL</label>
             <div className="flex items-center">
                 <Search className="absolute left-3 text-slate-400" size={18}/>
-                <input type="text" placeholder="Escribe para buscar..." className="w-full pl-10 p-3 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 font-mono text-lg uppercase" value={searchTerm} onChange={(e) => { setSearchTerm(e.target.value); setShowDropdown(true); }} onFocus={() => setShowDropdown(true)} />
-                {selectedItem && (<button onClick={() => { setSelectedItem(null); setSearchTerm(''); }} className="ml-2 p-2 text-red-500 hover:bg-red-50 rounded"><X/></button>)}
+                <input 
+                    type="text" 
+                    placeholder="Escribe para buscar..." 
+                    className="w-full pl-10 p-3 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 font-mono text-lg uppercase"
+                    value={searchTerm}
+                    onChange={(e) => { setSearchTerm(e.target.value); setShowDropdown(true); }}
+                    onFocus={() => setShowDropdown(true)}
+                />
+                {selectedItem && (
+                    <button onClick={() => { setSelectedItem(null); setSearchTerm(''); }} className="ml-2 p-2 text-red-500 hover:bg-red-50 rounded"><X/></button>
+                )}
             </div>
+            
             {showDropdown && searchTerm && !selectedItem && (
                 <div className="absolute top-full left-0 right-0 bg-white border border-slate-200 shadow-xl rounded-b-lg z-50 max-h-60 overflow-y-auto">
                     {filteredOptions.map(item => (
                         <div key={item.id} onClick={() => handleSelect(item)} className="p-3 hover:bg-blue-50 cursor-pointer border-b border-slate-50">
                             <div className="font-bold text-slate-700">{item.bl}</div>
-                            <div className="text-xs text-slate-500">{item.empresa} - {item.contenedor}</div>
+                            <div className="text-xs text-slate-500">{item.empresa || item.client} - {item.contenedor || item.container}</div>
                         </div>
                     ))}
                     {filteredOptions.length === 0 && <div className="p-3 text-slate-400 text-sm">No se encontraron resultados.</div>}
@@ -880,7 +1302,97 @@ const AccountClosure = ({ data }) => {
             )}
         </div>
       </div>
-      {/* ... (Resto del UI de cierre de cuenta, input fields, etc. conservados) ... */}
+
+      {selectedItem ? (
+        <div className="bg-white shadow-2xl border border-slate-300 w-full max-w-4xl mx-auto font-sans">
+            {/* ENCABEZADO VISUAL (HTML) */}
+            <div className="bg-black text-white p-4 grid grid-cols-2 md:grid-cols-4 gap-4 items-center border-b-4 border-slate-600">
+                <div className="md:col-span-2">
+                    <h3 className="text-lg font-bold text-yellow-400 uppercase tracking-widest">Cierre de Cuenta</h3>
+                    <div className="text-sm font-bold mt-1">{selectedItem.empresa || selectedItem.client}</div>
+                    <div className="text-xs text-gray-400">{selectedItem.bl}</div>
+                </div>
+                <div className="text-right md:text-left">
+                    <div className="text-xs text-gray-400 uppercase">ETA</div>
+                    <div className="font-mono font-bold text-lg">{formatDate(selectedItem.eta)}</div>
+                </div>
+                <div className="text-right">
+                    <div className="text-xs text-gray-400 uppercase">FECHA CIERRE</div>
+                    <div className="font-mono font-bold text-lg">{new Date().toLocaleDateString()}</div>
+                </div>
+            </div>
+
+            {/* CUERPO DE LA TABLA (HTML) */}
+            <div className="p-8 space-y-1 bg-white">
+                {[
+                    { label: 'VENTA DE CONTENEDOR', name: 'venta' },
+                    { label: 'ALMACENAJES', name: 'almacenajes' },
+                    { label: 'TRANSPORTE', name: 'transporte' },
+                    { label: 'DEMORAS', name: 'demoras' },
+                    { label: 'ESTADÍAS', name: 'estadias' },
+                    { label: 'OTROS', name: 'otros' }
+                ].map((row, idx) => (
+                    <div key={idx} className="flex border-b border-slate-200">
+                        <div className="w-1/2 p-2 bg-orange-50 border-r border-slate-200 font-bold text-slate-700 uppercase text-sm flex items-center justify-end pr-4">
+                            {row.label}
+                        </div>
+                        <div className="w-1/2 p-1 relative">
+                            <span className="absolute left-3 top-3 text-slate-400 font-bold">$</span>
+                            <input type="number" name={row.name} value={spreadsheet[row.name] || ''} onChange={handleCalcChange} className="w-full h-full p-2 pl-8 text-right font-mono text-slate-800 outline-none bg-transparent" placeholder="0.00"/>
+                        </div>
+                    </div>
+                ))}
+
+                <div className="flex border-t-2 border-black mt-2">
+                    <div className="w-1/2 p-3 bg-orange-200 border-r border-black font-extrabold text-red-900 uppercase text-sm flex items-center justify-end pr-4">TOTAL CLIENTE</div>
+                    <div className="w-1/2 p-3 bg-orange-100 text-right font-mono font-bold text-xl text-slate-900">${totalCliente.toLocaleString()}</div>
+                </div>
+
+                <div className="h-6"></div>
+
+                {[
+                    { label: 'ANTICIPO 1', name: 'anticipo1' },
+                    { label: 'ANTICIPO 2', name: 'anticipo2' },
+                    { label: 'ANTICIPO 3', name: 'anticipo3' }
+                ].map((row, idx) => (
+                    <div key={idx} className="flex border-b border-slate-200">
+                        <div className="w-1/2 p-2 bg-green-50 border-r border-slate-200 font-bold text-green-800 uppercase text-sm flex items-center justify-end pr-4">{row.label}</div>
+                        <div className="w-1/2 p-1 relative">
+                            <span className="absolute left-3 top-3 text-slate-400 font-bold">$</span>
+                            <input type="number" name={row.name} value={spreadsheet[row.name] || ''} onChange={handleCalcChange} className="w-full h-full p-2 pl-8 text-right font-mono text-slate-800 outline-none bg-transparent" placeholder="0.00"/>
+                        </div>
+                    </div>
+                ))}
+
+                <div className="flex border-t-2 border-green-600">
+                    <div className="w-1/2 p-3 bg-green-200 border-r border-green-600 font-extrabold text-green-900 uppercase text-sm flex items-center justify-end pr-4">TOTAL ANTICIPO</div>
+                    <div className="w-1/2 p-3 bg-green-100 text-right font-mono font-bold text-xl text-green-900">${totalAnticipo.toLocaleString()}</div>
+                </div>
+
+                <div className="h-6"></div>
+
+                <div className="flex border-4 border-red-800 shadow-lg transform scale-105 origin-center my-4">
+                    <div className="w-1/2 p-4 bg-red-300 border-r-4 border-red-800 font-extrabold text-red-950 uppercase text-lg flex items-center justify-end pr-4">DIFERENCIA</div>
+                    <div className="w-1/2 p-4 bg-red-200 text-right font-mono font-extrabold text-3xl text-red-900">${diferencia.toLocaleString()}</div>
+                </div>
+            </div>
+            
+            {/* BOTÓN GUARDAR PDF */}
+            <div className="p-4 bg-slate-100 border-t border-slate-300 flex justify-end">
+                <button 
+                    onClick={handleSavePDF} 
+                    className="px-6 py-3 bg-blue-600 text-white font-bold rounded-lg shadow-lg hover:bg-blue-700 flex items-center transition-transform hover:-translate-y-1"
+                >
+                    <Download size={20} className="mr-2"/> Guardar PDF
+                </button>
+            </div>
+        </div>
+      ) : (
+        <div className="text-center py-20 opacity-50">
+            <div className="inline-block p-6 bg-slate-200 rounded-full mb-4"><ClipboardCheck size={64} className="text-slate-400"/></div>
+            <p className="text-xl font-bold text-slate-500">Selecciona un contenedor para comenzar el cierre</p>
+        </div>
+      )}
     </div>
   );
 };
