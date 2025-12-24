@@ -6,7 +6,8 @@ import {
   Clock, Ship, DollarSign, Plus, Search, Menu, X, User, Edit, Lock, 
   TrendingUp, TrendingDown, Activity, AlertCircle, Calculator, Trash2, 
   Download, Printer, Package, MapPin, Key, LogOut, Check, 
-  ChevronLeft, ChevronRight, ChevronDown, ChevronUp, ShieldAlert, Eye, EyeOff
+  ChevronLeft, ChevronRight, ChevronDown, ChevronUp, ShieldAlert, Eye, EyeOff, 
+  Anchor // <--- ¡ESTE ES EL CULPABLE! TIENE QUE ESTAR AQUÍ
 } from 'lucide-react';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
