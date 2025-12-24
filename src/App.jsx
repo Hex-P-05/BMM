@@ -1129,10 +1129,11 @@ const ListView = ({ data, onPayItem, onPayAll, onCloseOperation, role, onEdit })
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden flex-1 relative">
         <div className="overflow-auto h-[calc(100vh-200px)] w-full relative"> 
           <table className="w-full text-left border-collapse min-w-[2000px]">
+            {/* Mantenemos sticky top-0 para que el encabezado siga visible al bajar, pero quitamos el sticky horizontal */}
             <thead className="sticky top-0 z-40 shadow-sm">
                 <tr className="bg-slate-50 border-b border-slate-200 text-xs font-bold text-slate-500 uppercase h-12">
-                    {/* CHECKBOX "SELECCIONAR TODOS (CERRADOS)" */}
-                    <th className="p-4 w-10 sticky left-0 z-50 bg-slate-50 border-r text-center">
+                    {/* CHECKBOX "SELECCIONAR TODOS (CERRADOS)" - SIN STICKY */}
+                    <th className="p-4 w-10 bg-slate-50 border-r text-center">
                         <input 
                             type="checkbox" 
                             className="w-4 h-4 rounded cursor-pointer accent-blue-600"
@@ -1143,12 +1144,12 @@ const ListView = ({ data, onPayItem, onPayAll, onCloseOperation, role, onEdit })
                         />
                     </th>
                     
-                    {/* EXPAND TOGGLE */}
-                    <th className="p-4 w-12 sticky left-10 z-50 bg-slate-50 border-r"></th>
+                    {/* EXPAND TOGGLE - SIN STICKY */}
+                    <th className="p-4 w-12 bg-slate-50 border-r"></th>
 
-                    {!isSimpleView && <th className="p-4 w-16 text-center sticky left-20 z-50 bg-slate-50 border-r">Ej</th>}
+                    {!isSimpleView && <th className="p-4 w-16 text-center bg-slate-50 border-r">Ej</th>}
                     
-                    <th className="p-4 min-w-[200px] sticky left-20 z-40 bg-slate-50 border-r">Empresa</th>
+                    <th className="p-4 min-w-[200px] bg-slate-50 border-r">Empresa</th>
                     <th className="p-4 min-w-[250px] bg-slate-50">Comentarios</th>
                     {!isSimpleView && <th className="p-4 min-w-[100px] bg-slate-50 text-center">Fecha</th>}
                     <th className="p-4 min-w-[120px] bg-slate-50 font-bold text-slate-700">Contenedor</th>
@@ -1161,7 +1162,7 @@ const ListView = ({ data, onPayItem, onPayAll, onCloseOperation, role, onEdit })
                     <th className="p-4 min-w-[120px] bg-slate-50 text-center">ETA</th>
                     <th className="p-4 min-w-[150px] text-right bg-slate-50">Total</th>
                     
-                    {/* NUEVA COLUMNA: COMPROBANTE */}
+                    {/* COLUMNA: COMPROBANTE */}
                     <th className="p-4 text-center bg-slate-50 min-w-[100px]">Comprobante</th>
                     
                     {!isSimpleView && canEdit && <th className="p-4 text-center bg-slate-50">Acciones</th>}
@@ -1174,8 +1175,8 @@ const ListView = ({ data, onPayItem, onPayAll, onCloseOperation, role, onEdit })
                 <React.Fragment key={item.id}>
                     <tr className={`hover:bg-slate-50 border-b border-slate-100 transition-colors ${expandedRow === item.id ? 'bg-blue-50/30' : ''}`}>
                         
-                        {/* CHECKBOX INDIVIDUAL */}
-                        <td className="p-4 text-center sticky left-0 z-20 bg-white border-r border-slate-100">
+                        {/* CHECKBOX INDIVIDUAL - SIN STICKY */}
+                        <td className="p-4 text-center bg-white border-r border-slate-100">
                             <input 
                                 type="checkbox" 
                                 checked={selectedIds.includes(item.id)}
@@ -1185,12 +1186,12 @@ const ListView = ({ data, onPayItem, onPayAll, onCloseOperation, role, onEdit })
                             />
                         </td>
 
-                        {/* EXPAND TOGGLE */}
-                        <td className="p-4 text-center cursor-pointer sticky left-10 z-20 bg-white border-r border-slate-100" onClick={() => toggleRow(item.id)}>
+                        {/* EXPAND TOGGLE - SIN STICKY */}
+                        <td className="p-4 text-center cursor-pointer bg-white border-r border-slate-100" onClick={() => toggleRow(item.id)}>
                             {expandedRow === item.id ? <ChevronUp size={18} className="text-blue-500"/> : <ChevronDown size={18} className="text-slate-400"/>}
                         </td>
 
-                        {!isSimpleView && <td className="p-4 text-center sticky left-20 z-20 bg-white border-r font-bold text-slate-400">{item.ejecutivo}</td>}
+                        {!isSimpleView && <td className="p-4 text-center bg-white border-r font-bold text-slate-400">{item.ejecutivo}</td>}
                         
                         <td className="p-4 font-bold text-slate-700 truncate">{item.empresa}</td>
                         <td className="p-4"><span className="inline-block px-2 py-1 bg-yellow-50 border border-yellow-200 rounded text-xs font-mono font-bold text-slate-700 shadow-sm whitespace-nowrap">{item.comentarios}</span></td>
@@ -1205,10 +1206,10 @@ const ListView = ({ data, onPayItem, onPayAll, onCloseOperation, role, onEdit })
                         <td className="p-4 text-center"><StatusBadge item={item} /> <div className="text-[10px] mt-1 text-slate-400">{formatDate(item.eta)}</div></td>
                         <td className="p-4 text-right font-bold text-slate-800">${item.amount.toLocaleString()}</td>
                         
-                        {/* COLUMNA COMPROBANTE (Lógica solicitada) */}
+                        {/* COLUMNA COMPROBANTE */}
                         <td className="p-4 text-center">
                              <button
-                                disabled={!isClosed} // Inhabilitado mientras no se cierre
+                                disabled={!isClosed}
                                 onClick={() => generatePDF([item], `Comprobante_${item.bl}.pdf`)}
                                 className={`p-2 rounded transition-colors ${
                                     isClosed 
@@ -1254,7 +1255,6 @@ const ListView = ({ data, onPayItem, onPayAll, onCloseOperation, role, onEdit })
                                     <div className="flex justify-end gap-3">
                                         {canPay && item.payment !== 'paid' && <button onClick={() => onPayAll(item.id)} className="px-4 py-2 bg-emerald-600 text-white font-bold rounded shadow hover:bg-emerald-700 text-xs">Saldar total</button>}
                                         
-                                        {/* Botón de cierre (cambia visualmente si ya está cerrado) */}
                                         {item.status === 'closed' ? (
                                             <span className="px-4 py-2 bg-slate-100 text-slate-400 font-bold rounded shadow-inner text-xs flex items-center border border-slate-200 cursor-not-allowed">
                                                 <Lock size={12} className="mr-2"/> Operación cerrada
