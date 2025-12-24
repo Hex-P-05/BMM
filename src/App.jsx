@@ -45,11 +45,11 @@ const calculateStatus = (etaString) => {
   return 'ok';
 };
 
-// --- DATOS INICIALES (MOCKS CON TODOS LOS CAMPOS) ---
+// --- DATOS INICIALES (MOCKS CON TODOS LOS CAMPOS DE PAGOS) ---
 const rawData = [
   { 
     id: 1, bl: 'HLCU12345678', provider: 'HAPAG', client: 'Importadora México S.A.', clientCode: 'IMP', reason: 'FLETE', container: 'MSKU987654', eta: addDays(45), freeDays: 7, editCount: 0, payment: 'paid', paymentDate: '2025-06-10', paymentDelay: 0, currency: 'MXN', concept: 'HAPAG IMP 1 FLETE',
-    // DESGLOSE EXPLÍCITO
+    // DESGLOSE COMPLETO
     costDemoras: 0, 
     costAlmacenaje: 0, 
     costOperativos: 5000, 
@@ -58,7 +58,7 @@ const rawData = [
     costImpuestos: 1000, 
     costLiberacion: 0, 
     costTransporte: 7000,
-    amount: 15000 
+    amount: 15000 // La suma total
   },
   { 
     id: 2, bl: 'MAEU87654321', provider: 'MAERSK', client: 'Logística Global', clientCode: 'LOG', reason: 'DEMORAS', container: 'TCLU123000', eta: addDays(-5), freeDays: 14, editCount: 1, payment: 'paid', paymentDate: '2025-06-12', paymentDelay: 5, currency: 'USD', concept: 'MAERSK LOG 1 DEMORAS',
@@ -99,6 +99,7 @@ const StatusBadge = ({ item }) => {
       </span>
     );
   }
+  // Colores Sólidos para el Semáforo
   const config = {
     ok: { color: 'bg-emerald-500 text-white', icon: CheckCircle, label: 'En tiempo' },
     warning: { color: 'bg-amber-500 text-white', icon: Clock, label: 'Atención' },
@@ -149,7 +150,7 @@ const KPICard = ({ title, value, icon: Icon, colorClass, trend, trendValue, subt
   </div>
 );
 
-// --- MODAL DE EDICIÓN (RESPONSIVE + GRANULARIDAD) ---
+// --- MODAL DE EDICIÓN CON LOS 8 CAMPOS DE PAGO ---
 const EditModal = ({ isOpen, onClose, onSave, item, role }) => {
   if (!isOpen || !item) return null;
 
@@ -158,12 +159,11 @@ const EditModal = ({ isOpen, onClose, onSave, item, role }) => {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    // Si es un campo de costo, convertir a número
     const val = name.startsWith('cost') ? (parseFloat(value) || 0) : value;
     
     if (name.startsWith('cost')) {
         const newData = { ...editData, [name]: val };
-        // Recalcular total automáticamente
+        // Recalcular Total Automático
         const total = 
             (newData.costDemoras || 0) + (newData.costAlmacenaje || 0) + (newData.costOperativos || 0) + 
             (newData.costPortuarios || 0) + (newData.costApoyo || 0) + (newData.costImpuestos || 0) + 
@@ -176,12 +176,16 @@ const EditModal = ({ isOpen, onClose, onSave, item, role }) => {
 
   const handleSave = () => { onSave(editData); };
 
-  // CONFIGURACIÓN DE CAMPOS DE COSTO
+  // Definición de los 8 campos de pago para el renderizado
   const costInputs = [
-    { key: 'costDemoras', label: 'Demoras' }, { key: 'costAlmacenaje', label: 'Almacenaje' },
-    { key: 'costOperativos', label: 'Costos operativos' }, { key: 'costPortuarios', label: 'Gastos portuarios' },
-    { key: 'costApoyo', label: 'Apoyo' }, { key: 'costImpuestos', label: 'Impuestos' },
-    { key: 'costLiberacion', label: 'Liberación abandono' }, { key: 'costTransporte', label: 'Transporte' },
+    { key: 'costDemoras', label: 'Demoras' }, 
+    { key: 'costAlmacenaje', label: 'Almacenaje' },
+    { key: 'costOperativos', label: 'Costos operativos' }, 
+    { key: 'costPortuarios', label: 'Gastos portuarios' },
+    { key: 'costApoyo', label: 'Apoyo' }, 
+    { key: 'costImpuestos', label: 'Impuestos' },
+    { key: 'costLiberacion', label: 'Liberación abandono' }, 
+    { key: 'costTransporte', label: 'Transporte' },
   ];
 
   return (
@@ -232,7 +236,7 @@ const EditModal = ({ isOpen, onClose, onSave, item, role }) => {
                 <span className="text-xs font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded border border-blue-100">Total: ${editData.amount.toLocaleString()}</span>
              </div>
              
-             {/* AQUÍ ESTÁ EL BUCLE QUE GENERA TODOS LOS INPUTS DE COSTOS */}
+             {/* BUCLE PARA GENERAR LOS 8 INPUTS DE COSTOS */}
              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 {costInputs.map(field => (
                     <div key={field.key}>
@@ -293,7 +297,6 @@ const PaymentModal = ({ isOpen, onClose, onConfirm, item }) => {
   );
 };
 
-// --- LOGIN VIEW (CON OJITO) ---
 const LoginView = ({ onLogin }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -338,7 +341,7 @@ const LoginView = ({ onLogin }) => {
                         className="w-full pl-10 pr-10 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-all" 
                         placeholder="••••••••" 
                     />
-                    <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-2.5 text-slate-400 hover:text-slate-600">
+                    <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-2.5 text-slate-400 hover:text-slate-600 focus:outline-none">
                         {showPassword ? <EyeOff size={18}/> : <Eye size={18}/>}
                     </button>
                 </div>
@@ -511,7 +514,7 @@ const DashboardView = ({ data }) => {
   );
 };
 
-// --- CAPTURE FORM CON DESGLOSE VISIBLE ---
+// --- CAPTURE FORM CON DESGLOSE VISIBLE (CORREGIDO) ---
 const CaptureForm = ({ onSave, onCancel, existingData, role }) => {
   if (role === 'pagos') return <div className="p-10 text-center text-red-500 font-bold">Acceso denegado: Rol no autorizado para capturas.</div>;
 
