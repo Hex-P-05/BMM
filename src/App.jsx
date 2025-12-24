@@ -174,6 +174,17 @@ const COLORS = {
 
 // --- COMPONENTES UI AUXILIARES (Badge, KPI, etc) ---
 const StatusBadge = ({ item }) => {
+  // 1. Prioridad máxima: Estatus CERRADO
+  if (item.status === 'closed') {
+    return (
+      <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-slate-800 text-white shadow-md">
+        <Lock size={12} className="mr-1" />
+        CERRADO
+      </span>
+    );
+  }
+
+  // 2. Prioridad media: Estatus PAGADO
   if (item.payment === 'paid') {
     return (
       <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold text-white shadow-md ${item.paymentDelay > 0 ? 'bg-slate-700' : 'bg-blue-600'}`}>
@@ -182,14 +193,18 @@ const StatusBadge = ({ item }) => {
       </span>
     );
   }
+
+  // 3. Prioridad normal: Semáforo de tiempos
   const config = {
     ok: { color: 'bg-emerald-500 text-white', icon: CheckCircle, label: 'En tiempo' },
     warning: { color: 'bg-amber-500 text-white', icon: Clock, label: 'Atención' },
     danger: { color: 'bg-rose-600 text-white', icon: AlertTriangle, label: 'Crítico' },
     expired: { color: 'bg-slate-800 text-white', icon: AlertTriangle, label: 'Vencido' },
   };
+  
   const current = config[item.status] || config.ok;
   const Icon = current.icon;
+  
   return (
     <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold shadow-sm ${current.color}`}>
       <Icon size={12} className="mr-1" />
@@ -1031,11 +1046,10 @@ const CaptureForm = ({ onSave, onCancel, existingData, role, userName }) => {
 const ListView = ({ data, onPayItem, onPayAll, onCloseOperation, role, onEdit }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [expandedRow, setExpandedRow] = useState(null);
-  const [viewMode, setViewMode] = useState('full'); // 'full' o 'simple'
+  const [viewMode, setViewMode] = useState('full');
   
   const toggleRow = (id) => setExpandedRow(expandedRow === id ? null : id);
   
-  // Filtros de búsqueda
   const filteredData = data.filter(item => 
     item.bl.toLowerCase().includes(searchTerm.toLowerCase()) || 
     (item.comentarios && item.comentarios.toLowerCase().includes(searchTerm.toLowerCase())) || 
@@ -1043,75 +1057,46 @@ const ListView = ({ data, onPayItem, onPayAll, onCloseOperation, role, onEdit })
   );
 
   const isSimpleView = viewMode === 'simple';
-  
-  // PERMISOS (Aquí está la lógica clave que pediste)
   const canPay = role === 'admin' || role === 'pagos';
-  const canEdit = role === 'admin' || role === 'ejecutivo'; // Pagos da FALSE aquí
+  const canEdit = role === 'admin' || role === 'ejecutivo';
 
   return (
     <div className="space-y-4 animate-fade-in h-full flex flex-col">
-      {/* BARRA SUPERIOR: TÍTULO, TOGGLE Y BÚSQUEDA */}
       <div className="flex flex-col md:flex-row justify-between items-center bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex-shrink-0 gap-4">
         <div className="flex items-center gap-4">
             <h2 className="text-xl font-bold text-slate-800">Sábana operativa</h2>
-            {/* Solo Admin y Pagos ven el toggle de vistas */}
             {(role === 'admin' || role === 'pagos') && (
                 <div className="flex items-center bg-slate-100 p-1 rounded-lg border border-slate-200">
-                    <button 
-                        onClick={() => setViewMode('full')} 
-                        className={`px-3 py-1 rounded-md text-xs font-bold ${viewMode === 'full' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500'}`}
-                    >
-                        Completa
-                    </button>
-                    <button 
-                        onClick={() => setViewMode('simple')} 
-                        className={`px-3 py-1 rounded-md text-xs font-bold ${viewMode === 'simple' ? 'bg-emerald-100 text-emerald-700 shadow-sm' : 'text-slate-500'}`}
-                    >
-                        Pagos
-                    </button>
+                    <button onClick={() => setViewMode('full')} className={`px-3 py-1 rounded-md text-xs font-bold ${viewMode === 'full' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500'}`}>Completa</button>
+                    <button onClick={() => setViewMode('simple')} className={`px-3 py-1 rounded-md text-xs font-bold ${viewMode === 'simple' ? 'bg-emerald-100 text-emerald-700 shadow-sm' : 'text-slate-500'}`}>Pagos</button>
                 </div>
             )}
         </div>
         <div className="relative w-72">
             <Search className="absolute left-3 top-2.5 text-slate-400" size={18} />
-            <input 
-                type="text" 
-                placeholder="Buscar..." 
-                className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg outline-none text-sm" 
-                onChange={(e) => setSearchTerm(e.target.value)} 
-            />
+            <input type="text" placeholder="Buscar..." className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg outline-none text-sm" onChange={(e) => setSearchTerm(e.target.value)} />
         </div>
       </div>
 
-      {/* TABLA DE DATOS */}
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden flex-1 relative">
         <div className="overflow-auto h-[calc(100vh-200px)] w-full relative"> 
           <table className="w-full text-left border-collapse min-w-[2000px]">
             <thead className="sticky top-0 z-40 shadow-sm">
                 <tr className="bg-slate-50 border-b border-slate-200 text-xs font-bold text-slate-500 uppercase h-12">
                     <th className="p-4 w-12 sticky left-0 z-50 bg-slate-50 border-r"></th>
-                    
-                    {/* COLUMNAS DINÁMICAS */}
                     {!isSimpleView && <th className="p-4 w-16 text-center sticky left-12 z-50 bg-slate-50 border-r">Ej</th>}
-                    
                     <th className="p-4 min-w-[200px] sticky left-12 z-40 bg-slate-50 border-r">Empresa</th>
                     <th className="p-4 min-w-[250px] bg-slate-50">Comentarios</th>
-                    
                     {!isSimpleView && <th className="p-4 min-w-[100px] bg-slate-50 text-center">Fecha</th>}
-                    
                     <th className="p-4 min-w-[120px] bg-slate-50 font-bold text-slate-700">Contenedor</th>
                     <th className="p-4 min-w-[120px] bg-slate-50">Pedimento</th>
-                    
                     {!isSimpleView && <th className="p-4 min-w-[100px] bg-slate-50">Factura</th>}
-                    
                     <th className="p-4 min-w-[150px] bg-slate-50 text-blue-800">Proveedor</th>
                     <th className="p-4 min-w-[100px] bg-slate-50 text-slate-400">Banco</th>
                     <th className="p-4 min-w-[120px] bg-slate-50 text-slate-400">Cuenta</th>
                     <th className="p-4 min-w-[150px] bg-slate-50 text-slate-400">CLABE</th>
                     <th className="p-4 min-w-[120px] bg-slate-50 text-center">ETA</th>
                     <th className="p-4 min-w-[150px] text-right bg-slate-50">Total</th>
-                    
-                    {/* COLUMNA ACCIONES: Solo visible si NO es vista simple Y si tiene permiso de editar */}
                     {!isSimpleView && canEdit && <th className="p-4 text-center bg-slate-50">Acciones</th>}
                 </tr>
             </thead>
@@ -1122,45 +1107,26 @@ const ListView = ({ data, onPayItem, onPayAll, onCloseOperation, role, onEdit })
                         <td className="p-4 text-center cursor-pointer sticky left-0 z-20 bg-white border-r border-slate-100" onClick={() => toggleRow(item.id)}>
                             {expandedRow === item.id ? <ChevronUp size={18} className="text-blue-500"/> : <ChevronDown size={18} className="text-slate-400"/>}
                         </td>
-
                         {!isSimpleView && <td className="p-4 text-center sticky left-12 z-20 bg-white border-r font-bold text-slate-400">{item.ejecutivo}</td>}
-                        
                         <td className="p-4 font-bold text-slate-700 truncate">{item.empresa}</td>
-                        <td className="p-4">
-                            <span className="inline-block px-2 py-1 bg-yellow-50 border border-yellow-200 rounded text-xs font-mono font-bold text-slate-700 shadow-sm whitespace-nowrap">
-                                {item.comentarios}
-                            </span>
-                        </td>
-                        
+                        <td className="p-4"><span className="inline-block px-2 py-1 bg-yellow-50 border border-yellow-200 rounded text-xs font-mono font-bold text-slate-700 shadow-sm whitespace-nowrap">{item.comentarios}</span></td>
                         {!isSimpleView && <td className="p-4 text-center text-xs">{formatDate(item.fechaAlta)}</td>}
-                        
                         <td className="p-4 font-mono font-bold">{item.contenedor}</td>
                         <td className="p-4 text-xs">{item.pedimento || '-'}</td>
-                        
                         {!isSimpleView && <td className="p-4 text-xs">{item.factura || '-'}</td>}
-                        
                         <td className="p-4 text-xs font-bold text-blue-700">{item.proveedor}</td>
                         <td className="p-4 text-[10px] text-slate-500">{item.banco}</td>
                         <td className="p-4 text-[10px] text-slate-500 font-mono">{item.cuenta}</td>
                         <td className="p-4 text-[10px] text-slate-500 font-mono">{item.clabe}</td>
-                        
-                        <td className="p-4 text-center">
-                            <StatusBadge item={item} /> 
-                            <div className="text-[10px] mt-1 text-slate-400">{formatDate(item.eta)}</div>
-                        </td>
+                        <td className="p-4 text-center"><StatusBadge item={item} /> <div className="text-[10px] mt-1 text-slate-400">{formatDate(item.eta)}</div></td>
                         <td className="p-4 text-right font-bold text-slate-800">${item.amount.toLocaleString()}</td>
-                        
-                        {/* BOTÓN EDITAR: Validado con canEdit (false para Pagos) */}
                         {!isSimpleView && canEdit && (
                             <td className="p-4 text-center">
-                                <button onClick={() => onEdit(item)} className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded">
-                                    <Edit size={16}/>
-                                </button>
+                                <button onClick={() => onEdit(item)} className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded"><Edit size={16}/></button>
                             </td>
                         )}
                     </tr>
                     
-                    {/* DESGLOSE EXPANDIBLE */}
                     {expandedRow === item.id && (
                         <tr className="bg-slate-50">
                             <td colSpan={isSimpleView ? "12" : "15"} className="p-0 border-b border-slate-200 shadow-inner">
@@ -1177,11 +1143,7 @@ const ListView = ({ data, onPayItem, onPayAll, onCloseOperation, role, onEdit })
                                                 <span className="text-xs text-slate-500 font-bold uppercase">{c.l}</span>
                                                 <span className="font-mono font-bold text-slate-800">${(item[c.k] || 0).toLocaleString()}</span>
                                                 {canPay && (item[c.k] > 0) && (
-                                                    <button 
-                                                        onClick={() => onPayItem(item.id, c.k)} 
-                                                        disabled={item.paidFlags?.[c.k] || item.payment === 'paid'} 
-                                                        className={`ml-2 p-1 rounded text-[10px] font-bold uppercase ${item.paidFlags?.[c.k] || item.payment === 'paid' ? 'bg-green-100 text-green-700' : 'bg-blue-600 text-white'}`}
-                                                    >
+                                                    <button onClick={() => onPayItem(item.id, c.k)} disabled={item.paidFlags?.[c.k] || item.payment === 'paid'} className={`ml-2 p-1 rounded text-[10px] font-bold uppercase ${item.paidFlags?.[c.k] || item.payment === 'paid' ? 'bg-green-100 text-green-700' : 'bg-blue-600 text-white'}`}>
                                                         {item.paidFlags?.[c.k] || item.payment === 'paid' ? 'Pagado' : 'Pagar'}
                                                     </button>
                                                 )}
@@ -1190,13 +1152,19 @@ const ListView = ({ data, onPayItem, onPayAll, onCloseOperation, role, onEdit })
                                     </div>
                                     <div className="flex justify-end gap-3">
                                         {canPay && item.payment !== 'paid' && (
-                                            <button onClick={() => onPayAll(item.id)} className="px-4 py-2 bg-emerald-600 text-white font-bold rounded shadow hover:bg-emerald-700 text-xs">
-                                                Saldar total
+                                            <button onClick={() => onPayAll(item.id)} className="px-4 py-2 bg-emerald-600 text-white font-bold rounded shadow hover:bg-emerald-700 text-xs">Saldar total</button>
+                                        )}
+                                        
+                                        {/* LOGICA CORREGIDA DEL BOTÓN CERRAR */}
+                                        {item.status === 'closed' ? (
+                                            <span className="px-4 py-2 bg-slate-100 text-slate-400 font-bold rounded shadow-inner text-xs flex items-center border border-slate-200 cursor-not-allowed">
+                                                <Lock size={12} className="mr-2"/> Operación cerrada
+                                            </span>
+                                        ) : (
+                                            <button onClick={() => onCloseOperation(item)} className="px-4 py-2 bg-slate-800 text-white font-bold rounded shadow hover:bg-slate-900 text-xs flex items-center">
+                                                <Lock size={12} className="mr-2"/> Cerrar operación
                                             </button>
                                         )}
-                                        <button onClick={() => onCloseOperation(item)} className="px-4 py-2 bg-slate-800 text-white font-bold rounded shadow hover:bg-slate-900 text-xs flex items-center">
-                                            <Lock size={12} className="mr-2"/> Cerrar operación
-                                        </button>
                                     </div>
                                 </div>
                             </td>
@@ -1553,11 +1521,10 @@ export default function App() {
       setCloseModalOpen(true);
   };
 
-    const confirmClose = () => {
+   const confirmClose = () => {
     const newData = data.map(d => {
-       // Aquí actualizamos explícitamente el estatus a 'closed'
        if (d.id === itemToClose.id) {
-           return { ...d, status: 'closed' };
+           return { ...d, status: 'closed' }; // Forzamos el estatus a cerrado
        }
        return d;
     });
