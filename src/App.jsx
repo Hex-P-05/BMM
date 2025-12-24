@@ -725,10 +725,15 @@ const CaptureForm = ({ onSave, onCancel, existingData, role }) => {
 };
 
 // --- LISTVIEW (SÁBANA) CON DESGLOSE VISIBLE ---
-// --- LISTVIEW CON SCROLLBAR SIEMPRE VISIBLE Y ENCABEZADO FIJO ---
+// NECESITAS AGREGAR 'useRef' AL IMPORT DE REACT AL PRINCIPIO DEL ARCHIVO:
+// import React, { useState, useMemo, useEffect, useRef } from 'react';
+
 const ListView = ({ data, onPayItem, onPayAll, onCloseOperation, role, onEdit }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [expandedRow, setExpandedRow] = useState(null);
+  
+  // REFERENCIA PARA CONTROLAR EL SCROLL
+  const tableContainerRef = React.useRef(null);
 
   const filteredData = data.filter(item => 
     item.bl.toLowerCase().includes(searchTerm.toLowerCase()) || 
@@ -740,6 +745,17 @@ const ListView = ({ data, onPayItem, onPayAll, onCloseOperation, role, onEdit })
   const canSeeEdit = role === 'admin' || role === 'ejecutivo';
 
   const toggleRow = (id) => setExpandedRow(expandedRow === id ? null : id);
+
+  // FUNCIONES PARA LOS BOTONES DE SCROLL
+  const scrollTable = (direction) => {
+    if (tableContainerRef.current) {
+        const scrollAmount = 400; // Cuántos pixeles mueve cada clic
+        tableContainerRef.current.scrollBy({
+            left: direction === 'left' ? -scrollAmount : scrollAmount,
+            behavior: 'smooth'
+        });
+    }
+  };
 
   const costMap = [
     { k: 'costDemoras', l: 'Demoras' }, { k: 'costAlmacenaje', l: 'Almacenaje' },
@@ -756,34 +772,46 @@ const ListView = ({ data, onPayItem, onPayAll, onCloseOperation, role, onEdit })
   };
 
   return (
-    <div className="space-y-4 animate-fade-in h-full flex flex-col"> {/* Flex col para controlar altura */}
-      <div className="flex justify-between items-center bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex-shrink-0">
+    <div className="space-y-4 animate-fade-in h-full flex flex-col">
+      <div className="flex flex-col md:flex-row justify-between items-center bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex-shrink-0 gap-4">
         <h2 className="text-xl font-bold text-slate-800">Sábana operativa</h2>
-        <div className="relative w-72">
-            <Search className="absolute left-3 top-2.5 text-slate-400" size={18} />
-            <input type="text" placeholder="Buscar BL, Cliente..." className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm" onChange={(e) => setSearchTerm(e.target.value)} />
+        
+        <div className="flex items-center gap-3 w-full md:w-auto">
+            {/* BOTONES DE DESPLAZAMIENTO MANUAL */}
+            <div className="flex bg-slate-100 rounded-lg p-1 border border-slate-200">
+                <button onClick={() => scrollTable('left')} className="p-2 hover:bg-white rounded-md transition-all text-slate-500 hover:text-blue-600 shadow-sm"><ChevronLeft size={18}/></button>
+                <div className="w-px bg-slate-300 mx-1 my-1"></div>
+                <button onClick={() => scrollTable('right')} className="p-2 hover:bg-white rounded-md transition-all text-slate-500 hover:text-blue-600 shadow-sm"><ChevronRight size={18}/></button>
+            </div>
+
+            <div className="relative flex-1 md:w-72">
+                <Search className="absolute left-3 top-2.5 text-slate-400" size={18} />
+                <input type="text" placeholder="Buscar BL, Cliente..." className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm" onChange={(e) => setSearchTerm(e.target.value)} />
+            </div>
         </div>
       </div>
 
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden flex-1 relative">
-        {/* AQUÍ ESTÁ EL TRUCO: h-[calc(100vh-XXX)] fuerza al contenedor a tener scroll interno */}
-        <div className="overflow-auto h-[calc(100vh-180px)] w-full"> 
-          <table className="w-full text-left border-collapse min-w-[1600px]">
-            <thead className="sticky top-0 z-40"> {/* Encabezado Pegajoso al Top */}
-                <tr className="bg-slate-50 border-b border-slate-200 text-xs font-bold text-slate-500 uppercase h-12 shadow-sm">
-                    {/* ESQUINAS FIJAS (Z-INDEX 50: MÁS ALTO PORQUE ES INTERSECCIÓN TOP/LEFT) */}
-                    <th className="p-4 w-12 sticky left-0 top-0 z-50 bg-slate-50 border-b border-slate-200"></th>
+        {/* REFERENCIA AGREGADA AL DIV CON OVERFLOW */}
+        <div ref={tableContainerRef} className="overflow-auto h-[calc(100vh-200px)] w-full relative"> 
+          <table className="w-full text-left border-collapse min-w-[1800px]"> {/* Ancho mínimo forzado para que aparezca scroll */}
+            <thead className="sticky top-0 z-40 shadow-sm">
+                <tr className="bg-slate-50 border-b border-slate-200 text-xs font-bold text-slate-500 uppercase h-12">
+                    {/* COLUMNAS FIJAS (STICKY) */}
+                    <th className="p-4 w-12 sticky left-0 top-0 z-50 bg-slate-50 border-r border-b border-slate-200"></th>
                     <th className="p-4 w-48 sticky left-12 top-0 z-50 bg-slate-50 border-r border-b border-slate-200">Concepto</th>
                     <th className="p-4 w-48 sticky left-60 top-0 z-50 bg-slate-50 border-r border-b border-slate-300 shadow-lg md:shadow-none">BL / Contenedor</th>
                     
-                    {/* COLUMNAS NORMALES DEL ENCABEZADO (Z-INDEX 40) */}
+                    {/* COLUMNAS SCROLLEABLES */}
                     <th className="p-4 w-40 bg-slate-50">ETA & Semáforo</th>
                     <th className="p-4 w-32 text-center bg-slate-50">Días libres</th>
                     <th className="p-4 w-32 text-center bg-slate-50">Estatus Op.</th>
                     <th className="p-4 w-40 text-right bg-slate-50">Monto total</th>
                     <th className="p-4 w-40 text-center bg-slate-50">Fecha Pago</th>
                     <th className="p-4 w-40 text-center bg-slate-50">Acciones</th>
-                    <th className="p-4 text-center bg-slate-50">Observaciones</th>
+                    <th className="p-4 text-center bg-slate-50 min-w-[200px]">Observaciones</th>
+                    <th className="p-4 text-center bg-slate-50 min-w-[150px]">Naviera</th>
+                    <th className="p-4 text-center bg-slate-50 min-w-[150px]">Terminal</th>
                 </tr>
             </thead>
             <tbody className="text-sm">
@@ -795,24 +823,20 @@ const ListView = ({ data, onPayItem, onPayAll, onCloseOperation, role, onEdit })
                 <React.Fragment key={item.id}>
                     <tr className={`hover:bg-slate-50 border-b border-slate-100 transition-colors ${expandedRow === item.id ? 'bg-blue-50/30' : ''}`}>
                         
-                        {/* 1. FLECHA (STICKY LEFT) - Z-20 para estar sobre el scroll normal */}
                         <td className="p-4 text-center cursor-pointer sticky left-0 z-20 bg-white border-r border-slate-100" onClick={() => toggleRow(item.id)}>
                             {expandedRow === item.id ? <ChevronUp size={18} className="text-blue-500"/> : <ChevronDown size={18} className="text-slate-400"/>}
                         </td>
 
-                        {/* 2. CLIENTE (STICKY LEFT) */}
                         <td className="p-4 sticky left-12 z-20 bg-white border-r border-slate-100">
                             <div className="font-bold text-slate-700 truncate w-40" title={item.client}>{item.client}</div>
                             <div className="inline-block mt-1 px-2 py-0.5 bg-slate-100 border rounded text-[10px] font-mono text-slate-600 truncate max-w-[150px]">{item.concept}</div>
                         </td>
 
-                        {/* 3. BL / CONTENEDOR (STICKY LEFT - BORDE FINAL) */}
                         <td className="p-4 sticky left-60 z-20 bg-white border-r border-slate-300 shadow-[4px_0_10px_-2px_rgba(0,0,0,0.1)]">
                             <div className="font-mono font-bold text-blue-700">{item.bl}</div>
                             <div className="text-xs text-slate-500 font-bold">{item.container}</div>
                         </td>
 
-                        {/* --- COLUMNAS SCROLLEABLES --- */}
                         <td className="p-4">
                             <div className="flex flex-col">
                                 <span className="font-bold text-slate-700 text-xs mb-1">{formatDate(item.eta)}</span>
@@ -859,17 +883,16 @@ const ListView = ({ data, onPayItem, onPayAll, onCloseOperation, role, onEdit })
                             )}
                         </td>
 
-                        <td className="p-4 text-xs text-slate-400 italic truncate max-w-[200px]">
-                            Sin observaciones registradas...
-                        </td>
+                        <td className="p-4 text-xs text-slate-400 italic truncate max-w-[200px]">Sin observaciones...</td>
+                        <td className="p-4 text-xs text-slate-500 text-center">{item.provider}</td>
+                        <td className="p-4 text-xs text-slate-500 text-center">CONTECON</td>
                     </tr>
                     
-                    {/* --- ZONA EXPANDIDA (ACORDEÓN DE PAGOS) --- */}
                     {expandedRow === item.id && (
                         <tr className="bg-slate-50 animate-fade-in">
                             <td colSpan="12" className="p-0 border-b border-slate-200 shadow-inner">
-                                <div className="pl-[360px] p-6 relative min-w-max"> {/* min-w-max asegura que el fondo gris cubra todo */}
-                                    
+                                {/* NOTA: pl-[360px] es para que no se oculte detrás de las columnas fijas */}
+                                <div className="pl-[360px] p-6 relative min-w-max"> 
                                     <div className="absolute left-0 top-0 bottom-0 w-[360px] bg-slate-100 border-r border-slate-200 z-10 flex items-center justify-center text-slate-300">
                                         <Anchor size={48} opacity={0.1} />
                                     </div>
@@ -885,17 +908,8 @@ const ListView = ({ data, onPayItem, onPayAll, onCloseOperation, role, onEdit })
                                                         <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">{c.l}</span>
                                                         <span className={`font-mono font-bold ${monto > 0 ? 'text-slate-800' : 'text-slate-300'}`}>${monto.toLocaleString()}</span>
                                                     </div>
-                                                    
                                                     {monto > 0 && canPay && item.status !== 'closed' && (
-                                                        <button 
-                                                            disabled={isPaid}
-                                                            onClick={() => onPayItem(item.id, c.k)}
-                                                            className={`w-full py-1.5 text-[10px] font-bold rounded flex items-center justify-center transition-colors uppercase tracking-wide ${
-                                                                isPaid 
-                                                                ? 'bg-emerald-50 text-emerald-600 border border-emerald-100 cursor-default' 
-                                                                : 'bg-white border border-blue-600 text-blue-600 hover:bg-blue-600 hover:text-white'
-                                                            }`}
-                                                        >
+                                                        <button disabled={isPaid} onClick={() => onPayItem(item.id, c.k)} className={`w-full py-1.5 text-[10px] font-bold rounded flex items-center justify-center transition-colors uppercase tracking-wide ${isPaid ? 'bg-emerald-50 text-emerald-600 border border-emerald-100 cursor-default' : 'bg-white border border-blue-600 text-blue-600 hover:bg-blue-600 hover:text-white'}`}>
                                                             {isPaid ? <><Check size={10} className="mr-1"/> Pagado</> : 'Pagar Item'}
                                                         </button>
                                                     )}
@@ -906,21 +920,13 @@ const ListView = ({ data, onPayItem, onPayAll, onCloseOperation, role, onEdit })
 
                                     {canPay && item.status !== 'closed' && (
                                         <div className="flex justify-end gap-3 pt-4 border-t border-slate-200">
-                                            {!isFullyPaid && (
-                                                <button onClick={() => onPayAll(item.id)} className="px-5 py-2 bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-bold rounded-lg shadow-sm flex items-center transition-transform hover:-translate-y-0.5">
-                                                    <CheckCircle size={16} className="mr-2"/> SALDAR TODO
-                                                </button>
-                                            )}
-                                            <button onClick={() => onCloseOperation(item)} className="px-5 py-2 bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold rounded-lg shadow-sm flex items-center transition-transform hover:-translate-y-0.5">
-                                                <Lock size={16} className="mr-2"/> CERRAR OPERACIÓN
-                                            </button>
+                                            {!isFullyPaid && <button onClick={() => onPayAll(item.id)} className="px-5 py-2 bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-bold rounded-lg shadow-sm flex items-center transition-transform hover:-translate-y-0.5"><CheckCircle size={16} className="mr-2"/> SALDAR TODO</button>}
+                                            <button onClick={() => onCloseOperation(item)} className="px-5 py-2 bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold rounded-lg shadow-sm flex items-center transition-transform hover:-translate-y-0.5"><Lock size={16} className="mr-2"/> CERRAR OPERACIÓN</button>
                                         </div>
                                     )}
                                     {item.status === 'closed' && (
                                         <div className="w-full bg-slate-100 border border-slate-200 rounded p-3 text-center">
-                                            <p className="text-slate-500 text-xs font-bold flex items-center justify-center">
-                                                <Lock size={12} className="mr-2"/> Operación cerrada y archivada. No se permiten más cambios.
-                                            </p>
+                                            <p className="text-slate-500 text-xs font-bold flex items-center justify-center"><Lock size={12} className="mr-2"/> Operación cerrada y archivada.</p>
                                         </div>
                                     )}
                                 </div>
