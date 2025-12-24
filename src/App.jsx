@@ -7,7 +7,7 @@ import {
   TrendingUp, TrendingDown, Activity, AlertCircle, Calculator, Trash2, 
   Download, Printer, Package, MapPin, Key, LogOut, Check, 
   ChevronLeft, ChevronRight, ChevronDown, ChevronUp, ShieldAlert, Eye, EyeOff, 
-  Anchor, ClipboardCheck// <--- ¡ESTE ES EL CULPABLE! TIENE QUE ESTAR AQUÍ
+  Anchor, ClipboardCheck, Calculator, Plus, Trash2, Download, FileText
 } from 'lucide-react';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -478,273 +478,165 @@ const LoginView = ({ onLogin }) => {
   );
 };
 
-// --- GENERADOR DE COTIZACIONES (PDF NATIVO) ---
+// --- GENERADOR DE COTIZACIONES (EDITOR + PREVISUALIZACIÓN + PDF NATIVO) ---
 const QuoteGenerator = ({ role }) => {
   const [clientInfo, setClientInfo] = useState({
-    name: '',
-    rfc: '',
-    address: '',
-    date: new Date().toISOString().split('T')[0],
-    validUntil: addDays(15) // Validez por defecto de 15 días
+    name: '', rfc: '', address: '', date: new Date().toISOString().split('T')[0], validUntil: addDays(15)
   });
 
-  const [items, setItems] = useState([
-    { id: 1, description: 'Servicio de Maniobras en Terminal', amount: 0 },
-  ]);
+  const [items, setItems] = useState([{ id: 1, description: 'Servicio de Maniobras en Terminal', amount: 0 }]);
 
-  // Agregar nueva línea
-  const addItem = () => {
-    setItems([...items, { id: Date.now(), description: '', amount: 0 }]);
-  };
-
-  // Eliminar línea
-  const removeItem = (id) => {
-    if (items.length === 1) return; // Mínimo 1 item
-    setItems(items.filter(i => i.id !== id));
-  };
-
-  // Actualizar item
+  const addItem = () => setItems([...items, { id: Date.now(), description: '', amount: 0 }]);
+  const removeItem = (id) => { if (items.length > 1) setItems(items.filter(i => i.id !== id)); };
   const updateItem = (id, field, value) => {
-    const newItems = items.map(item => {
-      if (item.id === id) {
-        return { ...item, [field]: field === 'amount' ? (parseFloat(value) || 0) : value };
-      }
-      return item;
-    });
-    setItems(newItems);
+    setItems(items.map(item => item.id === id ? { ...item, [field]: field === 'amount' ? (parseFloat(value) || 0) : value } : item));
   };
 
-  // Cálculos
   const subtotal = items.reduce((acc, item) => acc + item.amount, 0);
   const iva = subtotal * 0.16;
   const total = subtotal + iva;
 
-  // --- FUNCIÓN GENERADORA DE PDF (NATIVA) ---
+  // --- FUNCIÓN GENERADORA DE PDF (NATIVA - Motor Gráfico) ---
   const handleDownloadPDF = () => {
     const doc = new jsPDF();
     const margin = 20;
     let yPos = 20;
+    const primaryColor = [37, 99, 235]; const lightBg = [239, 246, 255]; const borderColor = [191, 219, 254]; const darkText = [30, 41, 59]; const lightText = [100, 116, 139];
 
-    // COLORES CORPORATIVOS (Azul AduanaSoft)
-    const primaryColor = [37, 99, 235]; // Blue-600
-    const lightBg = [239, 246, 255];   // Blue-50
-    const borderColor = [191, 219, 254]; // Blue-200
-    const darkText = [30, 41, 59];     // Slate-800
-    const lightText = [100, 116, 139]; // Slate-500
+    // Header Azul
+    doc.setFillColor(...primaryColor); doc.rect(0, 0, 210, 40, 'F');
+    doc.setTextColor(255, 255, 255); doc.setFontSize(22); doc.setFont("helvetica", "bold"); doc.text("COTIZACIÓN", margin, 20);
+    doc.setFontSize(10); doc.setFont("helvetica", "normal"); doc.text("Servicios Logísticos y Aduanales", margin, 26);
+    doc.text("AduanaSoft México S.A. de C.V.", 190, 15, { align: 'right' }); doc.text("RFC: ADU990101XYZ", 190, 20, { align: 'right' });
 
-    // 1. HEADER
-    // Fondo Azul Encabezado
-    doc.setFillColor(...primaryColor);
-    doc.rect(0, 0, 210, 40, 'F');
+    // Datos Cliente
+    doc.setDrawColor(...borderColor); doc.setFillColor(255, 255, 255); doc.roundedRect(margin, 45, 170, 25, 2, 2, 'S');
+    doc.setTextColor(...lightText); doc.setFontSize(8); doc.text("PREPARADO PARA:", margin + 5, 52); doc.text("FECHA DE EMISIÓN:", 130, 52); doc.text("VÁLIDA HASTA:", 130, 62);
+    doc.setTextColor(...darkText); doc.setFontSize(10); doc.setFont("helvetica", "bold"); doc.text(clientInfo.name || "CLIENTE MOSTRADOR", margin + 5, 58);
+    doc.setFont("helvetica", "normal"); doc.text(clientInfo.rfc || "", margin + 5, 63); doc.text(formatDate(clientInfo.date), 155, 52); doc.text(formatDate(clientInfo.validUntil), 155, 62);
 
-    // Títulos Blancos
-    doc.setTextColor(255, 255, 255);
-    doc.setFontSize(22);
-    doc.setFont("helvetica", "bold");
-    doc.text("COTIZACIÓN", margin, 20);
-    
-    doc.setFontSize(10);
-    doc.setFont("helvetica", "normal");
-    doc.text("Servicios Logísticos y Aduanales", margin, 26);
-
-    // Info de la Empresa (Derecha)
-    doc.setFontSize(10);
-    doc.text("AduanaSoft México S.A. de C.V.", 190, 15, { align: 'right' });
-    doc.text("RFC: ADU990101XYZ", 190, 20, { align: 'right' });
-    doc.text("Manzanillo, Colima", 190, 25, { align: 'right' });
-
-    // 2. INFO DEL CLIENTE Y FECHAS
-    yPos = 55;
-    
-    // Caja Cliente
-    doc.setDrawColor(...borderColor);
-    doc.setFillColor(255, 255, 255);
-    doc.roundedRect(margin, 45, 170, 25, 2, 2, 'S');
-
-    doc.setTextColor(...lightText);
-    doc.setFontSize(8);
-    doc.text("PREPARADO PARA:", margin + 5, 52);
-    doc.text("FECHA DE EMISIÓN:", 130, 52);
-    doc.text("VÁLIDA HASTA:", 130, 62);
-
-    doc.setTextColor(...darkText);
-    doc.setFontSize(10);
-    doc.setFont("helvetica", "bold");
-    doc.text(clientInfo.name || "CLIENTE MOSTRADOR", margin + 5, 58);
-    doc.setFont("helvetica", "normal");
-    doc.text(clientInfo.rfc || "", margin + 5, 63);
-    
-    doc.text(formatDate(clientInfo.date), 155, 52);
-    doc.text(formatDate(clientInfo.validUntil), 155, 62);
-
-    // 3. TABLA DE CONCEPTOS
-    yPos = 85;
-
-    // Encabezados de Tabla
-    doc.setFillColor(...lightBg);
-    doc.rect(margin, yPos, 170, 10, 'F');
-    doc.setFont("helvetica", "bold");
-    doc.setTextColor(...primaryColor);
-    doc.text("DESCRIPCIÓN DEL SERVICIO", margin + 5, yPos + 7);
-    doc.text("IMPORTE", 185, yPos + 7, { align: 'right' });
-
-    yPos += 15;
-
-    // Filas
-    doc.setTextColor(...darkText);
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(10);
-
+    // Tabla
+    yPos = 85; doc.setFillColor(...lightBg); doc.rect(margin, yPos, 170, 10, 'F'); doc.setFont("helvetica", "bold"); doc.setTextColor(...primaryColor); doc.text("DESCRIPCIÓN DEL SERVICIO", margin + 5, yPos + 7); doc.text("IMPORTE", 185, yPos + 7, { align: 'right' });
+    yPos += 15; doc.setTextColor(...darkText); doc.setFont("helvetica", "normal"); doc.setFontSize(10);
     items.forEach((item) => {
-        // Descripción
-        doc.text(item.description, margin + 5, yPos);
-        // Monto
-        doc.text(`$${item.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}`, 185, yPos, { align: 'right' });
-        
-        // Línea divisoria sutil
-        doc.setDrawColor(241, 245, 249);
-        doc.line(margin, yPos + 3, 190, yPos + 3);
-        
-        yPos += 10;
+        doc.text(item.description, margin + 5, yPos); doc.text(`$${item.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}`, 185, yPos, { align: 'right' });
+        doc.setDrawColor(241, 245, 249); doc.line(margin, yPos + 3, 190, yPos + 3); yPos += 10;
     });
 
-    // 4. TOTALES
-    yPos += 10;
-    const xTotals = 130;
-    
-    // Subtotal
-    doc.setFont("helvetica", "normal");
-    doc.text("Subtotal:", xTotals, yPos);
-    doc.text(`$${subtotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}`, 185, yPos, { align: 'right' });
-    yPos += 8;
+    // Totales
+    yPos += 10; const xTotals = 130;
+    doc.text("Subtotal:", xTotals, yPos); doc.text(`$${subtotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}`, 185, yPos, { align: 'right' }); yPos += 8;
+    doc.text("IVA (16%):", xTotals, yPos); doc.text(`$${iva.toLocaleString(undefined, { minimumFractionDigits: 2 })}`, 185, yPos, { align: 'right' }); yPos += 10;
+    doc.setFillColor(...primaryColor); doc.roundedRect(xTotals - 5, yPos - 6, 65, 12, 1, 1, 'F'); doc.setTextColor(255, 255, 255); doc.setFont("helvetica", "bold"); doc.text("TOTAL NETO", xTotals, yPos + 2); doc.text(`$${total.toLocaleString(undefined, { minimumFractionDigits: 2 })}`, 185, yPos + 2, { align: 'right' });
 
-    // IVA
-    doc.text("IVA (16%):", xTotals, yPos);
-    doc.text(`$${iva.toLocaleString(undefined, { minimumFractionDigits: 2 })}`, 185, yPos, { align: 'right' });
-    yPos += 10;
-
-    // Gran Total (Caja Azul)
-    doc.setFillColor(...primaryColor);
-    doc.roundedRect(xTotals - 5, yPos - 6, 65, 12, 1, 1, 'F');
-    doc.setTextColor(255, 255, 255);
-    doc.setFont("helvetica", "bold");
-    doc.text("TOTAL NETO", xTotals, yPos + 2);
-    doc.text(`$${total.toLocaleString(undefined, { minimumFractionDigits: 2 })}`, 185, yPos + 2, { align: 'right' });
-
-    // 5. PIE DE PÁGINA / TÉRMINOS
-    const footerY = 260;
-    doc.setTextColor(...lightText);
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(8);
-    
-    doc.text("TÉRMINOS Y CONDICIONES:", margin, footerY);
-    doc.text("- Esta cotización está sujeta a cambios sin previo aviso si no se confirma antes de la fecha de validez.", margin, footerY + 5);
-    doc.text("- Los precios expresados son en Moneda Nacional (MXN).", margin, footerY + 9);
-    doc.text("- No incluye maniobras extraordinarias no especificadas.", margin, footerY + 13);
-
-    doc.save(`Cotizacion_${clientInfo.name.substring(0, 10)}.pdf`);
+    // Footer
+    doc.setTextColor(...lightText); doc.setFont("helvetica", "normal"); doc.setFontSize(8); doc.text("TÉRMINOS Y CONDICIONES: Precios en MXN. Sujeto a cambios sin previo aviso.", margin, 270);
+    doc.save(`Cotizacion_${clientInfo.name.substring(0, 10) || 'Cliente'}.pdf`);
   };
 
   return (
-    <div className="max-w-4xl mx-auto animate-fade-in space-y-6 pb-12">
-      <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
-        <h2 className="text-xl font-bold text-slate-800 mb-6 flex items-center">
-            <Calculator className="mr-2 text-blue-600"/> Generador de Cotizaciones
-        </h2>
+    // Layout principal de dos columnas
+    <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-8 pb-12 animate-fade-in h-[calc(100vh-100px)] overflow-hidden">
+      
+      {/* --- COLUMNA IZQUIERDA: EDITOR --- */}
+      <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 overflow-y-auto h-full flex flex-col">
+        <div className="flex-1">
+            <h2 className="text-xl font-bold text-slate-800 mb-6 flex items-center">
+                <Calculator className="mr-2 text-blue-600"/> Editor de Cotización
+            </h2>
 
-        {/* DATOS DEL CLIENTE */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-            <div>
-                <label className="text-xs font-bold text-slate-500 uppercase">Cliente / Razón Social</label>
-                <input type="text" className="w-full p-2 border rounded outline-none focus:ring-2 focus:ring-blue-500" placeholder="Ej. Logística Internacional S.A." value={clientInfo.name} onChange={e => setClientInfo({...clientInfo, name: e.target.value})} />
+            {/* Formulario Cliente */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6 p-4 bg-slate-50 rounded-lg border border-slate-100">
+                <div><label className="text-xs font-bold text-slate-500 uppercase">Cliente</label><input type="text" className="w-full p-2 border rounded outline-none text-sm" placeholder="Nombre..." value={clientInfo.name} onChange={e => setClientInfo({...clientInfo, name: e.target.value})} /></div>
+                <div><label className="text-xs font-bold text-slate-500 uppercase">RFC</label><input type="text" className="w-full p-2 border rounded outline-none text-sm font-mono uppercase" placeholder="XAXX..." value={clientInfo.rfc} onChange={e => setClientInfo({...clientInfo, rfc: e.target.value})} /></div>
+                <div><label className="text-xs font-bold text-slate-500 uppercase">Emisión</label><input type="date" className="w-full p-2 border rounded outline-none text-sm" value={clientInfo.date} onChange={e => setClientInfo({...clientInfo, date: e.target.value})} /></div>
+                <div><label className="text-xs font-bold text-slate-500 uppercase">Vencimiento</label><input type="date" className="w-full p-2 border rounded outline-none text-sm" value={clientInfo.validUntil} onChange={e => setClientInfo({...clientInfo, validUntil: e.target.value})} /></div>
             </div>
-            <div>
-                <label className="text-xs font-bold text-slate-500 uppercase">RFC</label>
-                <input type="text" className="w-full p-2 border rounded outline-none focus:ring-2 focus:ring-blue-500" placeholder="XAXX010101000" value={clientInfo.rfc} onChange={e => setClientInfo({...clientInfo, rfc: e.target.value})} />
-            </div>
-            <div>
-                <label className="text-xs font-bold text-slate-500 uppercase">Fecha Emisión</label>
-                <input type="date" className="w-full p-2 border rounded outline-none focus:ring-2 focus:ring-blue-500" value={clientInfo.date} onChange={e => setClientInfo({...clientInfo, date: e.target.value})} />
-            </div>
-            <div>
-                <label className="text-xs font-bold text-slate-500 uppercase">Válida Hasta</label>
-                <input type="date" className="w-full p-2 border rounded outline-none focus:ring-2 focus:ring-blue-500" value={clientInfo.validUntil} onChange={e => setClientInfo({...clientInfo, validUntil: e.target.value})} />
+
+            {/* Editor de Conceptos */}
+            <div className="border border-slate-200 rounded-lg overflow-hidden mb-4">
+                <table className="w-full text-left">
+                    <thead className="bg-slate-100 text-xs text-slate-500 uppercase font-bold"><tr><th className="p-2 pl-4">Concepto</th><th className="p-2 text-right w-32">Importe</th><th className="p-2 w-8"></th></tr></thead>
+                    <tbody>
+                        {items.map((item) => (
+                            <tr key={item.id} className="border-t border-slate-100 bg-white">
+                                <td className="p-2 pl-4"><input type="text" className="w-full p-1 bg-transparent outline-none text-sm" placeholder="Descripción..." value={item.description} onChange={(e) => updateItem(item.id, 'description', e.target.value)}/></td>
+                                <td className="p-2 relative"><span className="absolute left-3 top-3 text-slate-400 text-xs">$</span><input type="number" className="w-full p-1 pl-6 bg-transparent outline-none text-right font-mono text-sm" placeholder="0.00" value={item.amount || ''} onChange={(e) => updateItem(item.id, 'amount', e.target.value)}/></td>
+                                <td className="p-2 text-center"><button onClick={() => removeItem(item.id)} className="text-slate-300 hover:text-red-500"><Trash2 size={14}/></button></td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+                <button onClick={addItem} className="w-full py-2 bg-slate-50 text-blue-600 text-xs font-bold uppercase hover:bg-blue-50 transition-colors border-t border-slate-200 flex items-center justify-center"><Plus size={14} className="mr-1"/> Agregar Concepto</button>
             </div>
         </div>
 
-        {/* TABLA DE CONCEPTOS */}
-        <div className="border border-slate-200 rounded-lg overflow-hidden mb-6">
-            <table className="w-full text-left">
-                <thead className="bg-slate-50 text-xs text-slate-500 uppercase font-bold">
-                    <tr>
-                        <th className="p-3">Descripción</th>
-                        <th className="p-3 text-right w-40">Importe</th>
-                        <th className="p-3 w-10"></th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {items.map((item) => (
-                        <tr key={item.id} className="border-t border-slate-100">
-                            <td className="p-2">
-                                <input 
-                                    type="text" 
-                                    className="w-full p-1 bg-transparent outline-none" 
-                                    placeholder="Descripción del servicio..." 
-                                    value={item.description}
-                                    onChange={(e) => updateItem(item.id, 'description', e.target.value)}
-                                />
-                            </td>
-                            <td className="p-2">
-                                <div className="flex items-center">
-                                    <span className="text-slate-400 text-sm mr-1">$</span>
-                                    <input 
-                                        type="number" 
-                                        className="w-full p-1 bg-transparent outline-none text-right font-mono" 
-                                        placeholder="0.00" 
-                                        value={item.amount}
-                                        onChange={(e) => updateItem(item.id, 'amount', e.target.value)}
-                                    />
-                                </div>
-                            </td>
-                            <td className="p-2 text-center">
-                                <button onClick={() => removeItem(item.id)} className="text-slate-300 hover:text-red-500 transition-colors"><Trash2 size={16}/></button>
-                            </td>
-                        </tr>
-                    ))}
-                </tbody>
-            </table>
-            <button onClick={addItem} className="w-full py-2 bg-slate-50 text-blue-600 text-xs font-bold uppercase hover:bg-slate-100 transition-colors border-t border-slate-200">
-                + Agregar Concepto
+        {/* Botón de Acción Principal */}
+        <div className="mt-4 pt-4 border-t border-slate-200">
+             <button onClick={handleDownloadPDF} className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl shadow-lg flex items-center justify-center transition-transform hover:-translate-y-1">
+                <Download size={20} className="mr-2"/> Descargar PDF Oficial
             </button>
-        </div>
-
-        {/* TOTALES */}
-        <div className="flex justify-end">
-            <div className="w-64 space-y-2">
-                <div className="flex justify-between text-sm text-slate-600">
-                    <span>Subtotal:</span>
-                    <span className="font-mono">${subtotal.toLocaleString()}</span>
-                </div>
-                <div className="flex justify-between text-sm text-slate-600">
-                    <span>IVA (16%):</span>
-                    <span className="font-mono">${iva.toLocaleString()}</span>
-                </div>
-                <div className="flex justify-between text-lg font-bold text-slate-800 border-t pt-2 border-slate-200">
-                    <span>Total:</span>
-                    <span className="font-mono">${total.toLocaleString()}</span>
-                </div>
-            </div>
         </div>
       </div>
 
-      {/* BOTÓN DESCARGAR */}
-      <div className="flex justify-end">
-        <button 
-            onClick={handleDownloadPDF} 
-            className="px-8 py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl shadow-lg flex items-center transition-transform hover:-translate-y-1"
-        >
-            <Download size={20} className="mr-2"/> Descargar PDF
-        </button>
+      {/* --- COLUMNA DERECHA: PREVISUALIZACIÓN EN VIVO --- */}
+      <div className="hidden lg:block bg-slate-200 p-8 rounded-xl overflow-y-auto h-full shadow-inner flex justify-center">
+        {/* Hoja de papel visual */}
+        <div className="bg-white shadow-2xl w-full max-w-lg min-h-[600px] relative flex flex-col font-sans text-slate-800 text-sm">
+            {/* Header Visual */}
+            <div className="h-24 bg-blue-600 p-6 text-white flex justify-between items-start">
+                <div><h1 className="text-2xl font-bold tracking-tight">COTIZACIÓN</h1><p className="text-blue-100 text-xs mt-1">Servicios Logísticos y Aduanales</p></div>
+                <div className="text-right text-xs opacity-80"><p>AduanaSoft México</p><p>Manzanillo, Col.</p></div>
+            </div>
+            
+            <div className="p-6 flex-1 flex flex-col">
+                {/* Info Cliente Visual */}
+                <div className="border border-blue-200 rounded-lg p-4 mb-6 bg-blue-50/50 flex justify-between">
+                    <div>
+                        <p className="text-[10px] font-bold text-blue-500 uppercase mb-1">Preparado para:</p>
+                        <p className="font-bold text-lg truncate">{clientInfo.name || <span className="text-slate-300 italic">Nombre del cliente...</span>}</p>
+                        <p className="font-mono text-xs uppercase text-slate-500">{clientInfo.rfc}</p>
+                    </div>
+                    <div className="text-right">
+                        <p className="text-[10px] font-bold text-blue-500 uppercase mb-1">Fechas:</p>
+                        <p className="text-xs"><span className="text-slate-500">Emisión:</span> {formatDate(clientInfo.date)}</p>
+                        <p className="text-xs"><span className="text-slate-500">Vence:</span> {formatDate(clientInfo.validUntil)}</p>
+                    </div>
+                </div>
+
+                {/* Tabla Visual (Solo lectura) */}
+                <div className="flex-1 mb-6">
+                    <table className="w-full text-left mb-4">
+                        <thead className="bg-blue-50 text-blue-700 text-[10px] uppercase font-bold"><tr><th className="p-2 py-3">Descripción</th><th className="p-2 py-3 text-right">Importe</th></tr></thead>
+                        <tbody className="text-xs divide-y divide-slate-100">
+                            {items.map(item => (
+                                <tr key={item.id}>
+                                    <td className="p-2 py-3 pr-4 text-slate-700">{item.description || <span className="text-slate-300 italic">Sin descripción...</span>}</td>
+                                    <td className="p-2 py-3 text-right font-mono font-bold">${item.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+
+                 {/* Totales Visuales */}
+                 <div className="flex justify-end border-t border-slate-200 pt-4">
+                    <div className="w-1/2 space-y-2 text-sm">
+                        <div className="flex justify-between text-slate-500"><span>Subtotal:</span><span className="font-mono">${subtotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span></div>
+                        <div className="flex justify-between text-slate-500"><span>IVA (16%):</span><span className="font-mono">${iva.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span></div>
+                        <div className="flex justify-between text-lg font-bold text-white bg-blue-600 p-3 rounded-lg shadow-md mt-2">
+                            <span>Total Neto:</span>
+                            <span className="font-mono">${total.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            {/* Footer Visual */}
+            <div className="p-4 bg-slate-50 text-[10px] text-slate-400 text-center border-t">
+                <FileText size={12} className="inline mr-1"/> Previsualización de documento. Los precios pueden variar.
+            </div>
+        </div>
       </div>
     </div>
   );
