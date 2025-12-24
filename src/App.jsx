@@ -822,22 +822,47 @@ const DashboardView = ({ data }) => {
     </div>
   );
 };
-
-// --- CAPTURE FORM CON DESGLOSE VISIBLE (CORREGIDO) ---
+// --- NUEVO CATALOGO PARA PROVEEDORES Y BANCOS ---
+const CATALOGO_PROVEEDORES_DATA = {
+  "HAPAG-LLOYD": { banco: "BBVA", cuenta: "0123456789", clabe: "012012345678901234", rfc: "HPL990202ABC", direccion: "Calle Hamburgo 15, CDMX" },
+  "MAERSK MEXICO": { banco: "Santander", cuenta: "9876543210", clabe: "014987654321098765", rfc: "MAE980101XYZ", direccion: "Av. Reforma 222, CDMX" },
+  "COSCO SHIPPING": { banco: "Banorte", cuenta: "5555666677", clabe: "072555666677778889", rfc: "COS000303QWE", direccion: "Blvd. Ávila Camacho 40, Edo Mex" },
+  "MSC MEXICO": { banco: "HSBC", cuenta: "1122334455", clabe: "021112233445566778", rfc: "MSC112233R55", direccion: "Av. Ejército Nacional 843, CDMX" },
+  "ONE": { banco: "Citibanamex", cuenta: "9988776655", clabe: "002998877665544332", rfc: "ONE223344T88", direccion: "Insurgentes Sur 1458, CDMX" }
+};
+// --- CAPTURE FORM ACTUALIZADO (Con lógica de Bancos y Prefijos) ---
 const CaptureForm = ({ onSave, onCancel, existingData, role }) => {
   if (role === 'pagos') return <div className="p-10 text-center text-red-500 font-bold">Acceso denegado: Rol no autorizado para capturas.</div>;
 
+  // Estado inicial
   const [formData, setFormData] = useState({
-    bl: '', provider: '', rfc: '', address: '', client: '', reason: 'GARANTÍA', container: '', eta: '', currency: 'MXN',
-    freeDays: 7, terminal: '', observation: '', // <--- NUEVOS CAMPOS
+    ejecutivo: "JOAN", // Hardcodeado por ahora (o tomar de sesión)
+    empresa: "",
+    fecha: new Date().toISOString().split('T')[0],
+    concepto: "",
+    prefijo: "",
+    consecutivo: 0,
+    contenedor: "",
+    comentarios: "",
+    pedimento: "",
+    factura: "",
+    proveedor: "",
+    banco: "",
+    cuenta: "",
+    clabe: "",
+    bl: "", // Mantenemos BL por compatibilidad
+    eta: "",
+    currency: "MXN",
+    freeDays: 7,
+    terminal: "",
+    // Costos
     costDemoras: 0, costAlmacenaje: 0, costOperativos: 0, costPortuarios: 0,
     costApoyo: 0, costImpuestos: 0, costLiberacion: 0, costTransporte: 0
   });
-  const [totalAmount, setTotalAmount] = useState(0);
-  
-  const [generatedConcept, setGeneratedConcept] = useState('');
-  const [clientConsecutive, setClientConsecutive] = useState(1);
 
+  const [totalAmount, setTotalAmount] = useState(0);
+
+  // 1. EFECTO: Calcular TOTAL
   useEffect(() => {
     const sum = 
       (parseFloat(formData.costDemoras) || 0) + (parseFloat(formData.costAlmacenaje) || 0) +
@@ -847,39 +872,64 @@ const CaptureForm = ({ onSave, onCancel, existingData, role }) => {
     setTotalAmount(sum);
   }, [formData]);
 
+  // 2. EFECTO: Calcular CONSECUTIVO basado en Prefijo
   useEffect(() => {
-    const code = formData.client ? formData.client.substring(0, 3).toUpperCase() : 'XXX';
-    const matches = existingData.filter(item => item.client.trim().toLowerCase() === formData.client.trim().toLowerCase());
-    const nextNum = matches.length + 1;
-    setClientConsecutive(nextNum);
-    const providerStr = formData.provider ? formData.provider.toUpperCase() : 'EMP';
-    const reasonStr = formData.reason.toUpperCase();
-    setGeneratedConcept(`${providerStr} ${code} ${nextNum} ${reasonStr}`);
-  }, [formData.provider, formData.client, formData.reason, existingData]);
+    if (formData.prefijo && formData.prefijo.length > 0) {
+      // Buscamos en 'existingData' cuántos tienen este prefijo (simulado en el campo concept o clientCode)
+      // Nota: Adaptamos la búsqueda a tu estructura de datos
+      const existentes = existingData.filter(d => 
+        (d.concept || "").includes(formData.prefijo)
+      ).length;
+      setFormData(prev => ({ ...prev, consecutivo: existentes + 1 }));
+    } else {
+      setFormData(prev => ({ ...prev, consecutivo: 0 }));
+    }
+  }, [formData.prefijo, existingData]);
 
-  const handleNavieraChange = (e) => {
-    const nombreSeleccionado = e.target.value;
-    const naviera = NAVIERAS_DB.find(n => n.nombre === nombreSeleccionado);
-    if (naviera) { setFormData({ ...formData, provider: naviera.nombre, rfc: naviera.rfc, address: naviera.direccion }); } 
-    else { setFormData({ ...formData, provider: nombreSeleccionado, rfc: '', address: '' }); }
+  // 3. EFECTO: Concatenar COMENTARIOS en tiempo real
+  useEffect(() => {
+    const { concepto, prefijo, consecutivo, contenedor } = formData;
+    const comentarioFinal = `${concepto || ''} ${prefijo || ''} ${consecutivo || ''} ${contenedor || ''}`.trim().toUpperCase();
+    setFormData(prev => ({ ...prev, comentarios: comentarioFinal }));
+  }, [formData.concepto, formData.prefijo, formData.consecutivo, formData.contenedor]);
+
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    // Lógica para prefijo (Máx 3 letras mayúsculas)
+    if (name === 'prefijo') {
+        if (value.length <= 3) setFormData({ ...formData, [name]: value.toUpperCase() });
+        return;
+    }
+    setFormData({ ...formData, [name]: value });
+  };
+
+  const handleProveedorChange = (e) => {
+    const prov = e.target.value;
+    const datos = CATALOGO_PROVEEDORES_DATA[prov] || { banco: '', cuenta: '', clabe: '' };
+    setFormData({ 
+        ...formData, 
+        proveedor: prov, 
+        banco: datos.banco, 
+        cuenta: datos.cuenta, 
+        clabe: datos.clabe 
+    });
   };
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    const calculatedStatus = calculateStatus(formData.eta);
-    onSave({ 
-      ...formData, 
-      clientCode: formData.client.substring(0, 3).toUpperCase(),
-      amount: totalAmount, 
-      status: calculatedStatus, 
+    // Adaptamos el objeto al formato que espera tu App global (ListView)
+    const newRecord = {
+      ...formData,
+      client: formData.empresa || "SIN EMPRESA", // Mapeo para que salga en la tabla
+      clientCode: formData.prefijo,
+      concept: formData.comentarios, // Usamos Comentarios como el "Concepto" visual
+      amount: totalAmount,
+      status: calculateStatus(formData.eta), // Usamos tu función existente
       payment: 'pending',
-      paymentDate: null,
-      paymentDelay: 0,
-      editCount: 0, 
-      concept: generatedConcept 
-    });
+      editCount: 0
+    };
+    onSave(newRecord);
   };
-  const handleChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value });
 
   const costFieldsInputs = [
     { name: 'costDemoras', label: 'Demoras' }, { name: 'costAlmacenaje', label: 'Almacenaje' },
@@ -889,290 +939,232 @@ const CaptureForm = ({ onSave, onCancel, existingData, role }) => {
   ];
 
   return (
-    <div className="max-w-4xl mx-auto animate-fade-in">
+    <div className="max-w-5xl mx-auto animate-fade-in">
       <div className="bg-white rounded-xl shadow-lg border border-slate-200 overflow-hidden">
-        <div className="p-6 border-b border-slate-100 bg-slate-50 flex justify-between items-center">
-          <div><h2 className="text-xl font-bold text-slate-800 flex items-center"><FileText className="mr-2 text-blue-600" /> Alta de nuevo contenedor</h2><p className="text-slate-500 text-sm">Los datos fiscales se autocompletarán al seleccionar naviera.</p></div>
+        <div className="p-6 border-b border-slate-100 bg-slate-50">
+           <h2 className="text-xl font-bold text-slate-800 flex items-center"><FileText className="mr-2 text-blue-600" /> Alta de Contenedor</h2>
         </div>
+        
         <form onSubmit={handleSubmit} className="p-8 space-y-6">
-          <div className="bg-slate-50 p-4 rounded-lg border border-slate-200">
-            <h3 className="text-xs font-bold text-slate-500 uppercase mb-3 flex items-center"><Ship size={14} className="mr-1"/> Datos de la naviera y concepto</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-              <div><label className="text-xs font-medium text-slate-600 mb-1 block">Naviera / proveedor</label><select required name="provider" className="w-full p-2 border rounded text-sm bg-white outline-none" onChange={handleNavieraChange} value={formData.provider}><option value="">-- Selecciona naviera --</option>{NAVIERAS_DB.map(nav => (<option key={nav.id} value={nav.nombre}>{nav.nombre}</option>))}<option value="OTRA">OTRA (Manual)</option></select></div>
-              <div><label className="text-xs font-medium text-slate-600 mb-1 block">Cliente</label><input required name="client" placeholder="Nombre del cliente" className="w-full p-2 border rounded text-sm outline-none" onChange={handleChange} /></div>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-               <div><label className="text-xs font-medium text-slate-600 mb-1 block">RFC (emisor)</label><input name="rfc" value={formData.rfc} onChange={handleChange} placeholder="Autocompletado..." className="w-full p-2 border rounded text-sm bg-white font-mono text-slate-600 outline-none" /></div>
-               <div className="md:col-span-2"><label className="text-xs font-medium text-slate-600 mb-1 block">Dirección fiscal</label><input name="address" value={formData.address} onChange={handleChange} placeholder="Autocompletado..." className="w-full p-2 border rounded text-sm bg-white text-slate-600 outline-none" /></div>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-               <div className="md:col-span-3"><label className="text-xs font-medium text-slate-600 mb-1 block">Motivo</label><select name="reason" className="w-full p-2 border rounded text-sm bg-white outline-none" onChange={handleChange}><option>GARANTÍA</option><option>FLETE</option><option>ALMACENAJE</option><option>DEMORAS</option></select></div>
-            </div>
-            <div className="mt-3 p-3 bg-slate-800 text-green-400 font-mono text-sm rounded flex justify-between items-center shadow-inner"><span className="flex items-center"><FileText size={14} className="mr-2"/> {generatedConcept}</span><span className="text-xs text-slate-500 bg-slate-900 px-2 py-1 rounded border border-slate-700">Consecutivo #{clientConsecutive}</span></div>
-          </div>
           
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="col-span-2"><label className="text-sm font-bold text-slate-700">BL (master)</label><input required name="bl" className="w-full p-2 border rounded uppercase font-mono outline-none" onChange={handleChange} placeholder="HLCU..." /></div>
-            <div><label className="text-sm font-medium text-slate-700">Contenedor</label><input required name="container" className="w-full p-2 border rounded uppercase outline-none" onChange={handleChange} placeholder="MSKU..." /></div>
-            <div><label className="text-sm font-medium text-slate-700">Fecha ETA</label><input required name="eta" type="date" className="w-full p-2 border rounded outline-none" onChange={handleChange} /></div>
-            <div><label className="text-sm font-medium text-slate-700">Días libres</label><input required name="freeDays" type="number" value={formData.freeDays} className="w-full p-2 border rounded outline-none" onChange={handleChange} /></div>
+          {/* SECCIÓN 1: DATOS GENERALES Y LÓGICA DE PREFIJOS */}
+          <div className="bg-blue-50 p-4 rounded-lg border border-blue-100">
+            <h3 className="text-xs font-bold text-blue-500 uppercase mb-3">Identificación</h3>
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div>
+                    <label className="text-xs font-bold text-slate-600 block mb-1">Ejecutivo</label>
+                    <input value={formData.ejecutivo} readOnly className="w-full p-2 bg-slate-200 rounded text-sm text-slate-500 font-bold"/>
+                </div>
+                <div>
+                    <label className="text-xs font-bold text-slate-600 block mb-1">Empresa</label>
+                    <input name="empresa" value={formData.empresa} onChange={handleChange} className="w-full p-2 border rounded text-sm"/>
+                </div>
+                <div>
+                    <label className="text-xs font-bold text-slate-600 block mb-1">Concepto</label>
+                    <select name="concepto" onChange={handleChange} className="w-full p-2 border rounded text-sm">
+                        <option value="">Seleccione...</option>
+                        <option value="ALMACENAJES">ALMACENAJES</option>
+                        <option value="PAMA">PAMA</option>
+                        <option value="HONORARIOS">HONORARIOS</option>
+                    </select>
+                </div>
+                <div>
+                    <label className="text-xs font-bold text-slate-600 block mb-1">Fecha</label>
+                    <input type="date" name="fecha" value={formData.fecha} onChange={handleChange} className="w-full p-2 border rounded text-sm"/>
+                </div>
+            </div>
             
-            {/* NUEVOS CAMPOS: TERMINAL Y OBSERVACIONES */}
-            <div><label className="text-sm font-medium text-slate-700">Terminal</label><input name="terminal" className="w-full p-2 border rounded outline-none" placeholder="Ej. CONTECON" onChange={handleChange} /></div>
-            <div><label className="text-sm font-medium text-slate-700">Observaciones</label><input name="observation" className="w-full p-2 border rounded outline-none" placeholder="Comentarios adicionales..." onChange={handleChange} /></div>
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-4">
+                <div>
+                    <label className="text-xs font-bold text-slate-600 block mb-1">Prefijo (3 Letras)</label>
+                    <input name="prefijo" value={formData.prefijo} onChange={handleChange} placeholder="Ej: XAO" className="w-full p-2 border rounded text-sm uppercase font-mono"/>
+                </div>
+                <div>
+                    <label className="text-xs font-bold text-slate-600 block mb-1"># Consecutivo (Auto)</label>
+                    <input name="consecutivo" value={formData.consecutivo} readOnly className="w-full p-2 bg-slate-200 rounded text-sm text-center font-bold"/>
+                </div>
+                <div>
+                    <label className="text-xs font-bold text-slate-600 block mb-1">Contenedor</label>
+                    <input name="contenedor" value={formData.contenedor} onChange={handleChange} className="w-full p-2 border rounded text-sm uppercase"/>
+                </div>
+                <div className="md:col-span-4">
+                    <label className="text-xs font-bold text-slate-600 block mb-1">Comentarios (Auto-generado)</label>
+                    <input name="comentarios" value={formData.comentarios} readOnly className="w-full p-2 bg-yellow-50 border border-yellow-200 text-yellow-800 rounded text-sm font-mono"/>
+                </div>
+            </div>
+          </div>
 
-            <div className="col-span-1 md:col-span-2 border-t pt-4">
-               <div className="flex justify-between items-center mb-3">
-                  <label className="text-sm font-bold text-slate-700">Desglose de costos (Granularidad)</label>
-                  <select name="currency" value={formData.currency} onChange={handleChange} className="text-xs p-1 border rounded font-bold text-blue-600 bg-white"><option value="MXN">MXN (Pesos)</option><option value="USD">USD (Dólares)</option></select>
-               </div>
+          {/* SECCIÓN 2: DATOS OPERATIVOS (BL, Pedimento, etc) */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div><label className="text-xs font-bold text-slate-600 block mb-1">Pedimento</label><input name="pedimento" onChange={handleChange} className="w-full p-2 border rounded text-sm"/></div>
+              <div><label className="text-xs font-bold text-slate-600 block mb-1">Factura</label><input name="factura" onChange={handleChange} className="w-full p-2 border rounded text-sm"/></div>
+              <div><label className="text-xs font-bold text-slate-600 block mb-1">BL Master</label><input name="bl" onChange={handleChange} className="w-full p-2 border rounded text-sm uppercase"/></div>
+              <div><label className="text-xs font-bold text-slate-600 block mb-1">ETA</label><input type="date" name="eta" onChange={handleChange} className="w-full p-2 border rounded text-sm"/></div>
+              <div><label className="text-xs font-bold text-slate-600 block mb-1">Días Libres</label><input type="number" name="freeDays" onChange={handleChange} className="w-full p-2 border rounded text-sm"/></div>
+          </div>
+
+          {/* SECCIÓN 3: PROVEEDOR Y BANCOS (AUTOCOMPLETADO) */}
+          <div className="bg-slate-50 p-4 rounded-lg border border-slate-200">
+             <h3 className="text-xs font-bold text-slate-500 uppercase mb-3">Datos Financieros</h3>
+             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div className="md:col-span-1">
+                    <label className="text-xs font-bold text-slate-600 block mb-1">Proveedor</label>
+                    <select name="proveedor" onChange={handleProveedorChange} className="w-full p-2 border rounded text-sm">
+                        <option value="">Seleccione...</option>
+                        {Object.keys(CATALOGO_PROVEEDORES_DATA).map(p => <option key={p} value={p}>{p}</option>)}
+                    </select>
+                </div>
+                {/* Campos Bancarios AUTO */}
+                <div><label className="text-xs font-bold text-slate-600 block mb-1">Banco</label><input name="banco" value={formData.banco} readOnly className="w-full p-2 bg-slate-200 rounded text-sm"/></div>
+                <div><label className="text-xs font-bold text-slate-600 block mb-1">Cuenta</label><input name="cuenta" value={formData.cuenta} readOnly className="w-full p-2 bg-slate-200 rounded text-sm"/></div>
+                <div><label className="text-xs font-bold text-slate-600 block mb-1">CLABE</label><input name="clabe" value={formData.clabe} readOnly className="w-full p-2 bg-slate-200 rounded text-sm"/></div>
+             </div>
+
+             {/* IMPORTES */}
+             <div className="mt-4 border-t pt-4">
                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                   {costFieldsInputs.map(field => (
                       <div key={field.name}>
-                          <label className="text-xs font-medium text-slate-500 mb-1 block">{field.label}</label>
-                          <div className="relative"><span className="absolute left-2 top-1.5 text-xs text-slate-400">$</span><input type="number" name={field.name} className="w-full pl-5 p-1.5 border rounded text-sm text-right outline-none focus:border-blue-500" onChange={handleChange} placeholder="0" /></div>
+                          <label className="text-[10px] font-bold text-slate-500 mb-1 block">{field.label}</label>
+                          <div className="relative"><span className="absolute left-2 top-1.5 text-xs text-slate-400">$</span><input type="number" name={field.name} onChange={handleChange} className="w-full pl-5 p-1.5 border rounded text-sm text-right"/></div>
                       </div>
                   ))}
                </div>
                <div className="mt-4 flex justify-end">
-                  <div className="bg-slate-100 px-4 py-2 rounded-lg border border-slate-200">
-                     <span className="text-xs text-slate-500 mr-2 uppercase font-bold">Total a registrar:</span>
-                     <span className="text-lg font-bold text-slate-800">${totalAmount.toLocaleString()} <span className="text-xs font-normal text-slate-500">{formData.currency}</span></span>
+                  <div className="bg-slate-800 text-white px-4 py-2 rounded-lg">
+                     <span className="text-xs font-bold mr-2 uppercase">Total a Pagar:</span>
+                     <span className="text-lg font-bold">${totalAmount.toLocaleString()}</span>
                   </div>
                </div>
-            </div>
+             </div>
           </div>
 
-          <div className="flex justify-end space-x-3 pt-4 border-t"><button type="button" onClick={onCancel} className="px-4 py-2 border rounded text-slate-600 hover:bg-slate-50 font-medium">Cancelar</button><button type="submit" className="px-6 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 flex items-center shadow-lg shadow-blue-200 font-bold transition-all transform hover:-translate-y-0.5"><Lock size={16} className="mr-2" /> Dar de alta</button></div>
+          <div className="flex justify-end space-x-3 pt-4 border-t">
+              <button type="button" onClick={onCancel} className="px-4 py-2 border rounded text-slate-600 hover:bg-slate-50">Cancelar</button>
+              <button type="submit" className="px-6 py-2 bg-blue-600 text-white rounded font-bold hover:bg-blue-700">Guardar Contenedor</button>
+          </div>
         </form>
       </div>
     </div>
   );
 };
 
+// --- LIST VIEW ACTUALIZADO (Vista Simplificada para Pagos) ---
 const ListView = ({ data, onPayItem, onPayAll, onCloseOperation, role, onEdit }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [expandedRow, setExpandedRow] = useState(null);
-  
-  // --- NUEVO: ESTADO PARA SELECCIÓN MÚLTIPLE ---
   const [selectedIds, setSelectedIds] = useState([]);
-
-  const tableContainerRef = React.useRef(null);
+  
+  // LÓGICA DE VISTA SIMPLIFICADA
+  const esVistaPagos = role === 'pagos';
 
   const filteredData = data.filter(item => 
-    item.bl.toLowerCase().includes(searchTerm.toLowerCase()) || 
-    item.client.toLowerCase().includes(searchTerm.toLowerCase()) || 
-    item.container.toLowerCase().includes(searchTerm.toLowerCase())
+    (item.bl || '').toLowerCase().includes(searchTerm.toLowerCase()) || 
+    (item.client || '').toLowerCase().includes(searchTerm.toLowerCase()) || 
+    (item.container || '').toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const canPay = role === 'admin' || role === 'pagos';
-  const canSeeEdit = role === 'admin' || role === 'ejecutivo';
-
   const toggleRow = (id) => setExpandedRow(expandedRow === id ? null : id);
+  const toggleSelectAll = () => setSelectedIds(selectedIds.length === filteredData.length ? [] : filteredData.map(d => d.id));
+  const toggleSelectItem = (id) => setSelectedIds(selectedIds.includes(id) ? selectedIds.filter(i => i !== id) : [...selectedIds, id]);
 
-  // --- LÓGICA DE SELECCIÓN ---
-  const toggleSelectAll = () => {
-    if (selectedIds.length === filteredData.length) {
-        setSelectedIds([]); // Deseleccionar todo
-    } else {
-        setSelectedIds(filteredData.map(d => d.id)); // Seleccionar todo lo visible
-    }
-  };
-
-  const toggleSelectItem = (id) => {
-    if (selectedIds.includes(id)) {
-        setSelectedIds(selectedIds.filter(itemId => itemId !== id));
-    } else {
-        setSelectedIds([...selectedIds, id]);
-    }
-  };
-
-  // --- LÓGICA DE DESCARGA MASIVA ---
-  const handleBulkDownload = () => {
-      const itemsToPrint = data.filter(d => selectedIds.includes(d.id));
-      if (itemsToPrint.length === 0) return;
-      generatePDF(itemsToPrint, `Reporte_Masivo_${itemsToPrint.length}_ops.pdf`);
-  };
-
-  const scrollTable = (direction) => {
-    if (tableContainerRef.current) {
-        const scrollAmount = 400;
-        tableContainerRef.current.scrollBy({ left: direction === 'left' ? -scrollAmount : scrollAmount, behavior: 'smooth' });
-    }
-  };
-
-  const costMap = [
-    { k: 'costDemoras', l: 'Demoras' }, { k: 'costAlmacenaje', l: 'Almacenaje' },
-    { k: 'costOperativos', l: 'Operativos' }, { k: 'costPortuarios', l: 'Portuarios' },
-    { k: 'costApoyo', l: 'Apoyo' }, { k: 'costImpuestos', l: 'Impuestos' },
-    { k: 'costLiberacion', l: 'Liberación' }, { k: 'costTransporte', l: 'Transporte' }
-  ];
-
-  const renderDaysDiff = (etaString) => {
-    const diff = getDaysDiff(etaString);
-    if (diff < 0) return <span className="text-[10px] font-bold text-red-600 block">Hace {Math.abs(diff)} días</span>;
-    if (diff === 0) return <span className="text-[10px] font-bold text-orange-600 block">¡Llega hoy!</span>;
-    return <span className="text-[10px] font-medium text-slate-400 block">Faltan {diff} días</span>;
+  const renderCell = (item, colKey) => {
+     if(colKey === 'monto') return <div className="font-bold text-slate-700">${item.amount.toLocaleString()}</div>;
+     return item[colKey] || '-';
   };
 
   return (
     <div className="space-y-4 animate-fade-in h-full flex flex-col">
-      <div className="flex flex-col md:flex-row justify-between items-center bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex-shrink-0 gap-4">
-        <div className="flex items-center gap-4">
-            <h2 className="text-xl font-bold text-slate-800">Sábana operativa</h2>
-            {/* BOTÓN DE DESCARGA MASIVA (Aparece si hay seleccionados) */}
-            {selectedIds.length > 0 && (
-                <button onClick={handleBulkDownload} className="flex items-center px-3 py-1.5 bg-slate-800 text-white text-xs font-bold rounded-lg shadow-lg hover:bg-slate-900 transition-all animate-bounce-in">
-                    <Download size={14} className="mr-2"/> Descargar ({selectedIds.length}) seleccionados
-                </button>
-            )}
-        </div>
-        
-        <div className="flex items-center gap-3 w-full md:w-auto">
-            <div className="flex bg-slate-100 rounded-lg p-1 border border-slate-200">
-                <button onClick={() => scrollTable('left')} className="p-2 hover:bg-white rounded-md transition-all text-slate-500 hover:text-blue-600 shadow-sm"><ChevronLeft size={18}/></button>
-                <div className="w-px bg-slate-300 mx-1 my-1"></div>
-                <button onClick={() => scrollTable('right')} className="p-2 hover:bg-white rounded-md transition-all text-slate-500 hover:text-blue-600 shadow-sm"><ChevronRight size={18}/></button>
-            </div>
-            <div className="relative flex-1 md:w-72">
-                <Search className="absolute left-3 top-2.5 text-slate-400" size={18} />
-                <input type="text" placeholder="Buscar..." className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm" onChange={(e) => setSearchTerm(e.target.value)} />
-            </div>
+      <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex justify-between items-center">
+        <h2 className="text-xl font-bold text-slate-800">
+            {esVistaPagos ? "Sábana de Pagos (Simplificada)" : "Sábana Operativa Completa"}
+        </h2>
+        <div className="relative w-72">
+            <Search className="absolute left-3 top-2.5 text-slate-400" size={18} />
+            <input type="text" placeholder="Buscar..." className="w-full pl-10 pr-4 py-2 border rounded-lg" onChange={(e) => setSearchTerm(e.target.value)} />
         </div>
       </div>
 
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden flex-1 relative">
-        <div ref={tableContainerRef} className="overflow-auto h-[calc(100vh-200px)] w-full relative"> 
-          <table className="w-full text-left border-collapse min-w-[1900px]">
-            <thead className="sticky top-0 z-40 shadow-sm">
-                <tr className="bg-slate-50 border-b border-slate-200 text-xs font-bold text-slate-500 uppercase h-12">
+        <div className="overflow-auto h-[calc(100vh-220px)] w-full"> 
+          <table className="w-full text-left border-collapse min-w-[1200px]">
+            <thead className="sticky top-0 z-40 bg-slate-50 text-xs font-bold text-slate-500 uppercase h-12 border-b">
+                <tr>
+                    <th className="p-4 w-12"><input type="checkbox" onChange={toggleSelectAll} checked={selectedIds.length > 0} /></th>
+                    <th className="p-4 w-12"></th>
                     
-                    {/* CHECKBOX (STICKY 0) */}
-                    <th className="p-4 w-12 sticky left-0 top-0 z-50 bg-slate-50 border-r border-b border-slate-200 text-center">
-                        <input type="checkbox" onChange={toggleSelectAll} checked={selectedIds.length === filteredData.length && filteredData.length > 0} className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer"/>
-                    </th>
+                    {/* COLUMNAS CONDICIONALES */}
+                    <th className="p-4">Empresa</th>
+                    {!esVistaPagos && <th className="p-4">Ejecutivo</th>}
+                    
+                    <th className="p-4">Comentarios (ID)</th>
+                    {!esVistaPagos && <th className="p-4">Concepto</th>}
+                    
+                    <th className="p-4">Contenedor</th>
+                    <th className="p-4">Pedimento</th>
+                    
+                    {/* COLUMNAS SOLO PARA PAGOS */}
+                    {esVistaPagos && <th className="p-4 bg-yellow-50 text-yellow-800">Proveedor</th>}
+                    {esVistaPagos && <th className="p-4 bg-yellow-50 text-yellow-800">Banco</th>}
+                    {esVistaPagos && <th className="p-4 bg-yellow-50 text-yellow-800">Cuenta / CLABE</th>}
 
-                    {/* FLECHA (STICKY 12 -> Desplazado por el checkbox) */}
-                    <th className="p-4 w-12 sticky left-12 top-0 z-50 bg-slate-50 border-r border-b border-slate-200"></th>
-                    
-                    {/* CONCEPTO (STICKY 24) */}
-                    <th className="p-4 w-48 sticky left-24 top-0 z-50 bg-slate-50 border-r border-b border-slate-200">Concepto</th>
-                    
-                    {/* BL (STICKY 72) */}
-                    <th className="p-4 w-48 sticky left-72 top-0 z-50 bg-slate-50 border-r border-b border-slate-300 shadow-lg md:shadow-none">BL / Contenedor</th>
-                    
-                    {/* COLUMNAS NORMALES */}
-                    <th className="p-4 w-40 bg-slate-50">ETA & Semáforo</th>
-                    <th className="p-4 w-32 text-center bg-slate-50">Días libres</th>
-                    <th className="p-4 w-32 text-center bg-slate-50">Estatus Op.</th>
-                    <th className="p-4 w-40 text-right bg-slate-50">Monto total</th>
-                    <th className="p-4 w-40 text-center bg-slate-50">Fecha Pago</th>
-                    
-                    {/* NUEVA COLUMNA: COMPROBANTE */}
-                    <th className="p-4 w-32 text-center bg-slate-50">Comprobante</th>
-
-                    <th className="p-4 w-40 text-center bg-slate-50">Acciones</th>
-                    <th className="p-4 text-center bg-slate-50 min-w-[200px]">Observaciones</th>
-                    <th className="p-4 text-center bg-slate-50 min-w-[150px]">Naviera</th>
-                    <th className="p-4 text-center bg-slate-50 min-w-[150px]">Terminal</th>
+                    <th className="p-4 text-right">Importe Total</th>
+                    <th className="p-4 text-center">Acciones</th>
                 </tr>
             </thead>
             <tbody className="text-sm">
-              {filteredData.map((item) => {
-                const isFullyPaid = item.payment === 'paid'; 
-                const paidFlags = item.paidFlags || {}; 
-                const isSelected = selectedIds.includes(item.id);
-
-                return (
+              {filteredData.map((item) => (
                 <React.Fragment key={item.id}>
-                    <tr className={`hover:bg-slate-50 border-b border-slate-100 transition-colors ${isSelected ? 'bg-blue-50' : ''} ${expandedRow === item.id ? 'bg-blue-50/30' : ''}`}>
+                    <tr className={`hover:bg-slate-50 border-b border-slate-100 ${expandedRow === item.id ? 'bg-blue-50/30' : ''}`}>
+                        <td className="p-4 text-center"><input type="checkbox" checked={selectedIds.includes(item.id)} onChange={() => toggleSelectItem(item.id)}/></td>
+                        <td className="p-4 text-center cursor-pointer" onClick={() => toggleRow(item.id)}>
+                            {expandedRow === item.id ? <ChevronUp size={18}/> : <ChevronDown size={18}/>}
+                        </td>
+
+                        <td className="p-4 font-bold text-slate-700">{item.client || item.empresa}</td>
+                        {!esVistaPagos && <td className="p-4 text-slate-500">{item.ejecutivo || 'JOAN'}</td>}
                         
-                        {/* 1. CHECKBOX (STICKY LEFT 0) */}
-                        <td className="p-4 text-center sticky left-0 z-20 bg-white border-r border-slate-100">
-                            <input type="checkbox" checked={isSelected} onChange={() => toggleSelectItem(item.id)} className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer"/>
-                        </td>
+                        <td className="p-4 font-mono text-xs bg-slate-50 text-slate-600 px-2 py-1 rounded">{item.concept || item.comentarios}</td>
+                        {!esVistaPagos && <td className="p-4 text-slate-500">{item.concepto}</td>}
 
-                        {/* 2. FLECHA (STICKY LEFT 12) */}
-                        <td className="p-4 text-center cursor-pointer sticky left-12 z-20 bg-white border-r border-slate-100" onClick={() => toggleRow(item.id)}>
-                            {expandedRow === item.id ? <ChevronUp size={18} className="text-blue-500"/> : <ChevronDown size={18} className="text-slate-400"/>}
-                        </td>
+                        <td className="p-4 font-bold text-blue-600">{item.container || item.contenedor}</td>
+                        <td className="p-4 text-slate-500">{item.pedimento || '-'}</td>
 
-                        {/* 3. CLIENTE (STICKY LEFT 24) */}
-                        <td className="p-4 sticky left-24 z-20 bg-white border-r border-slate-100">
-                            <div className="font-bold text-slate-700 truncate w-40" title={item.client}>{item.client}</div>
-                            <div className="inline-block mt-1 px-2 py-0.5 bg-slate-100 border rounded text-[10px] font-mono text-slate-600 truncate max-w-[150px]">{item.concept}</div>
-                        </td>
+                        {/* DATOS BANCARIOS (Solo Pagos) */}
+                        {esVistaPagos && <td className="p-4 text-slate-700 font-bold">{item.proveedor}</td>}
+                        {esVistaPagos && <td className="p-4 text-slate-500">{item.banco}</td>}
+                        {esVistaPagos && (
+                            <td className="p-4 text-xs">
+                                <div className="text-slate-700">Cta: {item.cuenta}</div>
+                                <div className="text-slate-400">CLABE: {item.clabe}</div>
+                            </td>
+                        )}
 
-                        {/* 4. BL (STICKY LEFT 72) */}
-                        <td className="p-4 sticky left-72 z-20 bg-white border-r border-slate-300 shadow-[4px_0_10px_-2px_rgba(0,0,0,0.1)]">
-                            <div className="font-mono font-bold text-blue-700">{item.bl}</div>
-                            <div className="text-xs text-slate-500 font-bold">{item.container}</div>
-                        </td>
-
-                        <td className="p-4"><div className="flex flex-col"><span className="font-bold text-slate-700 text-xs mb-1">{formatDate(item.eta)}</span><StatusBadge item={item} />{renderDaysDiff(item.eta)}</div></td>
-                        <td className="p-4 text-center"><div className="inline-flex flex-col items-center justify-center p-2 bg-slate-50 rounded-lg border border-slate-200 min-w-[60px]"><span className="text-[10px] text-slate-400 uppercase font-bold mb-1">Libres</span><div className="flex items-center text-slate-700 font-bold"><Clock size={14} className="mr-1 text-slate-400"/> {item.freeDays}</div></div></td>
-                        <td className="p-4 text-center">{item.status === 'closed' ? <span className="px-2 py-1 bg-slate-800 text-white rounded text-[10px] font-bold uppercase tracking-wider">Cerrado</span> : <span className="px-2 py-1 bg-green-100 text-green-700 rounded text-[10px] font-bold uppercase tracking-wider border border-green-200">Activo</span>}</td>
-                        <td className="p-4 text-right font-medium"><div className="text-lg font-bold text-slate-700">${item.amount.toLocaleString()}</div><div className="text-[10px] text-slate-400 font-bold">{item.currency}</div></td>
-                        <td className="p-4 text-center text-xs text-slate-500">{item.payment === 'paid' ? <div><span className="block font-bold text-emerald-600">PAGADO</span><span className="text-[10px]">{formatDate(item.paymentDate)}</span></div> : '-'}</td>
+                        <td className="p-4 text-right font-bold text-lg text-emerald-600">${item.amount.toLocaleString()}</td>
                         
-                        {/* 9. NUEVA COLUMNA: COMPROBANTE */}
                         <td className="p-4 text-center">
-                            {item.status === 'closed' ? (
-                                <button onClick={() => generatePDF([item], `Comprobante_${item.bl}.pdf`)} className="p-2 bg-emerald-50 text-emerald-600 hover:bg-emerald-600 hover:text-white rounded-lg border border-emerald-200 transition-all group" title="Descargar Comprobante">
-                                    <FileText size={18} className="group-hover:scale-110 transition-transform"/>
-                                </button>
-                            ) : (
-                                <span className="text-xs text-slate-300 italic">Pendiente</span>
-                            )}
+                            <button onClick={() => toggleRow(item.id)} className="text-blue-600 hover:underline text-xs font-bold">Ver Desglose</button>
                         </td>
-
-                        <td className="p-4 flex justify-center space-x-2">
-                            {canSeeEdit && item.status !== 'closed' && (
-                                <button onClick={() => onEdit(item)} className="p-2 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg border border-transparent hover:border-blue-100 transition-all" title="Editar"><Edit size={18}/></button>
-                            )}
-                        </td>
-                        <td className="p-4 text-xs text-slate-400 italic truncate max-w-[200px]">Sin observaciones...</td>
-                        <td className="p-4 text-xs text-slate-500 text-center">{item.provider}</td>
-                        <td className="p-4 text-xs text-slate-500 text-center">CONTECON</td>
                     </tr>
                     
+                    {/* DESGLOSE EXPANDIDO (Igual para todos) */}
                     {expandedRow === item.id && (
-                        <tr className="bg-slate-50 animate-fade-in">
-                            <td colSpan="13" className="p-0 border-b border-slate-200 shadow-inner">
-                                <div className="pl-[410px] p-6 relative min-w-max"> 
-                                    <div className="absolute left-0 top-0 bottom-0 w-[410px] bg-slate-100 border-r border-slate-200 z-10 flex flex-col justify-center p-6 space-y-4">
-                                        <div><h4 className="text-xs font-bold text-slate-500 uppercase mb-1">Cliente & Concepto</h4><div className="font-bold text-slate-700 text-lg truncate" title={item.client}>{item.client}</div><div className="inline-block mt-1 px-3 py-1 bg-white border rounded-md text-xs font-mono text-slate-600 shadow-sm">{item.concept}</div></div>
-                                        <div><h4 className="text-xs font-bold text-slate-500 uppercase mb-1">BL & Contenedor</h4><div className="font-mono font-bold text-blue-700 text-lg">{item.bl}</div><div className="text-sm text-slate-600 font-bold">{item.container}</div></div>
-                                    </div>
-
-                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-                                        {costMap.map((c) => {
-                                            const monto = item[c.k] || 0;
-                                            const isPaid = paidFlags[c.k] || isFullyPaid;
-                                            return (
-                                                <div key={c.k} className={`p-3 rounded-lg border flex flex-col justify-between shadow-sm transition-all ${monto > 0 ? 'bg-white border-slate-200' : 'bg-slate-50 border-slate-100 opacity-60'}`}>
-                                                    <div className="flex justify-between items-start mb-2"><span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">{c.l}</span><span className={`font-mono font-bold ${monto > 0 ? 'text-slate-800' : 'text-slate-300'}`}>${monto.toLocaleString()}</span></div>
-                                                    {monto > 0 && canPay && item.status !== 'closed' && (
-                                                        <button disabled={isPaid} onClick={() => onPayItem(item.id, c.k)} className={`w-full py-1.5 text-[10px] font-bold rounded flex items-center justify-center transition-colors uppercase tracking-wide ${isPaid ? 'bg-emerald-50 text-emerald-600 border border-emerald-100 cursor-default' : 'bg-white border border-blue-600 text-blue-600 hover:bg-blue-600 hover:text-white'}`}>{isPaid ? <><Check size={10} className="mr-1"/> Pagado</> : 'Pagar Item'}</button>
-                                                    )}
-                                                </div>
-                                            );
-                                        })}
-                                    </div>
-
-                                    {canPay && item.status !== 'closed' && (
-                                        <div className="flex justify-end gap-3 pt-4 border-t border-slate-200">
-                                            {!isFullyPaid && <button onClick={() => onPayAll(item.id)} className="px-5 py-2 bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-bold rounded-lg shadow-sm flex items-center transition-transform hover:-translate-y-0.5"><CheckCircle size={16} className="mr-2"/> SALDAR TODO</button>}
-                                            <button onClick={() => onCloseOperation(item)} className="px-5 py-2 bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold rounded-lg shadow-sm flex items-center transition-transform hover:-translate-y-0.5"><Lock size={16} className="mr-2"/> CERRAR OPERACIÓN</button>
-                                        </div>
-                                    )}
-                                    {item.status === 'closed' && (<div className="w-full bg-slate-100 border border-slate-200 rounded p-3 text-center"><p className="text-slate-500 text-xs font-bold flex items-center justify-center"><Lock size={12} className="mr-2"/> Operación cerrada y archivada. No se permiten más cambios.</p></div>)}
+                        <tr className="bg-slate-50">
+                            <td colSpan="100%" className="p-4">
+                                <div className="grid grid-cols-4 gap-4 text-xs">
+                                    <div className="p-2 border bg-white rounded"><strong>Demoras:</strong> ${item.costDemoras}</div>
+                                    <div className="p-2 border bg-white rounded"><strong>Almacenaje:</strong> ${item.costAlmacenaje}</div>
+                                    <div className="p-2 border bg-white rounded"><strong>Operativos:</strong> ${item.costOperativos}</div>
+                                    <div className="p-2 border bg-white rounded"><strong>Impuestos:</strong> ${item.costImpuestos}</div>
+                                </div>
+                                <div className="mt-2 flex justify-end">
+                                    {role === 'pagos' && <button onClick={() => onPayAll(item.id)} className="bg-emerald-600 text-white px-4 py-2 rounded font-bold">Marcar Pagado</button>}
                                 </div>
                             </td>
                         </tr>
                     )}
                 </React.Fragment>
-              )})} 
+              ))}
             </tbody>
           </table>
         </div>
