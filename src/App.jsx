@@ -9,7 +9,7 @@ import {
   Clock, Ship, DollarSign, Plus, Search, Menu, X, User, Edit, Lock, 
   TrendingUp, TrendingDown, Activity, AlertCircle, Calculator, Trash2, 
   Download, Printer, Package, MapPin, Key, LogOut, Check, 
-  ChevronLeft, ChevronRight, ChevronDown, ChevronUp, ShieldAlert, CreditCard 
+  ChevronLeft, ChevronRight, ChevronDown, ChevronUp, ShieldAlert, Eye, Calendar, Anchor
 } from 'lucide-react';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -29,41 +29,48 @@ const formatDate = (dateString) => {
   return `${day}/${month}/${year}`;
 };
 
-const calculateStatus = (etaString) => {
-  if (!etaString) return 'ok';
+// Nueva utilidad para calcular diferencia de días exactos
+const getDaysDiff = (etaString) => {
+  if (!etaString) return 0;
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const [year, month, day] = etaString.split('-').map(Number);
   const etaDate = new Date(year, month - 1, day);
   const diffTime = etaDate - today;
-  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)); 
-
-  if (diffDays < 0) return 'expired';
-  if (diffDays < 10) return 'danger';
-  if (diffDays <= 21) return 'warning';
-  return 'ok';
+  return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 };
 
-// --- DATOS INICIALES (MOCKS CON STATUS DE PAGO DETALLADO) ---
-// paidFlags: Objeto que rastrea qué se ha pagado individualmente
+const calculateStatus = (etaString) => {
+  if (!etaString) return 'ok';
+  const diffDays = getDaysDiff(etaString);
+
+  if (diffDays < 0) return 'expired'; // Ya llegó o pasó la fecha
+  if (diffDays <= 7) return 'danger'; // Menos de una semana (Crítico)
+  if (diffDays <= 15) return 'warning'; // Entre 1 y 2 semanas (Alerta)
+  return 'ok'; // Más de 2 semanas (Seguro)
+};
+
+// --- DATOS INICIALES ---
 const rawData = [
   { 
-    id: 1, bl: 'HLCU12345678', provider: 'HAPAG', client: 'Importadora México S.A.', clientCode: 'IMP', reason: 'FLETE', container: 'MSKU987654', eta: addDays(45), freeDays: 7, editCount: 0, paymentDate: '2025-06-10', paymentDelay: 0, currency: 'MXN', concept: 'HAPAG IMP 1 FLETE',
+    id: 1, bl: 'HLCU12345678', provider: 'HAPAG', client: 'Importadora México S.A.', clientCode: 'IMP', reason: 'FLETE', container: 'MSKU987654', eta: addDays(45), freeDays: 7, editCount: 0, payment: 'paid', paymentDate: '2025-06-10', paymentDelay: 0, currency: 'MXN', concept: 'HAPAG IMP 1 FLETE',
     costDemoras: 0, costAlmacenaje: 0, costOperativos: 5000, costPortuarios: 2000, costApoyo: 0, costImpuestos: 1000, costLiberacion: 0, costTransporte: 7000,
-    amount: 15000,
-    paidFlags: { costDemoras: true, costAlmacenaje: true, costOperativos: true, costPortuarios: true, costApoyo: true, costImpuestos: true, costLiberacion: true, costTransporte: true } // Todo pagado
+    amount: 15000 
   },
   { 
-    id: 2, bl: 'MAEU87654321', provider: 'MAERSK', client: 'Logística Global', clientCode: 'LOG', reason: 'DEMORAS', container: 'TCLU123000', eta: addDays(-5), freeDays: 14, editCount: 1, paymentDate: null, paymentDelay: 0, currency: 'USD', concept: 'MAERSK LOG 1 DEMORAS',
+    id: 2, bl: 'MAEU87654321', provider: 'MAERSK', client: 'Logística Global', clientCode: 'LOG', reason: 'DEMORAS', container: 'TCLU123000', eta: addDays(-5), freeDays: 14, editCount: 1, payment: 'paid', paymentDate: '2025-06-12', paymentDelay: 5, currency: 'USD', concept: 'MAERSK LOG 1 DEMORAS',
     costDemoras: 15000, costAlmacenaje: 5000, costOperativos: 1000, costPortuarios: 0, costApoyo: 0, costImpuestos: 500, costLiberacion: 0, costTransporte: 1000,
-    amount: 22500,
-    paidFlags: { costDemoras: true, costAlmacenaje: false, costOperativos: false, costPortuarios: true, costApoyo: true, costImpuestos: false, costLiberacion: true, costTransporte: false } // Parcial
+    amount: 22500 
   },
   { 
-    id: 3, bl: 'COSU11223344', provider: 'COSCO', client: 'Textiles del Norte', clientCode: 'TEX', reason: 'GARANTÍA', container: 'MRKU554433', eta: addDays(-3), freeDays: 21, editCount: 2, paymentDate: null, paymentDelay: 0, currency: 'MXN', concept: 'COSCO TEX 1 GARANTÍA',
+    id: 3, bl: 'COSU11223344', provider: 'COSCO', client: 'Textiles del Norte', clientCode: 'TEX', reason: 'GARANTÍA', container: 'MRKU554433', eta: addDays(5), freeDays: 21, editCount: 2, payment: 'pending', paymentDate: null, paymentDelay: 0, currency: 'MXN', concept: 'COSCO TEX 1 GARANTÍA',
     costDemoras: 0, costAlmacenaje: 0, costOperativos: 0, costPortuarios: 0, costApoyo: 18000, costImpuestos: 0, costLiberacion: 0, costTransporte: 0,
-    amount: 18000,
-    paidFlags: { costDemoras: false, costAlmacenaje: false, costOperativos: false, costPortuarios: false, costApoyo: false, costImpuestos: false, costLiberacion: false, costTransporte: false } // Nada pagado
+    amount: 18000 
+  },
+  { 
+    id: 4, bl: 'MSKU99887766', provider: 'ONE', client: 'Importadora México S.A.', clientCode: 'IMP', reason: 'ALMACENAJE', container: 'MSKU111222', eta: addDays(12), freeDays: 7, editCount: 0, payment: 'pending', paymentDate: null, paymentDelay: 0, currency: 'MXN', concept: 'ONE IMP 2 ALMACENAJE',
+    costDemoras: 0, costAlmacenaje: 10000, costOperativos: 500, costPortuarios: 500, costApoyo: 0, costImpuestos: 1000, costLiberacion: 0, costTransporte: 0,
+    amount: 12000 
   },
 ];
 
@@ -84,33 +91,32 @@ const COLORS = {
   ok: '#10B981', warning: '#F59E0B', danger: '#EF4444', expired: '#991B1B', primary: '#2563EB', secondary: '#8b5cf6'
 };
 
-// --- COMPONENTES UI AUXILIARES ---
-
-// Función auxiliar para checar si todo está pagado
-const checkPaymentStatus = (item) => {
-  const keys = ['costDemoras', 'costAlmacenaje', 'costOperativos', 'costPortuarios', 'costApoyo', 'costImpuestos', 'costLiberacion', 'costTransporte'];
-  // Verificamos si hay ALGUN costo mayor a 0 que NO esté pagado
-  const hasPending = keys.some(k => (item[k] > 0) && !item.paidFlags?.[k]);
-  return hasPending ? 'pending' : 'paid';
-};
-
-const PaymentStatusBadge = ({ item }) => {
-  const status = checkPaymentStatus(item);
-
-  if (status === 'paid') {
+// --- COMPONENTES UI AUXILIARES (SEMÁFORO MEJORADO) ---
+const StatusBadge = ({ item }) => {
+  if (item.payment === 'paid') {
     return (
-      <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold text-white shadow-sm bg-green-600">
+      <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold text-white shadow-md ${item.paymentDelay > 0 ? 'bg-slate-700' : 'bg-blue-600'}`}>
         <Check size={14} className="mr-1" strokeWidth={3} />
-        PAGADO
+        {item.paymentDelay > 0 ? 'PAGADO (Retraso)' : 'PAGADO'}
       </span>
     );
   }
+
+  // CONFIGURACIÓN DE COLORES SÓLIDOS Y VIBRANTES
+  const config = {
+    ok: { color: 'bg-emerald-500 text-white', icon: CheckCircle, label: 'En tiempo' },
+    warning: { color: 'bg-amber-500 text-white', icon: Clock, label: 'Atención' },
+    danger: { color: 'bg-rose-600 text-white', icon: AlertTriangle, label: 'Crítico' },
+    expired: { color: 'bg-slate-800 text-white', icon: AlertTriangle, label: 'Vencido' },
+  };
   
-  // ESTADO NARANJA (PENDIENTE)
+  const current = config[item.status] || config.ok;
+  const Icon = current.icon;
+  
   return (
-    <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-orange-100 text-orange-700 border border-orange-200">
-      <Clock size={14} className="mr-1" />
-      Pendiente de pago
+    <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold shadow-sm ${current.color}`}>
+      <Icon size={12} className="mr-1" />
+      {current.label}
     </span>
   );
 };
@@ -211,23 +217,52 @@ const EditModal = ({ isOpen, onClose, onSave, item, role }) => {
         </div>
 
         <div className="p-6 grid grid-cols-2 gap-4">
-          <div className="col-span-1"><label className="text-xs font-bold text-slate-500 mb-1 block">BL (master)</label><input disabled name="bl" value={editData.bl} onChange={handleChange} className="w-full p-2 border rounded bg-slate-100 text-slate-500 cursor-not-allowed" /></div>
-          <div className="col-span-1"><label className="text-xs font-bold text-slate-500 mb-1 block">Contenedor</label><input disabled name="container" value={editData.container} onChange={handleChange} className="w-full p-2 border rounded bg-slate-100 text-slate-500 cursor-not-allowed" /></div>
+          <div className="col-span-1">
+             <label className="text-xs font-bold text-slate-500 mb-1 block">BL (master)</label>
+             <input disabled name="bl" value={editData.bl} onChange={handleChange} className="w-full p-2 border rounded bg-slate-100 text-slate-500 cursor-not-allowed" />
+          </div>
+          <div className="col-span-1">
+             <label className="text-xs font-bold text-slate-500 mb-1 block">Contenedor</label>
+             <input disabled name="container" value={editData.container} onChange={handleChange} className="w-full p-2 border rounded bg-slate-100 text-slate-500 cursor-not-allowed" />
+          </div>
           
-          <div className="col-span-1"><label className="text-xs font-bold text-slate-700 mb-1 block flex items-center">Fecha ETA {isRestricted && <span className="ml-2 text-[10px] bg-green-100 text-green-700 px-1 rounded">Editable</span>}</label><input type="date" name="eta" value={editData.eta} onChange={handleChange} className="w-full p-2 border border-slate-300 rounded focus:ring-2 focus:ring-blue-500 outline-none" /></div>
-          <div className="col-span-1"><label className="text-xs font-bold text-slate-700 mb-1 block flex items-center">Días libres {isRestricted && <span className="ml-2 text-[10px] bg-green-100 text-green-700 px-1 rounded">Editable</span>}</label><input type="number" name="freeDays" value={editData.freeDays} onChange={handleChange} className="w-full p-2 border border-slate-300 rounded focus:ring-2 focus:ring-blue-500 outline-none" /></div>
+          <div className="col-span-1">
+             <label className="text-xs font-bold text-slate-700 mb-1 block flex items-center">
+                Fecha ETA 
+                {isRestricted && <span className="ml-2 text-[10px] bg-green-100 text-green-700 px-1 rounded">Editable</span>}
+             </label>
+             <input type="date" name="eta" value={editData.eta} onChange={handleChange} className="w-full p-2 border border-slate-300 rounded focus:ring-2 focus:ring-blue-500 outline-none" />
+          </div>
+
+          <div className="col-span-1">
+             <label className="text-xs font-bold text-slate-700 mb-1 block flex items-center">
+                Días libres
+                {isRestricted && <span className="ml-2 text-[10px] bg-green-100 text-green-700 px-1 rounded">Editable</span>}
+             </label>
+             <input type="number" name="freeDays" value={editData.freeDays} onChange={handleChange} className="w-full p-2 border border-slate-300 rounded focus:ring-2 focus:ring-blue-500 outline-none" />
+          </div>
 
           <div className="col-span-2 border-t pt-4 mt-2">
-             <div className="flex justify-between items-center mb-2"><label className="text-xs font-bold text-slate-500 uppercase">Desglose de costos</label><span className="text-xs font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded border border-blue-100">Total: ${editData.amount.toLocaleString()}</span></div>
+             <div className="flex justify-between items-center mb-2">
+                <label className="text-xs font-bold text-slate-500 uppercase">Desglose de costos</label>
+                <span className="text-xs font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded border border-blue-100">Total: ${editData.amount.toLocaleString()}</span>
+             </div>
              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                 {costInputs.map(field => (
                     <div key={field.key}>
                         <label className="text-[10px] font-medium text-slate-500 mb-1 block">{field.label}</label>
-                        <input disabled={isRestricted} type="number" name={field.key} value={editData[field.key]} onChange={handleChange} className={`w-full p-2 border rounded text-xs text-right outline-none ${isRestricted ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'focus:ring-2 focus:ring-blue-500'}`} />
+                        <input 
+                            disabled={isRestricted}
+                            type="number" 
+                            name={field.key} 
+                            value={editData[field.key]} 
+                            onChange={handleChange} 
+                            className={`w-full p-2 border rounded text-xs text-right outline-none ${isRestricted ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'focus:ring-2 focus:ring-blue-500'}`} 
+                        />
                     </div>
                 ))}
              </div>
-             {isRestricted && <p className="text-[10px] text-red-400 mt-3 italic">* Para modificar montos o datos fiscales contacte a un administrador.</p>}
+             {isRestricted && <p className="text-[10px] text-red-400 mt-3 italic">* Para modificar montos o datos fiscales contacte a un Administrador.</p>}
           </div>
         </div>
 
@@ -240,65 +275,29 @@ const EditModal = ({ isOpen, onClose, onSave, item, role }) => {
   );
 };
 
-// --- NUEVO MODAL DE PAGOS (DETALLADO Y RESUMEN) ---
-const DetailedPaymentModal = ({ isOpen, onClose, onConfirm, pendingItems, isBulk }) => {
-  if (!isOpen || !pendingItems) return null;
-
-  // Calculamos el total a pagar en este momento
-  const totalToPay = pendingItems.reduce((acc, curr) => acc + curr.amount, 0);
-  const currency = pendingItems[0]?.currency || 'MXN';
-
+const PaymentModal = ({ isOpen, onClose, onConfirm, item }) => {
+  if (!isOpen || !item) return null;
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 animate-fade-in">
       <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={onClose}></div>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg relative z-10 overflow-hidden transform transition-all scale-100">
-        
-        <div className="bg-blue-600 p-6 border-b border-blue-700 flex items-start space-x-4">
-          <div className="p-3 bg-white/20 text-white rounded-full flex-shrink-0">
-            <CreditCard size={28} />
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md relative z-10 overflow-hidden transform transition-all scale-100">
+        <div className="bg-yellow-50 p-6 border-b border-yellow-100 flex items-start space-x-4">
+          <div className="p-3 bg-yellow-100 text-yellow-600 rounded-full flex-shrink-0"><AlertCircle size={32} /></div>
+          <div><h3 className="text-lg font-bold text-slate-800">¿Confirmar pago?</h3><p className="text-sm text-slate-600 mt-1">Estás a punto de registrar un pago en el sistema. Asegúrate de haber realizado la transferencia bancaria primero.</p></div>
+        </div>
+        <div className="p-6 space-y-4">
+          <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
+            <div className="flex justify-between items-center mb-2"><span className="text-xs font-bold text-slate-400 uppercase">Monto a pagar</span><span className="text-xs font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded">{item.currency || 'MXN'}</span></div>
+            <p className="text-3xl font-bold text-slate-800">${item.amount.toLocaleString()}</p>
           </div>
-          <div>
-            <h3 className="text-xl font-bold text-white">Confirmación de pago</h3>
-            <p className="text-sm text-blue-100 mt-1">
-              {isBulk ? 'Estás a punto de liquidar todos los conceptos pendientes.' : 'Estás a punto de registrar un pago individual.'}
-            </p>
+          <div className="space-y-2 text-sm">
+            <div className="flex justify-between border-b border-slate-100 pb-2"><span className="text-slate-500">Beneficiario:</span><span className="font-medium text-slate-800">{item.provider}</span></div>
+            <div className="flex justify-between border-b border-slate-100 pb-2"><span className="text-slate-500">Cliente:</span><span className="font-medium text-slate-800">{item.client}</span></div>
           </div>
         </div>
-
-        <div className="p-6">
-          <div className="bg-slate-50 rounded-xl border border-slate-200 overflow-hidden mb-6">
-             <div className="p-3 bg-slate-100 border-b border-slate-200 flex justify-between items-center">
-                <span className="text-xs font-bold text-slate-500 uppercase">Conceptos a pagar</span>
-                <span className="text-xs font-bold text-slate-400">{pendingItems.length} ítem(s)</span>
-             </div>
-             <div className="max-h-48 overflow-y-auto">
-               <table className="w-full text-sm text-left">
-                 <tbody className="divide-y divide-slate-200">
-                   {pendingItems.map((item, idx) => (
-                     <tr key={idx}>
-                       <td className="p-3 text-slate-600 font-medium">{item.label}</td>
-                       <td className="p-3 text-right font-bold text-slate-800">${item.amount.toLocaleString()}</td>
-                     </tr>
-                   ))}
-                 </tbody>
-               </table>
-             </div>
-             <div className="p-4 bg-blue-50 border-t border-blue-100 flex justify-between items-center">
-                <span className="font-bold text-blue-800">Total a liquidar:</span>
-                <span className="text-xl font-bold text-blue-900">${totalToPay.toLocaleString()} <span className="text-sm font-normal">{currency}</span></span>
-             </div>
-          </div>
-          
-          <p className="text-xs text-center text-slate-400">
-            Al confirmar, los conceptos seleccionados se marcarán como <span className="font-bold text-green-600">PAGADOS</span> y se registrará la fecha de hoy.
-          </p>
-        </div>
-
-        <div className="p-4 bg-slate-50 border-t border-slate-200 flex space-x-3">
+        <div className="p-6 bg-slate-50 border-t border-slate-100 flex space-x-3">
           <button onClick={onClose} className="flex-1 px-4 py-3 bg-white border border-slate-300 text-slate-700 font-bold rounded-xl hover:bg-slate-50 transition-colors">Cancelar</button>
-          <button onClick={onConfirm} className="flex-1 px-4 py-3 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 shadow-lg shadow-blue-200 transition-all flex justify-center items-center">
-            <CheckCircle size={20} className="mr-2" /> Confirmar pago
-          </button>
+          <button onClick={onConfirm} className="flex-1 px-4 py-3 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 shadow-lg shadow-blue-200 transition-all flex justify-center items-center"><CheckCircle size={20} className="mr-2" /> Confirmar</button>
         </div>
       </div>
     </div>
@@ -466,11 +465,9 @@ const QuoteGenerator = ({ role }) => {
 
 const DashboardView = ({ data }) => {
   const total = data.length;
-  // Ajuste de lógica para contar pendientes basados en status de pago real
-  const warning = data.filter(i => i.status === 'warning' && checkPaymentStatus(i) === 'pending').length;
-  const danger = data.filter(i => (i.status === 'danger' || i.status === 'expired') && checkPaymentStatus(i) === 'pending').length;
-  const pendingMoney = data.filter(i => checkPaymentStatus(i) === 'pending').reduce((acc, curr) => acc + curr.amount, 0); // Simplificado para el dashboard
-  
+  const warning = data.filter(i => i.status === 'warning' && i.payment === 'pending').length;
+  const danger = data.filter(i => (i.status === 'danger' || i.status === 'expired') && i.payment === 'pending').length;
+  const pendingMoney = data.filter(i => i.payment === 'pending').reduce((acc, curr) => acc + curr.amount, 0);
   const clientData = useMemo(() => { const counts = {}; data.forEach(item => { counts[item.client] = (counts[item.client] || 0) + 1; }); return Object.keys(counts).map(key => ({ name: key, count: counts[key] })); }, [data]);
   const statusData = [{ name: 'A tiempo', value: total - warning - danger }, { name: 'Riesgo', value: warning }, { name: 'Penalizado', value: danger }];
   const performanceData = [{ name: 'Lun', operaciones: 12, monto: 15000 }, { name: 'Mar', operaciones: 19, monto: 22000 }, { name: 'Mié', operaciones: 15, monto: 18000 }, { name: 'Jue', operaciones: 25, monto: 35000 }, { name: 'Vie', operaciones: 32, monto: 45000 }, { name: 'Sáb', operaciones: 20, monto: 28000 }, { name: 'Dom', operaciones: 10, monto: 12000 }];
@@ -480,8 +477,8 @@ const DashboardView = ({ data }) => {
     <div className="space-y-6 animate-fade-in pb-8">
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <KPICard title="Contenedores activos" value={total} icon={Ship} colorClass="bg-blue-100 text-blue-600" trend="up" trendValue="+12%" subtext="vs mes pasado" />
-        <KPICard title="Alertas (próximos)" value={warning} icon={Clock} colorClass="bg-yellow-100 text-yellow-600" trend="down" trendValue="-5%" subtext="mejoría en tiempos" />
-        <KPICard title="Críticos (vencidos)" value={danger} icon={AlertTriangle} colorClass="bg-red-100 text-red-600" trend="up" trendValue="+2" subtext="requiere atención" />
+        <KPICard title="Alertas (próximos)" value={warning} icon={Clock} colorClass="bg-amber-100 text-amber-600" trend="down" trendValue="-5%" subtext="mejoría en tiempos" />
+        <KPICard title="Críticos (vencidos)" value={danger} icon={AlertTriangle} colorClass="bg-rose-100 text-rose-600" trend="up" trendValue="+2" subtext="requiere atención" />
         <KPICard title="Cuentas por cobrar" value={`$${(pendingMoney/1000).toFixed(1)}k`} icon={DollarSign} colorClass="bg-emerald-100 text-emerald-600" trend="up" trendValue="+8%" subtext="flujo de caja proyectado" />
       </div>
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -508,6 +505,7 @@ const CaptureForm = ({ onSave, onCancel, existingData, role }) => {
   const [formData, setFormData] = useState({
     bl: '', provider: '', rfc: '', address: '', client: '', reason: 'GARANTÍA', container: '', eta: '', currency: 'MXN',
     freeDays: 7,
+    // Costos individuales
     costDemoras: 0, costAlmacenaje: 0, costOperativos: 0, costPortuarios: 0,
     costApoyo: 0, costImpuestos: 0, costLiberacion: 0, costTransporte: 0
   });
@@ -516,6 +514,7 @@ const CaptureForm = ({ onSave, onCancel, existingData, role }) => {
   const [generatedConcept, setGeneratedConcept] = useState('');
   const [clientConsecutive, setClientConsecutive] = useState(1);
 
+  // Recalcular total cuando cambian los costos
   useEffect(() => {
     const sum = 
       (parseFloat(formData.costDemoras) || 0) + (parseFloat(formData.costAlmacenaje) || 0) +
@@ -548,17 +547,18 @@ const CaptureForm = ({ onSave, onCancel, existingData, role }) => {
     onSave({ 
       ...formData, 
       clientCode: formData.client.substring(0, 3).toUpperCase(),
-      amount: totalAmount, 
+      amount: totalAmount, // Guardamos el total calculado
       status: calculatedStatus, 
+      payment: 'pending',
       paymentDate: null,
       paymentDelay: 0,
       editCount: 0, 
-      paidFlags: {}, // Inicializa sin pagos
       concept: generatedConcept 
     });
   };
   const handleChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value });
 
+  // Lista de campos para el map
   const costFieldsInputs = [
     { name: 'costDemoras', label: 'Demoras' }, { name: 'costAlmacenaje', label: 'Almacenaje' },
     { name: 'costOperativos', label: 'Costos operativos' }, { name: 'costPortuarios', label: 'Gastos portuarios' },
@@ -595,6 +595,7 @@ const CaptureForm = ({ onSave, onCancel, existingData, role }) => {
             <div><label className="text-sm font-medium text-slate-700">Fecha ETA</label><input required name="eta" type="date" className="w-full p-2 border rounded outline-none" onChange={handleChange} /></div>
             <div><label className="text-sm font-medium text-slate-700">Días libres</label><input required name="freeDays" type="number" value={formData.freeDays} className="w-full p-2 border rounded outline-none" onChange={handleChange} /></div>
             
+            {/* SECCIÓN DE COSTOS DESGLOSADOS */}
             <div className="col-span-2 border-t pt-4">
                <div className="flex justify-between items-center mb-3">
                   <label className="text-sm font-bold text-slate-700">Desglose de costos</label>
@@ -606,7 +607,13 @@ const CaptureForm = ({ onSave, onCancel, existingData, role }) => {
                           <label className="text-xs font-medium text-slate-500 mb-1 block">{field.label}</label>
                           <div className="relative">
                              <span className="absolute left-2 top-1.5 text-xs text-slate-400">$</span>
-                             <input type="number" name={field.name} className="w-full pl-5 p-1.5 border rounded text-sm text-right outline-none focus:border-blue-500" onChange={handleChange} placeholder="0" />
+                             <input 
+                                type="number" 
+                                name={field.name} 
+                                className="w-full pl-5 p-1.5 border rounded text-sm text-right outline-none focus:border-blue-500" 
+                                onChange={handleChange} 
+                                placeholder="0" 
+                             />
                           </div>
                       </div>
                   ))}
@@ -627,16 +634,32 @@ const CaptureForm = ({ onSave, onCancel, existingData, role }) => {
   );
 };
 
-const ListView = ({ data, onPayComponent, onPayRemaining, role, onEdit }) => {
+// --- LISTVIEW (SÁBANA) CON SEMÁFORO Y DIFERENCIA DE DÍAS ---
+const ListView = ({ data, onInitiatePayment, role, onEdit }) => {
   const [searchTerm, setSearchTerm] = useState('');
-  const [expandedRow, setExpandedRow] = useState(null);
+  const [expandedRow, setExpandedRow] = useState(null); // Estado para controlar qué fila está expandida
 
   const filteredData = data.filter(item => item.bl.toLowerCase().includes(searchTerm.toLowerCase()) || item.client.toLowerCase().includes(searchTerm.toLowerCase()) || item.container.toLowerCase().includes(searchTerm.toLowerCase()));
   const canPay = role === 'admin' || role === 'pagos';
   const canSeeEdit = role === 'admin' || role === 'ejecutivo';
 
   const toggleRow = (id) => {
-    if (expandedRow === id) { setExpandedRow(null); } else { setExpandedRow(id); }
+    if (expandedRow === id) {
+        setExpandedRow(null);
+    } else {
+        setExpandedRow(id);
+    }
+  };
+
+  const renderDaysDiff = (etaString) => {
+    const diff = getDaysDiff(etaString);
+    if (diff < 0) {
+        return <span className="text-xs font-bold text-red-600 block mt-1">Hace {Math.abs(diff)} días</span>;
+    } else if (diff === 0) {
+        return <span className="text-xs font-bold text-orange-600 block mt-1">¡Llega hoy!</span>;
+    } else {
+        return <span className="text-xs font-medium text-slate-400 block mt-1">Faltan {diff} días</span>;
+    }
   };
 
   return (
@@ -647,11 +670,11 @@ const ListView = ({ data, onPayComponent, onPayRemaining, role, onEdit }) => {
           <table className="w-full text-left border-collapse">
             <thead>
                 <tr className="bg-slate-50 border-b border-slate-200 text-xs font-bold text-slate-500 uppercase">
-                    <th className="p-4 w-10"></th>
+                    <th className="p-4 w-10"></th> {/* Espacio para el chevron */}
                     <th className="p-4">Concepto</th>
                     <th className="p-4">BL / Contenedor</th>
-                    <th className="p-4">ETA / Días libres</th>
-                    <th className="p-4 text-center">Estatus</th>
+                    <th className="p-4">ETA & Estatus</th>
+                    <th className="p-4 text-center">Días libres</th>
                     <th className="p-4 text-right">Monto total</th>
                     <th className="p-4 text-center">Pagado el</th>
                     <th className="p-4 text-center">Acciones</th>
@@ -660,66 +683,53 @@ const ListView = ({ data, onPayComponent, onPayRemaining, role, onEdit }) => {
             <tbody className="text-sm">
               {filteredData.map((item) => (
                 <React.Fragment key={item.id}>
+                    {/* FILA PRINCIPAL (RESUMEN) */}
                     <tr className={`hover:bg-slate-50 border-b border-slate-100 transition-colors ${expandedRow === item.id ? 'bg-blue-50/50' : ''}`}>
                         <td className="p-4 text-center cursor-pointer" onClick={() => toggleRow(item.id)}>
                             {expandedRow === item.id ? <ChevronUp size={18} className="text-slate-400"/> : <ChevronDown size={18} className="text-slate-400"/>}
                         </td>
                         <td className="p-4"><div className="font-bold text-slate-700">{item.client}</div><div className="inline-block mt-1 px-2 py-0.5 bg-slate-100 border rounded text-xs font-mono text-slate-600">{item.concept}</div></td>
                         <td className="p-4"><div className="font-mono font-medium">{item.bl}</div><div className="text-xs text-slate-500">{item.container}</div></td>
-                        <td className="p-4"><div className="text-slate-600">{formatDate(item.eta)}</div><div className="text-[10px] text-slate-400">{item.freeDays} días libres</div></td>
-                        <td className="p-4 text-center"><PaymentStatusBadge item={item} /></td>
+                        <td className="p-4">
+                            <div className="flex items-center space-x-2 mb-1">
+                                <span className="font-bold text-slate-700">{formatDate(item.eta)}</span>
+                                <StatusBadge item={item} />
+                            </div>
+                            {renderDaysDiff(item.eta)}
+                        </td>
+                        <td className="p-4 text-center">
+                            <div className="inline-flex items-center px-2 py-1 bg-slate-100 text-slate-600 rounded-md border border-slate-200 font-bold text-xs">
+                                <Clock size={12} className="mr-1"/> {item.freeDays}
+                            </div>
+                        </td>
                         <td className="p-4 text-right font-medium"><span className="text-[10px] text-slate-400 mr-1 font-bold align-top">{item.currency || 'MXN'}</span>${item.amount.toLocaleString()}</td>
-                        <td className="p-4 text-center text-xs text-slate-500">{checkPaymentStatus(item) === 'paid' ? formatDate(item.paymentDate) : '-'}</td>
+                        <td className="p-4 text-center text-xs text-slate-500">{item.payment === 'paid' ? formatDate(item.paymentDate) : '-'}</td>
                         <td className="p-4 flex justify-center space-x-2">
+                            {canPay && item.payment === 'pending' && (<button onClick={() => onInitiatePayment(item.id)} className="px-3 py-1 bg-emerald-50 text-emerald-600 border border-emerald-200 rounded hover:bg-emerald-100 text-xs font-bold flex items-center"><DollarSign size={14} className="mr-1"/> Pagar</button>)}
+                            {item.payment === 'paid' && (<span className="px-3 py-1 bg-slate-50 text-slate-400 rounded text-xs font-bold border border-slate-200 cursor-not-allowed">Completado</span>)}
                             {canSeeEdit && (<button onClick={() => onEdit(item)} className={`p-1.5 rounded transition-colors ${role === 'ejecutivo' && item.editCount >= 2 ? 'text-slate-300 cursor-not-allowed' : 'text-slate-400 hover:text-blue-600 hover:bg-blue-50'}`} title={role === 'ejecutivo' && item.editCount >= 2 ? "Edición bloqueada por el sistema" : "Editar contenedor"}>{role === 'ejecutivo' && item.editCount >= 2 ? <ShieldAlert size={16} /> : <Edit size={16} />}</button>)}
                         </td>
                     </tr>
                     
+                    {/* FILA EXPANDIDA (DETALLE) */}
                     {expandedRow === item.id && (
                         <tr className="bg-slate-50 animate-fade-in">
                             <td colSpan="8" className="p-4 border-b border-slate-200 shadow-inner">
                                 <div className="grid grid-cols-2 md:grid-cols-4 gap-y-4 gap-x-8 px-8">
                                     {[
-                                        { k: 'costDemoras', l: 'Demoras', v: item.costDemoras }, { k: 'costAlmacenaje', l: 'Almacenaje', v: item.costAlmacenaje },
-                                        { k: 'costOperativos', l: 'Costos operativos', v: item.costOperativos }, { k: 'costPortuarios', l: 'Gastos portuarios', v: item.costPortuarios },
-                                        { k: 'costApoyo', l: 'Apoyo', v: item.costApoyo }, { k: 'costImpuestos', l: 'Impuestos', v: item.costImpuestos },
-                                        { k: 'costLiberacion', l: 'Liberación abandono', v: item.costLiberacion }, { k: 'costTransporte', l: 'Transporte', v: item.costTransporte }
+                                        { l: 'Demoras', v: item.costDemoras }, { l: 'Almacenaje', v: item.costAlmacenaje },
+                                        { l: 'Costos operativos', v: item.costOperativos }, { l: 'Gastos portuarios', v: item.costPortuarios },
+                                        { l: 'Apoyo', v: item.costApoyo }, { l: 'Impuestos', v: item.costImpuestos },
+                                        { l: 'Liberación abandono', v: item.costLiberacion }, { l: 'Transporte', v: item.costTransporte }
                                     ].map((cost, idx) => (
-                                        <div key={idx} className="flex justify-between items-center border-b border-slate-200 pb-1 h-8">
+                                        <div key={idx} className="flex justify-between border-b border-slate-200 pb-1">
                                             <span className="text-xs text-slate-500 font-medium">{cost.l}</span>
-                                            <div className="flex items-center gap-2">
-                                                <span className="text-xs font-bold text-slate-700 font-mono">${(cost.v || 0).toLocaleString()}</span>
-                                                
-                                                {/* Lógica del Botón de Pago Individual */}
-                                                {canPay && cost.v > 0 && (
-                                                    item.paidFlags?.[cost.k] ? (
-                                                        <span className="text-green-600" title="Pagado"><CheckCircle size={14}/></span>
-                                                    ) : (
-                                                        <button 
-                                                            onClick={() => onPayComponent(item, cost.k, cost.l)}
-                                                            className="px-1.5 py-0.5 bg-indigo-50 text-indigo-600 rounded text-[9px] font-bold border border-indigo-200 hover:bg-indigo-100"
-                                                        >
-                                                            Pagar
-                                                        </button>
-                                                    )
-                                                )}
-                                                {!canPay && cost.v > 0 && item.paidFlags?.[cost.k] && <span className="text-green-600"><CheckCircle size={14}/></span>}
-                                            </div>
+                                            <span className="text-xs font-bold text-slate-700 font-mono">${(cost.v || 0).toLocaleString()}</span>
                                         </div>
                                     ))}
-                                    <div className="col-span-2 md:col-start-4 pt-2 flex flex-col items-end gap-2">
-                                        <div className="flex items-center gap-2">
-                                            <span className="text-sm font-bold text-slate-800 uppercase">Total calculado:</span>
-                                            <span className="text-lg font-bold text-blue-600 font-mono">${item.amount.toLocaleString()} <span className="text-xs text-slate-400">{item.currency}</span></span>
-                                        </div>
-                                        {canPay && checkPaymentStatus(item) === 'pending' && (
-                                            <button 
-                                                onClick={() => onPayRemaining(item)}
-                                                className="px-4 py-2 bg-green-600 text-white text-xs font-bold rounded-lg shadow hover:bg-green-700 flex items-center"
-                                            >
-                                                <DollarSign size={14} className="mr-1" /> Liquidar restante
-                                            </button>
-                                        )}
+                                    <div className="col-span-2 md:col-start-4 pt-2 flex justify-between items-center">
+                                        <span className="text-sm font-bold text-slate-800 uppercase">Total calculado:</span>
+                                        <span className="text-lg font-bold text-blue-600 font-mono">${item.amount.toLocaleString()} <span className="text-xs text-slate-400">{item.currency}</span></span>
                                     </div>
                                 </div>
                             </td>
@@ -745,7 +755,7 @@ export default function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [data, setData] = useState(initialData);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [paymentConfirmation, setPaymentConfirmation] = useState({ isOpen: false, item: null, pendingItems: [], isBulk: false });
+  const [paymentConfirmation, setPaymentConfirmation] = useState({ isOpen: false, item: null });
   const [editingItem, setEditingItem] = useState(null);
 
   const handleSave = (newItem) => {
@@ -765,68 +775,21 @@ export default function App() {
     setEditingItem(null); 
   };
 
-  // --- LÓGICA DE PAGOS ---
-  
-  // 1. Pagar un solo componente
-  const initiateSinglePayment = (item, key, label) => {
-    setPaymentConfirmation({ 
-        isOpen: true, 
-        item, 
-        pendingItems: [{ label: label, amount: item[key] || 0, key: key, currency: item.currency }],
-        isBulk: false
-    });
-  };
+  const initiatePayment = (id) => { const item = data.find(i => i.id === id); if (item) { setPaymentConfirmation({ isOpen: true, item }); } };
 
-  // 2. Pagar todo lo restante
-  const initiateBulkPayment = (item) => {
-    const keys = [
-        { k: 'costDemoras', l: 'Demoras' }, { k: 'costAlmacenaje', l: 'Almacenaje' },
-        { k: 'costOperativos', l: 'Costos operativos' }, { k: 'costPortuarios', l: 'Gastos portuarios' },
-        { k: 'costApoyo', l: 'Apoyo' }, { k: 'costImpuestos', l: 'Impuestos' },
-        { k: 'costLiberacion', l: 'Liberación abandono' }, { k: 'costTransporte', l: 'Transporte' }
-    ];
-    
-    // Filtramos solo los que tienen monto > 0 y NO están pagados
-    const pending = keys
-        .filter(c => (item[c.k] > 0) && !item.paidFlags?.[c.k])
-        .map(c => ({ label: c.l, amount: item[c.k], key: c.k, currency: item.currency }));
-
-    if (pending.length === 0) return;
-
-    setPaymentConfirmation({
-        isOpen: true,
-        item,
-        pendingItems: pending,
-        isBulk: true
-    });
-  };
-
-  // 3. Ejecutar el pago (Confirmación)
   const executePayment = () => {
-    const { item, pendingItems } = paymentConfirmation;
+    const { item } = paymentConfirmation;
     if (!item) return;
-
-    const todayStr = new Date().toISOString().split('T')[0];
-
+    const today = new Date(); today.setHours(0,0,0,0); const todayStr = today.toISOString().split('T')[0];
     const updatedData = data.map(d => {
       if (d.id === item.id) {
-        // Actualizamos los flags de pago
-        const newFlags = { ...(d.paidFlags || {}) };
-        pendingItems.forEach(p => {
-            newFlags[p.key] = true;
-        });
-
-        return { 
-          ...d, 
-          paidFlags: newFlags,
-          paymentDate: todayStr // Actualizamos fecha de último pago
-        };
+        const [year, month, day] = d.eta.split('-').map(Number); const etaDate = new Date(year, month - 1, day); const diffTime = etaDate - today; const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)); 
+        let delay = 0; if (diffDays < 0) { delay = Math.abs(diffDays); }
+        return { ...d, payment: 'paid', paymentDate: todayStr, paymentDelay: delay };
       }
       return d;
     });
-
-    setData(updatedData);
-    setPaymentConfirmation({ isOpen: false, item: null, pendingItems: [], isBulk: false }); 
+    setData(updatedData); setPaymentConfirmation({ isOpen: false, item: null }); 
   };
 
   const handleEditClick = (item) => {
@@ -853,13 +816,7 @@ export default function App() {
 
   return (
     <div className="flex h-screen bg-slate-100 font-sans text-slate-800 relative">
-      <DetailedPaymentModal 
-        isOpen={paymentConfirmation.isOpen} 
-        onClose={() => setPaymentConfirmation({ isOpen: false, item: null, pendingItems: [] })} 
-        onConfirm={executePayment} 
-        pendingItems={paymentConfirmation.pendingItems}
-        isBulk={paymentConfirmation.isBulk}
-      />
+      <PaymentModal isOpen={paymentConfirmation.isOpen} item={paymentConfirmation.item} onClose={() => setPaymentConfirmation({ isOpen: false, item: null })} onConfirm={executePayment} />
       <EditModal isOpen={!!editingItem} onClose={() => setEditingItem(null)} onSave={handleSaveEdit} item={editingItem} role={role} />
 
       <aside className={`${isSidebarCollapsed ? 'w-20' : 'w-64'} bg-slate-900 text-white flex-shrink-0 hidden md:flex flex-col transition-all duration-300 ease-in-out relative`}>
@@ -880,7 +837,7 @@ export default function App() {
         <div className="flex-1 overflow-auto p-4 md:p-8">
           {activeTab === 'dashboard' && <DashboardView data={data} />}
           {activeTab === 'capture' && <CaptureForm onSave={handleSave} onCancel={() => setActiveTab('dashboard')} existingData={data} role={role} />}
-          {activeTab === 'list' && <ListView data={data} onPayComponent={initiateSinglePayment} onPayRemaining={initiateBulkPayment} role={role} onEdit={handleEditClick} />}
+          {activeTab === 'list' && <ListView data={data} onInitiatePayment={initiatePayment} role={role} onEdit={handleEditClick} />}
           {activeTab === 'quotes' && <QuoteGenerator role={role} />}
         </div>
       </main>
