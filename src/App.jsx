@@ -994,7 +994,7 @@ const ListView = ({ data, onPayItem, onPayAll, onCloseOperation, role, onEdit })
   );
 };
 
-// --- MÓDULO DE CIERRE DE CUENTA (CON PDF NATIVO DE ALTA CALIDAD) ---
+// --- MÓDULO DE CIERRE DE CUENTA (CON PDF CORREGIDO) ---
 const AccountClosure = ({ data }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedItem, setSelectedItem] = useState(null);
@@ -1031,7 +1031,7 @@ const AccountClosure = ({ data }) => {
   const totalAnticipo = spreadsheet.anticipo1 + spreadsheet.anticipo2 + spreadsheet.anticipo3;
   const diferencia = totalCliente - totalAnticipo;
 
-  // --- NUEVA FUNCIÓN DE PDF: DIBUJADO NATIVO (Alta Calidad) ---
+  // --- FUNCIÓN DE PDF CORREGIDA ---
   const handleSavePDF = () => {
     const doc = new jsPDF();
     const margin = 20;
@@ -1039,16 +1039,17 @@ const AccountClosure = ({ data }) => {
 
     // Colores personalizados (RGB)
     const black = [30, 30, 30];
-    const orangeBg = [255, 247, 237]; // Orange-50
-    const orangeBorder = [253, 186, 116]; // Orange-300
-    const greenBg = [240, 253, 244]; // Green-50
-    const greenBorder = [134, 239, 172]; // Green-300
-    const redBg = [254, 242, 242]; // Red-50
-    const redText = [185, 28, 28]; // Red-700
+    const orangeBg = [255, 247, 237]; 
+    const orangeBorder = [253, 186, 116]; 
+    const greenBg = [240, 253, 244]; 
+    const greenBorder = [134, 239, 172]; 
+    const redBg = [254, 242, 242]; 
+    const redText = [185, 28, 28]; 
 
-    // 1. ENCABEZADO NEGRO
+    // 1. ENCABEZADO NEGRO (CORREGIDO)
     doc.setFillColor(...black);
-    doc.rect(0, 0, 210, 45, 'F'); // Fondo negro superior
+    // Aumentamos un poco la altura del fondo negro (de 45 a 50)
+    doc.rect(0, 0, 210, 50, 'F'); 
 
     doc.setTextColor(255, 255, 255);
     doc.setFontSize(18);
@@ -1059,38 +1060,31 @@ const AccountClosure = ({ data }) => {
     doc.setFont("helvetica", "normal");
     doc.text("Resumen de cierre operativo y financiero", margin, 26);
     
-    // Datos del Header
+    // Datos del Header (REORGANIZADOS PARA NO ENCIMARSE)
     doc.setFontSize(9);
-    doc.text(`CLIENTE: ${selectedItem.client}`, margin, 38);
-    doc.text(`BL MASTER: ${selectedItem.bl}`, 120, 38);
+    // Línea 1 de datos (Y=35)
+    doc.text(`CLIENTE: ${selectedItem.client}`, margin, 35);
+    doc.text(`FECHA: ${new Date().toLocaleDateString()}`, 190, 35, { align: 'right' });
     
-    doc.text(`FECHA: ${new Date().toLocaleDateString()}`, 170, 20, { align: 'right' });
-    doc.text(`CONTENEDOR: ${selectedItem.container}`, 170, 38, { align: 'right' });
+    // Línea 2 de datos (Y=43) - Bajamos estos datos para dar espacio
+    doc.text(`BL MASTER: ${selectedItem.bl}`, margin, 43);
+    doc.text(`CONTENEDOR: ${selectedItem.container}`, 190, 43, { align: 'right' });
 
-    yPos = 60;
+    yPos = 70; // Ajustamos la posición inicial del contenido
 
     // Función auxiliar para dibujar filas
     const drawRow = (label, value, bgColor, borderColor) => {
         doc.setFillColor(...bgColor);
         doc.setDrawColor(...borderColor);
-        
-        // Rectángulo Label
         doc.rect(margin, yPos, 85, 10, 'F');
         doc.rect(margin, yPos, 85, 10, 'S');
-        
-        // Rectángulo Valor
         doc.rect(margin + 85, yPos, 85, 10, 'S');
-
-        // Texto Label
         doc.setTextColor(50, 50, 50);
         doc.setFont("helvetica", "bold");
         doc.setFontSize(10);
         doc.text(label, margin + 80, yPos + 7, { align: 'right' });
-
-        // Texto Valor
         doc.setFont("helvetica", "normal");
         doc.text(`$${value.toLocaleString()}`, margin + 165, yPos + 7, { align: 'right' });
-
         yPos += 10;
     };
 
@@ -1110,8 +1104,7 @@ const AccountClosure = ({ data }) => {
 
     cargos.forEach(c => drawRow(c.l, c.v, orangeBg, orangeBorder));
 
-    // Total Cargos
-    doc.setFillColor(255, 237, 213); // Naranja más fuerte
+    doc.setFillColor(255, 237, 213); 
     doc.rect(margin, yPos, 170, 12, 'F');
     doc.setFont("helvetica", "bold");
     doc.text("TOTAL CLIENTE", margin + 80, yPos + 8, { align: 'right' });
@@ -1131,8 +1124,7 @@ const AccountClosure = ({ data }) => {
 
     anticipos.forEach(a => drawRow(a.l, a.v, greenBg, greenBorder));
 
-    // Total Anticipos
-    doc.setFillColor(220, 252, 231); // Verde más fuerte
+    doc.setFillColor(220, 252, 231); 
     doc.rect(margin, yPos, 170, 12, 'F');
     doc.setFont("helvetica", "bold");
     doc.text("TOTAL ANTICIPOS", margin + 80, yPos + 8, { align: 'right' });
@@ -1140,10 +1132,10 @@ const AccountClosure = ({ data }) => {
     yPos += 25;
 
     // 4. DIFERENCIA (ROJO GRAN FINAL)
-    doc.setDrawColor(185, 28, 28); // Borde Rojo oscuro
+    doc.setDrawColor(185, 28, 28); 
     doc.setLineWidth(1);
     doc.setFillColor(...redBg);
-    doc.roundedRect(margin, yPos, 170, 25, 3, 3, 'FD'); // Fill and Draw
+    doc.roundedRect(margin, yPos, 170, 25, 3, 3, 'FD'); 
 
     doc.setTextColor(...redText);
     doc.setFontSize(14);
@@ -1153,7 +1145,6 @@ const AccountClosure = ({ data }) => {
     doc.setFont("helvetica", "bold");
     doc.text(`$${diferencia.toLocaleString()}`, margin + 85, yPos + 20, { align: 'center' });
 
-    // Pie de página
     doc.setFontSize(8);
     doc.setTextColor(150, 150, 150);
     doc.text("Este documento es un comprobante interno de cierre de cuenta.", 105, 280, { align: 'center' });
@@ -1163,7 +1154,6 @@ const AccountClosure = ({ data }) => {
 
   return (
     <div className="max-w-5xl mx-auto animate-fade-in space-y-6 pb-12">
-      
       {/* SELECCIÓN DE CONTENEDOR */}
       <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
         <h2 className="text-xl font-bold text-slate-800 mb-4 flex items-center">
@@ -1202,7 +1192,6 @@ const AccountClosure = ({ data }) => {
 
       {selectedItem ? (
         <div className="bg-white shadow-2xl border border-slate-300 w-full max-w-4xl mx-auto font-sans">
-            
             {/* ENCABEZADO VISUAL (HTML) */}
             <div className="bg-black text-white p-4 grid grid-cols-2 md:grid-cols-4 gap-4 items-center border-b-4 border-slate-600">
                 <div className="md:col-span-2">
@@ -1220,7 +1209,7 @@ const AccountClosure = ({ data }) => {
                 </div>
             </div>
 
-            {/* CUERPO DE LA TABLA (HTML - VISUALIZACIÓN) */}
+            {/* CUERPO DE LA TABLA (HTML) */}
             <div className="p-8 space-y-1 bg-white">
                 {[
                     { label: 'VENTA DE CONTENEDOR', name: 'venta' },
@@ -1275,7 +1264,7 @@ const AccountClosure = ({ data }) => {
                 </div>
             </div>
             
-            {/* BOTÓN GUARDAR PDF (NATIVO) */}
+            {/* BOTÓN GUARDAR PDF */}
             <div className="p-4 bg-slate-100 border-t border-slate-300 flex justify-end">
                 <button 
                     onClick={handleSavePDF} 
