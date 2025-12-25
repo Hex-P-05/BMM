@@ -10,52 +10,162 @@ export const addDays = (days) => {
 };
 
 /**
- * Formatea fecha de YYYY-MM-DD a DD/MM/YYYY
+ * Formatea fecha a DD/MM/YYYY
+ * Acepta: "YYYY-MM-DD", "YYYY-MM-DDTHH:MM:SS", "DD/MM/YYYY", Date object, null/undefined
  */
-export const formatDate = (dateString) => {
-  if (!dateString) return '';
-  const [year, month, day] = dateString.split('-');
-  return `${day}/${month}/${year}`;
+export const formatDate = (dateInput) => {
+  if (!dateInput) return '-';
+  
+  try {
+    // Si es string
+    if (typeof dateInput === 'string') {
+      // Si ya viene en formato DD/MM/YYYY, devolverlo tal cual
+      if (dateInput.match(/^\d{2}\/\d{2}\/\d{4}$/)) {
+        return dateInput;
+      }
+      
+      // Si tiene formato ISO completo (con T)
+      if (dateInput.includes('T')) {
+        const date = new Date(dateInput);
+        if (!isNaN(date.getTime())) {
+          const day = String(date.getDate()).padStart(2, '0');
+          const month = String(date.getMonth() + 1).padStart(2, '0');
+          const year = date.getFullYear();
+          return `${day}/${month}/${year}`;
+        }
+      }
+      
+      // Si tiene formato YYYY-MM-DD
+      if (dateInput.match(/^\d{4}-\d{2}-\d{2}$/)) {
+        const [year, month, day] = dateInput.split('-');
+        return `${day}/${month}/${year}`;
+      }
+      
+      // Devolver el string tal cual si no matchea ningún patrón conocido
+      return dateInput;
+    }
+    
+    // Si es objeto Date
+    if (dateInput instanceof Date && !isNaN(dateInput.getTime())) {
+      const day = String(dateInput.getDate()).padStart(2, '0');
+      const month = String(dateInput.getMonth() + 1).padStart(2, '0');
+      const year = dateInput.getFullYear();
+      return `${day}/${month}/${year}`;
+    }
+    
+    // Si es número (timestamp)
+    if (typeof dateInput === 'number') {
+      const date = new Date(dateInput);
+      if (!isNaN(date.getTime())) {
+        const day = String(date.getDate()).padStart(2, '0');
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const year = date.getFullYear();
+        return `${day}/${month}/${year}`;
+      }
+    }
+    
+    return '-';
+  } catch (error) {
+    console.error('Error formatting date:', dateInput, error);
+    return '-';
+  }
 };
 
 /**
  * Formatea fecha ISO a DD/MM/YYYY HH:MM
  */
 export const formatDateTime = (isoString) => {
-  if (!isoString) return '';
-  const date = new Date(isoString);
-  return date.toLocaleString('es-MX', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit'
-  });
+  if (!isoString) return '-';
+  
+  try {
+    const date = new Date(isoString);
+    if (isNaN(date.getTime())) return '-';
+    
+    return date.toLocaleString('es-MX', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  } catch (error) {
+    return '-';
+  }
 };
 
 /**
- * Calcula diferencia en días entre ETA y hoy
+ * Calcula diferencia en días entre una fecha y hoy
  */
-export const getDaysDiff = (etaString) => {
-  if (!etaString) return null;
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const [year, month, day] = etaString.split('-').map(Number);
-  const etaDate = new Date(year, month - 1, day);
-  const diffTime = etaDate - today;
-  return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+export const getDaysDiff = (dateInput) => {
+  if (!dateInput) return null;
+  
+  try {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    let targetDate;
+    
+    if (typeof dateInput === 'string') {
+      if (dateInput.includes('T')) {
+        targetDate = new Date(dateInput);
+      } else if (dateInput.includes('-')) {
+        const [year, month, day] = dateInput.split('-').map(Number);
+        targetDate = new Date(year, month - 1, day);
+      } else {
+        targetDate = new Date(dateInput);
+      }
+    } else if (dateInput instanceof Date) {
+      targetDate = dateInput;
+    } else {
+      return null;
+    }
+    
+    if (isNaN(targetDate.getTime())) return null;
+    
+    targetDate.setHours(0, 0, 0, 0);
+    const diffTime = targetDate - today;
+    return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  } catch (error) {
+    return null;
+  }
 };
 
 /**
  * Calcula el semáforo de estatus basado en días restantes
- * Ahora sincronizado con el backend (ver models.py de operaciones)
+ * Sincronizado con el backend (ver models.py de operaciones)
  */
-export const calculateSemaforo = (etaString) => {
+export const calculateSemaforo = (etaString, diasLibres = 0) => {
   if (!etaString) return 'verde';
   
-  const dias = getDaysDiff(etaString);
+  // Calcular fecha límite (ETA + días libres)
+  let fechaLimite;
+  try {
+    if (typeof etaString === 'string') {
+      if (etaString.includes('T')) {
+        fechaLimite = new Date(etaString);
+      } else {
+        const [year, month, day] = etaString.split('-').map(Number);
+        fechaLimite = new Date(year, month - 1, day);
+      }
+    } else {
+      fechaLimite = new Date(etaString);
+    }
+    
+    if (isNaN(fechaLimite.getTime())) return 'verde';
+    
+    // Sumar días libres
+    fechaLimite.setDate(fechaLimite.getDate() + (diasLibres || 0));
+  } catch (error) {
+    return 'verde';
+  }
   
-  if (dias === null) return 'verde';
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  fechaLimite.setHours(0, 0, 0, 0);
+  
+  const diffTime = fechaLimite - today;
+  const dias = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  
   if (dias < 0) return 'vencido';
   if (dias < 10) return 'rojo';
   if (dias <= 21) return 'amarillo';
@@ -66,8 +176,8 @@ export const calculateSemaforo = (etaString) => {
  * Calcula estatus para compatibilidad con código existente
  * Mapea semáforo a los estatus usados en el frontend original
  */
-export const calculateStatus = (etaString) => {
-  const semaforo = calculateSemaforo(etaString);
+export const calculateStatus = (etaString, diasLibres = 0) => {
+  const semaforo = calculateSemaforo(etaString, diasLibres);
   const map = {
     verde: 'ok',
     amarillo: 'warning',
@@ -81,7 +191,9 @@ export const calculateStatus = (etaString) => {
  * Formatea número como moneda
  */
 export const formatCurrency = (amount, currency = 'MXN') => {
-  if (amount === null || amount === undefined) return '$0.00';
+  if (amount === null || amount === undefined || isNaN(amount)) return '$0.00';
+  
+  const num = parseFloat(amount) || 0;
   
   const formatter = new Intl.NumberFormat('es-MX', {
     style: 'currency',
@@ -89,14 +201,14 @@ export const formatCurrency = (amount, currency = 'MXN') => {
     minimumFractionDigits: 2
   });
   
-  return formatter.format(amount);
+  return formatter.format(num);
 };
 
 /**
  * Formatea número con separadores de miles
  */
 export const formatNumber = (num) => {
-  if (num === null || num === undefined) return '0';
+  if (num === null || num === undefined || isNaN(num)) return '0';
   return new Intl.NumberFormat('es-MX').format(num);
 };
 
@@ -129,6 +241,30 @@ export const truncate = (text, maxLength = 50) => {
  */
 export const djangoDateToLocal = (djangoDate) => {
   if (!djangoDate) return null;
-  // Django envía YYYY-MM-DD, lo convertimos a Date local
-  return new Date(djangoDate + 'T00:00:00');
+  try {
+    // Django envía YYYY-MM-DD o ISO, lo convertimos a Date local
+    if (typeof djangoDate === 'string' && !djangoDate.includes('T')) {
+      return new Date(djangoDate + 'T00:00:00');
+    }
+    return new Date(djangoDate);
+  } catch (error) {
+    return null;
+  }
+};
+
+/**
+ * Obtiene valor seguro de un objeto (para compatibilidad backend/frontend)
+ */
+export const safeGet = (obj, path, defaultValue = '') => {
+  if (!obj) return defaultValue;
+  
+  const keys = path.split('.');
+  let result = obj;
+  
+  for (const key of keys) {
+    if (result === null || result === undefined) return defaultValue;
+    result = result[key];
+  }
+  
+  return result ?? defaultValue;
 };

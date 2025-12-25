@@ -32,7 +32,15 @@ const CaptureForm = ({ onSave, onCancel, role, userName }) => {
     eta: '',
     dias_libres: 7,
     divisa: 'MXN',
-    importe: 0,
+    // Desglose de costos
+    costo_demoras: 0,
+    costo_almacenaje: 0,
+    costo_operativos: 0,
+    costo_gastos_portuarios: 0,
+    costo_apoyo: 0,
+    costo_impuestos: 0,
+    costo_liberacion: 0,
+    costo_transporte: 0,
     observaciones: ''
   });
 
@@ -42,6 +50,16 @@ const CaptureForm = ({ onSave, onCancel, role, userName }) => {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
 
+  // Calcular importe total automáticamente
+  const importeTotal = 
+    (parseFloat(formData.costo_demoras) || 0) +
+    (parseFloat(formData.costo_almacenaje) || 0) +
+    (parseFloat(formData.costo_operativos) || 0) +
+    (parseFloat(formData.costo_gastos_portuarios) || 0) +
+    (parseFloat(formData.costo_apoyo) || 0) +
+    (parseFloat(formData.costo_impuestos) || 0) +
+    (parseFloat(formData.costo_liberacion) || 0) +
+    (parseFloat(formData.costo_transporte) || 0);
   // Obtener siguiente consecutivo del backend
   useEffect(() => {
     const fetchConsecutivo = async () => {
@@ -121,7 +139,17 @@ const CaptureForm = ({ onSave, onCancel, role, userName }) => {
         eta: formData.eta || null,
         dias_libres: parseInt(formData.dias_libres) || 7,
         divisa: formData.divisa,
-        importe: parseFloat(formData.importe) || 0,
+        // Importe total calculado
+        importe: importeTotal,
+        // Desglose de costos
+        costo_demoras: parseFloat(formData.costo_demoras) || 0,
+        costo_almacenaje: parseFloat(formData.costo_almacenaje) || 0,
+        costo_operativos: parseFloat(formData.costo_operativos) || 0,
+        costo_gastos_portuarios: parseFloat(formData.costo_gastos_portuarios) || 0,
+        costo_apoyo: parseFloat(formData.costo_apoyo) || 0,
+        costo_impuestos: parseFloat(formData.costo_impuestos) || 0,
+        costo_liberacion: parseFloat(formData.costo_liberacion) || 0,
+        costo_transporte: parseFloat(formData.costo_transporte) || 0,
         observaciones: formData.observaciones
       };
 
@@ -338,39 +366,58 @@ const CaptureForm = ({ onSave, onCancel, role, userName }) => {
             </div>
           </div>
 
-          {/* Sección: Importe */}
-          <div className="bg-emerald-50 p-5 rounded-xl border border-emerald-200">
-            <h3 className="text-xs font-bold text-emerald-800 uppercase mb-4">Importe del ticket</h3>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="md:col-span-2">
-                <label className="text-xs font-bold text-slate-600 mb-1 block">Importe *</label>
-                <div className="relative">
-                  <span className="absolute left-3 top-2 text-slate-400">$</span>
-                  <input
-                    required
-                    type="number"
-                    name="importe"
-                    value={formData.importe}
-                    onChange={handleChange}
-                    min="0"
-                    step="0.01"
-                    placeholder="0.00"
-                    className="w-full pl-8 p-2 border rounded text-lg font-bold outline-none focus:ring-2 focus:ring-emerald-500"
-                  />
+          {/* Sección: Desglose de costos */}
+          <div className="bg-slate-50 p-5 rounded-xl border border-slate-200">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-xs font-bold text-slate-600 uppercase">Desglose de costos</h3>
+              <select
+                name="divisa"
+                value={formData.divisa}
+                onChange={handleChange}
+                className="text-xs p-1 border rounded font-bold text-blue-600 bg-white"
+              >
+                <option value="MXN">MXN</option>
+                <option value="USD">USD</option>
+              </select>
+            </div>
+            
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              {[
+                { name: 'costo_demoras', label: 'Demoras' },
+                { name: 'costo_almacenaje', label: 'Almacenaje' },
+                { name: 'costo_operativos', label: 'Costos Operativos' },
+                { name: 'costo_gastos_portuarios', label: 'Gastos Portuarios' },
+                { name: 'costo_apoyo', label: 'Apoyo' },
+                { name: 'costo_impuestos', label: 'Impuestos' },
+                { name: 'costo_liberacion', label: 'Liberación' },
+                { name: 'costo_transporte', label: 'Transporte' }
+              ].map(field => (
+                <div key={field.name}>
+                  <label className="text-xs font-medium text-slate-500 mb-1 block">{field.label}</label>
+                  <div className="relative">
+                    <span className="absolute left-2 top-1.5 text-xs text-slate-400">$</span>
+                    <input
+                      type="number"
+                      name={field.name}
+                      value={formData[field.name] || ''}
+                      onChange={handleChange}
+                      min="0"
+                      step="0.01"
+                      placeholder="0.00"
+                      className="w-full pl-5 p-1.5 border rounded text-sm text-right outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                    />
+                  </div>
                 </div>
-              </div>
-              <div>
-                <label className="text-xs font-bold text-slate-600 mb-1 block">Divisa</label>
-                <select
-                  name="divisa"
-                  value={formData.divisa}
-                  onChange={handleChange}
-                  className="w-full p-2 border rounded text-sm font-bold text-blue-600 bg-white outline-none"
-                >
-                  <option value="MXN">MXN - Pesos</option>
-                  <option value="USD">USD - Dólares</option>
-                </select>
-              </div>
+              ))}
+            </div>
+
+            {/* Total calculado */}
+            <div className="mt-4 p-3 bg-emerald-100 rounded-lg border border-emerald-200 flex justify-between items-center">
+              <span className="text-sm font-bold text-emerald-800 uppercase">Total a registrar:</span>
+              <span className="text-xl font-bold text-emerald-800">
+                ${importeTotal.toLocaleString('es-MX', { minimumFractionDigits: 2 })} 
+                <span className="text-xs font-normal text-emerald-600 ml-1">{formData.divisa}</span>
+              </span>
             </div>
           </div>
 

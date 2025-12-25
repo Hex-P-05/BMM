@@ -1,67 +1,117 @@
-// src/api/axios.js
-import axios from 'axios';
+// src/context/AuthContext.jsx
+import React, { createContext, useContext, useState, useEffect } from 'react';
+import api from '../api/axios';
 
-const api = axios.create({
-  baseURL: '/api',
-  headers: {
-    'Content-Type': 'application/json',
-  },
-});
+const AuthContext = createContext(null);
 
-// Interceptor de request: Inyecta el token en cada petición
-api.interceptors.request.use(
-  (config) => {
-    const token = localStorage.getItem('access_token');
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-    return config;
-  },
-  (error) => Promise.reject(error)
-);
+export const AuthProvider = ({ children }) => {
+  const [user, setUser] = useState(null);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [loading, setLoading] = useState(true);
 
-// Interceptor de response: Maneja errores y refresh de token
-api.interceptors.response.use(
-  (response) => response,
-  async (error) => {
-    const originalRequest = error.config;
-
-    // Si el token expiró y no hemos intentado refresh
-    if (error.response?.status === 401 && !originalRequest._retry) {
-      originalRequest._retry = true;
-
-      const refreshToken = localStorage.getItem('refresh_token');
+  // Verificar si hay sesión activa al cargar la app
+  useEffect(() => {
+    const checkAuth = async () => {
+      const token = localStorage.getItem('access_token');
       
-      if (refreshToken) {
+      if (token) {
         try {
-          // Intentar refresh del token
-          const response = await axios.post('/api/auth/refresh/', {
-            refresh: refreshToken
-          });
-
-          const { access } = response.data;
-          localStorage.setItem('access_token', access);
-
-          // Reintentar la petición original con el nuevo token
-          originalRequest.headers.Authorization = `Bearer ${access}`;
-          return api(originalRequest);
-
-        } catch (refreshError) {
-          // Refresh falló, limpiar tokens y redirigir al login
+          const response = await api.get('/usuarios/me/');
+          setUser(response.data);
+          setIsLoggedIn(true);
+        } catch (error) {
+          // Token inválido, limpiar
           localStorage.removeItem('access_token');
           localStorage.removeItem('refresh_token');
-          window.location.href = '/';
-          return Promise.reject(refreshError);
         }
-      } else {
-        // No hay refresh token, redirigir al login
-        localStorage.removeItem('access_token');
-        window.location.href = '/';
       }
+      
+      setLoading(false);
+    };
+
+    checkAuth();
+  }, []);
+
+  const login = async (email, password) => {
+    try {
+      // 1. Obtener tokens
+      const authResponse = await api.post('/auth/login/', { 
+        email,    // ← El backend usa email como USERNAME_FIELD
+        password 
+      });
+
+      const { access, refresh } = authResponse.data;
+      localStorage.setItem('access_token', access);
+      localStorage.setItem('refresh_token', refresh);
+
+      // 2. Obtener datos del usuario
+      const userResponse = await api.get('/usuarios/me/');
+      setUser(userResponse.data);
+      setIsLoggedIn(true);
+
+      return { success: true };
+
+    } catch (error) {
+      console.error('Error en login:', error);
+      
+      let errorMessage = 'Error de conexión con el servidor.';
+      
+      if (error.response?.status === 401) {
+        errorMessage = 'Usuario o contraseña incorrectos.';
+      } else if (error.response?.status === 400) {
+        errorMessage = 'Por favor verifica tus datos.';
+      }
+      
+      return { success: false, error: errorMessage };
     }
+  };
 
-    return Promise.reject(error);
+  const logout = () => {
+    localStorage.removeItem('access_token');
+    localStorage.removeItem('refresh_token');
+    setUser(null);
+    setIsLoggedIn(false);
+  };
+
+  // Propiedades derivadas del rol
+  const role = user?.rol || null;
+  const userName = user?.nombre || '';
+  const isAdmin = role === 'admin';
+  const isEjecutivo = role === 'ejecutivo';
+  const isPagos = role === 'pagos';
+  const canCreateTickets = isAdmin || isEjecutivo;
+  const canRegisterPayments = isAdmin || isPagos;
+
+  const value = {
+    user,
+    isLoggedIn,
+    loading,
+    login,
+    logout,
+    // Datos del usuario
+    role,
+    userName,
+    // Permisos
+    isAdmin,
+    isEjecutivo,
+    isPagos,
+    canCreateTickets,
+    canRegisterPayments,
+  };
+
+  return (
+    <AuthContext.Provider value={value}>
+      {children}
+    </AuthContext.Provider>
+  );
+};
+
+export const useAuth = () => {
+  const context = useContext(AuthContext);
+  if (!context) {
+    throw new Error('useAuth debe usarse dentro de un AuthProvider');
   }
-);
+  return context;
+};
 
-export default api;
+export default AuthContext;

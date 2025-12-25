@@ -7,15 +7,20 @@ export const usePagos = () => {
   const [error, setError] = useState(null);
 
   // Registrar pago completo de un ticket
-  const registrarPago = useCallback(async (ticketId, pagoData) => {
+  // Backend usa: /api/pagos/registros/
+  const registrarPago = useCallback(async (ticketId, pagoData = {}) => {
     setLoading(true);
     setError(null);
 
     try {
-      const response = await api.post('/pagos/pagos/', {
+      // Asegurar que monto sea un número válido
+      const monto = parseFloat(pagoData.monto) || 0;
+      
+      const response = await api.post('/pagos/registros/', {
         ticket: ticketId,
-        monto: pagoData.monto,
+        monto: monto.toFixed(2),
         fecha_pago: pagoData.fecha_pago || new Date().toISOString().split('T')[0],
+        concepto_pago: pagoData.concepto_pago || '',
         referencia: pagoData.referencia || '',
         observaciones: pagoData.observaciones || ''
       });
@@ -24,7 +29,29 @@ export const usePagos = () => {
 
     } catch (err) {
       console.error('Error registrando pago:', err);
-      const errorMsg = err.response?.data?.error || 'Error al registrar el pago';
+      console.error('Response data:', err.response?.data);
+      
+      // Extraer mensaje de error del backend
+      let errorMsg = 'Error al registrar el pago';
+      if (err.response?.data) {
+        const data = err.response.data;
+        if (typeof data === 'string') {
+          errorMsg = data;
+        } else if (data.detail) {
+          errorMsg = data.detail;
+        } else if (data.error) {
+          errorMsg = data.error;
+        } else if (data.monto) {
+          errorMsg = `Monto: ${data.monto}`;
+        } else if (data.ticket) {
+          errorMsg = `Ticket: ${data.ticket}`;
+        } else if (data.non_field_errors) {
+          errorMsg = data.non_field_errors.join(', ');
+        } else {
+          errorMsg = JSON.stringify(data);
+        }
+      }
+      
       setError(errorMsg);
       return { success: false, error: errorMsg };
 
@@ -34,14 +61,17 @@ export const usePagos = () => {
   }, []);
 
   // Cerrar operación
-  const cerrarOperacion = useCallback(async (ticketId, cierreData) => {
+  const cerrarOperacion = useCallback(async (ticketId, cierreData = {}) => {
     setLoading(true);
     setError(null);
 
     try {
+      // Asegurar que monto_final sea un número válido
+      const montoFinal = parseFloat(cierreData.monto_final) || 0;
+      
       const response = await api.post('/pagos/cierres/', {
         ticket: ticketId,
-        monto_final: cierreData.monto_final,
+        monto_final: montoFinal.toFixed(2),
         desglose: cierreData.desglose || {},
         observaciones: cierreData.observaciones || ''
       });
@@ -50,7 +80,26 @@ export const usePagos = () => {
 
     } catch (err) {
       console.error('Error cerrando operación:', err);
-      const errorMsg = err.response?.data?.error || 'Error al cerrar la operación';
+      console.error('Response data:', err.response?.data);
+      
+      let errorMsg = 'Error al cerrar la operación';
+      if (err.response?.data) {
+        const data = err.response.data;
+        if (typeof data === 'string') {
+          errorMsg = data;
+        } else if (data.detail) {
+          errorMsg = data.detail;
+        } else if (data.error) {
+          errorMsg = data.error;
+        } else if (data.ticket) {
+          errorMsg = Array.isArray(data.ticket) ? data.ticket[0] : data.ticket;
+        } else if (data.non_field_errors) {
+          errorMsg = data.non_field_errors.join(', ');
+        } else {
+          errorMsg = JSON.stringify(data);
+        }
+      }
+      
       setError(errorMsg);
       return { success: false, error: errorMsg };
 
@@ -73,7 +122,7 @@ export const usePagos = () => {
   // Obtener historial de pagos de un ticket
   const getHistorialPagos = useCallback(async (ticketId) => {
     try {
-      const response = await api.get(`/pagos/pagos/?ticket=${ticketId}`);
+      const response = await api.get(`/pagos/registros/?ticket=${ticketId}`);
       return { success: true, data: response.data.results || response.data };
     } catch (err) {
       console.error('Error obteniendo historial:', err);
