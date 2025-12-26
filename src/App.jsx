@@ -31,7 +31,14 @@ import CloseModal from './modals/CloseModal';
 import RoleBadge from './components/RoleBadge';
 
 function AppContent() {
-  const { isLoggedIn, loading: authLoading, logout, role, userName } = useAuth();
+  const { 
+    isLoggedIn, 
+    loading: authLoading, 
+    logout, 
+    role, 
+    userName, 
+    canCreateTickets 
+  } = useAuth();
   
   // Hooks de datos
   const { 
@@ -143,9 +150,7 @@ function AppContent() {
 
     const result = await cerrarOperacion(itemToClose.id, {
       monto_final: itemToClose.importe,
-      desglose: {
-        // Aquí podrías incluir el desglose de costos si lo tienes
-      }
+      desglose: {}
     });
 
     if (result.success) {
@@ -159,8 +164,8 @@ function AppContent() {
   };
 
   // === NAV ITEM COMPONENT ===
-  const NavItem = ({ id, icon: Icon, label }) => {
-    if (role === 'pagos' && id === 'capture') return null;
+  const NavItem = ({ id, icon: Icon, label, visible = true }) => {
+    if (!visible) return null;
     return (
       <button 
         onClick={() => setActiveTab(id)} 
@@ -225,17 +230,13 @@ function AppContent() {
           )}
         </div>
 
-        {/* Navigation */}
+        {/* Navigation - Todos ven todo excepto Alta que solo admin y revalidaciones */}
         <nav className="flex-1 p-4 overflow-y-auto overflow-x-hidden">
           <NavItem id="dashboard" icon={LayoutDashboard} label="Visión general" />
           <NavItem id="list" icon={TableIcon} label="Sábana operativa" />
-          <NavItem id="capture" icon={Plus} label="Alta de contenedores" />
-          <NavItem id="closure" icon={ClipboardCheck} label="Cierre de cuenta" /> 
-          {(role === 'admin' || role === 'ejecutivo') && (
-            <div className={`mt-6 ${isSidebarCollapsed ? 'border-t border-slate-800 pt-6' : ''}`}>
-              <NavItem id="quotes" icon={Calculator} label="Cotizador" />
-            </div>
-          )}
+          <NavItem id="capture" icon={Plus} label="Alta de contenedores" visible={canCreateTickets} />
+          <NavItem id="closure" icon={ClipboardCheck} label="Cierre de cuenta" />
+          <NavItem id="quotes" icon={Calculator} label="Cotizador" />
         </nav>
 
         {/* User info */}
@@ -288,7 +289,7 @@ function AppContent() {
           {activeTab === 'dashboard' && (
             <DashboardView data={tickets} dashboard={dashboard} />
           )}
-          {activeTab === 'capture' && (
+          {activeTab === 'capture' && canCreateTickets && (
             <CaptureForm 
               onSave={handleSave} 
               onCancel={() => setActiveTab('dashboard')} 

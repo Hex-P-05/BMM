@@ -26,10 +26,16 @@ const ListView = ({ data = [], onPayItem, onPayAll, onCloseOperation, role, onEd
   });
 
   const isSimpleView = viewMode === 'simple';
-  // NOTA: El rol 'ejecutivo' se muestra como 'Revalidaciones' en la UI
-  const canPay = role === 'admin' || role === 'pagos' || role === 'ejecutivo';
-  const canEdit = role === 'admin' || role === 'ejecutivo';
-  const canClose = role === 'admin' || role === 'ejecutivo';
+  
+  // Permisos por rol:
+  // - admin: todo
+  // - pagos: pagar, cerrar
+  // - revalidaciones: editar solo fechas/ETA/días libres (se maneja en EditModal)
+  const canPay = role === 'admin' || role === 'pagos';
+  const canEditAll = role === 'admin';
+  const canEditDatesOnly = role === 'revalidaciones';
+  const canEdit = canEditAll || canEditDatesOnly;
+  const canClose = role === 'admin' || role === 'pagos';
   
   // Compatibilidad: backend usa 'estatus', frontend viejo usa 'status'
   const closedItems = filteredData.filter(item => 
@@ -158,47 +164,50 @@ const ListView = ({ data = [], onPayItem, onPayAll, onCloseOperation, role, onEd
             <div className="flex items-center bg-slate-100 p-1 rounded-lg border border-slate-200">
               <button 
                 onClick={() => setViewMode('full')} 
-                className={`px-3 py-1 rounded-md text-xs font-bold ${viewMode === 'full' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500'}`}
+                className={`px-3 py-1.5 text-xs font-bold rounded transition-colors ${viewMode === 'full' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-400'}`}
               >
                 Completa
               </button>
               <button 
                 onClick={() => setViewMode('simple')} 
-                className={`px-3 py-1 rounded-md text-xs font-bold ${viewMode === 'simple' ? 'bg-emerald-100 text-emerald-700 shadow-sm' : 'text-slate-500'}`}
+                className={`px-3 py-1.5 text-xs font-bold rounded transition-colors ${viewMode === 'simple' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-400'}`}
               >
-                Pagos
+                Simple
               </button>
             </div>
           )}
+        </div>
+        <div className="flex items-center gap-4">
+          <div className="relative">
+            <Search className="absolute left-3 top-2.5 text-slate-400" size={16} />
+            <input 
+              type="text" 
+              placeholder="Buscar por BL, contenedor, comentarios..." 
+              className="pl-9 pr-4 py-2 border border-slate-300 rounded-lg text-sm w-72 outline-none focus:ring-2 focus:ring-blue-500" 
+              value={searchTerm} 
+              onChange={(e) => setSearchTerm(e.target.value)} 
+            />
+          </div>
           {selectedIds.length > 0 && (
             <button 
               onClick={handleBulkDownload} 
-              className="flex items-center animate-fade-in px-4 py-2 bg-red-600 text-white rounded-lg shadow-md hover:bg-red-700 text-xs font-bold transition-all"
+              className="px-4 py-2 bg-red-600 text-white rounded-lg text-xs font-bold shadow hover:bg-red-700 flex items-center gap-2"
             >
-              <FileText size={16} className="mr-2"/> Descargar seleccionados ({selectedIds.length})
+              <FileText size={14} /> Descargar {selectedIds.length} PDF(s)
             </button>
           )}
         </div>
-        <div className="relative w-72">
-          <Search className="absolute left-3 top-2.5 text-slate-400" size={18} />
-          <input 
-            type="text" 
-            placeholder="Buscar..." 
-            className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg outline-none text-sm" 
-            onChange={(e) => setSearchTerm(e.target.value)} 
-          />
-        </div>
       </div>
 
-      <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden flex-1 relative">
-        <div className="overflow-auto h-[calc(100vh-200px)] w-full relative"> 
-          <table className="w-full text-left border-collapse min-w-[2000px]">
-            <thead className="sticky top-0 z-40 shadow-sm">
-              <tr className="bg-slate-50 border-b border-slate-200 text-xs font-bold text-slate-500 uppercase h-12">
-                <th className="p-4 w-10 bg-slate-50 border-r text-center">
+      <div className="flex-1 overflow-hidden bg-white rounded-xl border border-slate-200 shadow-sm">
+        <div className="h-full overflow-auto">
+          <table className="w-full text-sm">
+            <thead className="sticky top-0 z-10 bg-slate-50 border-b border-slate-200">
+              <tr className="text-left text-xs uppercase tracking-wide text-slate-500">
+                <th className="p-4 w-12 bg-slate-50 border-r">
                   <input 
                     type="checkbox" 
-                    className="w-4 h-4 rounded cursor-pointer accent-blue-600" 
+                    className="w-4 h-4 rounded accent-blue-600" 
                     onChange={handleSelectAll} 
                     checked={closedItems.length > 0 && selectedIds.length === closedItems.length} 
                     disabled={closedItems.length === 0} 

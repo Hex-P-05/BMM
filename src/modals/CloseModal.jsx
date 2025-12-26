@@ -11,15 +11,22 @@ const CloseModal = ({ isOpen, onClose, item }) => {
     onClose();
   };
 
-  // Helper para obtener valores con compatibilidad backend/frontend
+  // Helper para obtener valor de costo con compatibilidad backend/frontend
   const getCost = (backendKey, frontendKey) => {
     return parseFloat(item[backendKey] ?? item[frontendKey] ?? 0) || 0;
   };
 
+  // Helper para obtener importe total
   const getImporte = () => {
     return parseFloat(item.importe ?? item.amount ?? 0) || 0;
   };
 
+  // Helper para obtener divisa
+  const getDivisa = () => {
+    return item.divisa ?? item.currency ?? 'MXN';
+  };
+
+  // Lista de costos con compatibilidad de nombres
   const costList = [
     { l: 'Demoras', v: getCost('costo_demoras', 'costDemoras') },
     { l: 'Almacenaje', v: getCost('costo_almacenaje', 'costAlmacenaje') },
@@ -30,9 +37,6 @@ const CloseModal = ({ isOpen, onClose, item }) => {
     { l: 'Liberación', v: getCost('costo_liberacion', 'costLiberacion') },
     { l: 'Transporte', v: getCost('costo_transporte', 'costTransporte') }
   ].filter(c => c.v > 0);
-
-  const totalImporte = getImporte();
-  const divisa = item.divisa || item.currency || 'MXN';
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 animate-fade-in">
@@ -62,12 +66,12 @@ const CloseModal = ({ isOpen, onClose, item }) => {
                 </div>
               ))
             ) : (
-              <p className="text-center text-slate-400 text-sm py-4">Sin desglose de costos</p>
+              <p className="text-center text-slate-400 text-sm mb-4">Sin desglose de costos</p>
             )}
             
             <div className="mt-4 p-3 bg-slate-100 rounded flex justify-between items-center font-bold text-slate-800 border border-slate-200">
               <span>TOTAL FINAL</span>
-              <span>${totalImporte.toLocaleString()} {divisa}</span>
+              <span>${getImporte().toLocaleString()} {getDivisa()}</span>
             </div>
           </div>
         </div>

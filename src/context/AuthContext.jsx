@@ -34,9 +34,8 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (email, password) => {
     try {
-      // 1. Obtener tokens
       const authResponse = await api.post('/auth/login/', { 
-        email,    // ← El backend usa email como USERNAME_FIELD
+        email,
         password 
       });
 
@@ -44,7 +43,6 @@ export const AuthProvider = ({ children }) => {
       localStorage.setItem('access_token', access);
       localStorage.setItem('refresh_token', refresh);
 
-      // 2. Obtener datos del usuario
       const userResponse = await api.get('/usuarios/me/');
       setUser(userResponse.data);
       setIsLoggedIn(true);
@@ -74,20 +72,26 @@ export const AuthProvider = ({ children }) => {
   };
 
   // Propiedades derivadas del rol
+  // Solo hay 3 roles: admin, revalidaciones, pagos
   const role = user?.rol || null;
   const userName = user?.nombre || '';
   const isAdmin = role === 'admin';
-  const isEjecutivo = role === 'ejecutivo';
+  const isRevalidaciones = role === 'revalidaciones';
   const isPagos = role === 'pagos';
-  // NOTA: El rol 'ejecutivo' en el backend se muestra como 'Revalidaciones' en la UI
-  // isRevalidaciones es un alias de isEjecutivo para compatibilidad
-  const isRevalidaciones = isEjecutivo;
 
-  // Permisos: Ejecutivo/Revalidaciones puede crear y editar contenedores
-  const canCreateTickets = isAdmin || isEjecutivo;
-  const canRegisterPayments = isAdmin || isPagos || isEjecutivo;
-  const canCloseOperations = isAdmin || isEjecutivo;
-  const canEditTickets = isAdmin || isEjecutivo;
+  // Permisos:
+  // - Alta contenedores: admin, revalidaciones
+  // - Editar todo en sábana: solo admin
+  // - Editar solo fechas/ETA/días libres: revalidaciones
+  // - Pagar: admin, pagos
+  // - Cerrar en sábana: admin, pagos
+  // - Cotizador y Cierre de cuenta: todos
+  
+  const canCreateTickets = isAdmin || isRevalidaciones;
+  const canEditAll = isAdmin;
+  const canEditDatesOnly = isRevalidaciones;
+  const canRegisterPayments = isAdmin || isPagos;
+  const canCloseOperations = isAdmin || isPagos;
 
   const value = {
     user,
@@ -98,15 +102,16 @@ export const AuthProvider = ({ children }) => {
     // Datos del usuario
     role,
     userName,
-    // Permisos
+    // Roles
     isAdmin,
-    isEjecutivo,
-    isPagos,
     isRevalidaciones,
+    isPagos,
+    // Permisos
     canCreateTickets,
+    canEditAll,
+    canEditDatesOnly,
     canRegisterPayments,
     canCloseOperations,
-    canEditTickets,
   };
 
   return (
