@@ -88,7 +88,7 @@ function AppContent() {
       setActiveTab('list');
       refreshTickets();
     } else {
-      alert('Error al crear el ticket: ' + JSON.stringify(result.error));
+      alert('Error al crear el contenedor: ' + JSON.stringify(result.error));
     }
   };
 

@@ -26,9 +26,10 @@ const ListView = ({ data = [], onPayItem, onPayAll, onCloseOperation, role, onEd
   });
 
   const isSimpleView = viewMode === 'simple';
-  const canPay = role === 'admin' || role === 'pagos' || role === 'revalidaciones';
-  const canEdit = role === 'admin' || role === 'ejecutivo' || role === 'revalidaciones';
-  const canClose = role === 'admin' || role === 'ejecutivo' || role === 'revalidaciones';
+  // NOTA: El rol 'ejecutivo' se muestra como 'Revalidaciones' en la UI
+  const canPay = role === 'admin' || role === 'pagos' || role === 'ejecutivo';
+  const canEdit = role === 'admin' || role === 'ejecutivo';
+  const canClose = role === 'admin' || role === 'ejecutivo';
   
   // Compatibilidad: backend usa 'estatus', frontend viejo usa 'status'
   const closedItems = filteredData.filter(item => 
@@ -359,8 +360,8 @@ const ListView = ({ data = [], onPayItem, onPayAll, onCloseOperation, role, onEd
           {filteredData.length === 0 && (
             <div className="flex flex-col items-center justify-center py-12 text-slate-400">
               <Search size={48} className="mb-4 opacity-50" />
-              <p className="text-lg font-medium">No hay tickets para mostrar</p>
-              <p className="text-sm">Crea un nuevo ticket desde "Alta de contenedores"</p>
+              <p className="text-lg font-medium">No hay contenedores para mostrar</p>
+              <p className="text-sm">Crea un nuevo contenedor desde "Alta de contenedores"</p>
             </div>
           )}
         </div>

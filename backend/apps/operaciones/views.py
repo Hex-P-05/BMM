@@ -75,7 +75,7 @@ class TicketViewSet(viewsets.ModelViewSet):
         # Verificar permiso de crear
         if not user.puede_crear_tickets:
             from rest_framework.exceptions import PermissionDenied
-            raise PermissionDenied('No tienes permiso para crear tickets')
+            raise PermissionDenied('No tienes permiso para crear contenedores')
         
         ticket = serializer.save(ejecutivo=user)
         
@@ -131,7 +131,7 @@ class TicketViewSet(viewsets.ModelViewSet):
         # Verificar permisos
         if user.es_pagos:
             return Response(
-                {'error': 'No tienes permiso para editar tickets'},
+                {'error': 'No tienes permiso para editar contenedores'},
                 status=status.HTTP_403_FORBIDDEN
             )
         

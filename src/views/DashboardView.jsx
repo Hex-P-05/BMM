@@ -108,7 +108,7 @@ const DashboardView = ({ data = [], dashboard, loading, onRefresh }) => {
                   <Tooltip 
                     formatter={(value, name) => [
                       name === 'cantidad' ? value : formatCurrency(value),
-                      name === 'cantidad' ? 'Tickets' : 'Monto'
+                      name === 'cantidad' ? 'Contenedores' : 'Monto'
                     ]}
                   />
                   <Bar dataKey="cantidad" fill={COLORS.primary} radius={[0, 4, 4, 0]} />
@@ -147,7 +147,7 @@ const DashboardView = ({ data = [], dashboard, loading, onRefresh }) => {
                       <Cell key={`cell-${index}`} fill={entry.color} />
                     ))}
                   </Pie>
-                  <Tooltip formatter={(value) => [value, 'Tickets']} />
+                  <Tooltip formatter={(value) => [value, 'Contenedores']} />
                   <Legend
                     verticalAlign="bottom"
                     align="center"
@@ -200,7 +200,7 @@ const DashboardView = ({ data = [], dashboard, loading, onRefresh }) => {
       {/* Tickets recientes */}
       {data.length > 0 && (
         <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
-          <h3 className="text-lg font-bold text-slate-800 mb-4">Últimos Tickets</h3>
+          <h3 className="text-lg font-bold text-slate-800 mb-4">Últimos Contenedores</h3>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>

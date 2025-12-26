@@ -44,7 +44,7 @@ export const usePagos = () => {
         } else if (data.monto) {
           errorMsg = `Monto: ${data.monto}`;
         } else if (data.ticket) {
-          errorMsg = `Ticket: ${data.ticket}`;
+          errorMsg = `Contenedor: ${data.ticket}`;
         } else if (data.non_field_errors) {
           errorMsg = data.non_field_errors.join(', ');
         } else {

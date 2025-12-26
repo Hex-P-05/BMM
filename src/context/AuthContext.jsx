@@ -79,11 +79,15 @@ export const AuthProvider = ({ children }) => {
   const isAdmin = role === 'admin';
   const isEjecutivo = role === 'ejecutivo';
   const isPagos = role === 'pagos';
-  const isRevalidaciones = role === 'revalidaciones';
+  // NOTA: El rol 'ejecutivo' en el backend se muestra como 'Revalidaciones' en la UI
+  // isRevalidaciones es un alias de isEjecutivo para compatibilidad
+  const isRevalidaciones = isEjecutivo;
+
+  // Permisos: Ejecutivo/Revalidaciones puede crear y editar contenedores
   const canCreateTickets = isAdmin || isEjecutivo;
-  const canRegisterPayments = isAdmin || isPagos || isRevalidaciones;
-  const canCloseOperations = isAdmin || isEjecutivo || isRevalidaciones;
-  const canEditTickets = isAdmin || isEjecutivo || isRevalidaciones;
+  const canRegisterPayments = isAdmin || isPagos || isEjecutivo;
+  const canCloseOperations = isAdmin || isEjecutivo;
+  const canEditTickets = isAdmin || isEjecutivo;
 
   const value = {
     user,
