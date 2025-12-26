@@ -26,8 +26,9 @@ const ListView = ({ data = [], onPayItem, onPayAll, onCloseOperation, role, onEd
   });
 
   const isSimpleView = viewMode === 'simple';
-  const canPay = role === 'admin' || role === 'pagos';
-  const canEdit = role === 'admin' || role === 'ejecutivo';
+  const canPay = role === 'admin' || role === 'pagos' || role === 'revalidaciones';
+  const canEdit = role === 'admin' || role === 'ejecutivo' || role === 'revalidaciones';
+  const canClose = role === 'admin' || role === 'ejecutivo' || role === 'revalidaciones';
   
   // Compatibilidad: backend usa 'estatus', frontend viejo usa 'status'
   const closedItems = filteredData.filter(item => 
@@ -335,7 +336,7 @@ const ListView = ({ data = [], onPayItem, onPayAll, onCloseOperation, role, onEd
                                 <span className="px-4 py-2 bg-slate-100 text-slate-400 font-bold rounded shadow-inner text-xs flex items-center border border-slate-200 cursor-not-allowed">
                                   <Lock size={12} className="mr-2"/> Operación cerrada
                                 </span>
-                              ) : (
+                              ) : canClose && (
                                 <button 
                                   onClick={() => onCloseOperation && onCloseOperation(item)} 
                                   className="px-4 py-2 bg-slate-800 text-white font-bold rounded shadow hover:bg-slate-900 text-xs flex items-center"

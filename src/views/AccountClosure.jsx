@@ -1,30 +1,31 @@
 // src/views/AccountClosure.jsx
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import jsPDF from 'jspdf';
-import { ClipboardCheck, Search, X, Download, Calculator, FileText, Loader2 } from 'lucide-react';
-import { formatDate, formatCurrency } from '../utils/helpers';
+import { ClipboardCheck, Search, X, FileText, Loader2, Calculator, DollarSign } from 'lucide-react';
+import { formatCurrency } from '../utils/helpers';
 
 const AccountClosure = ({ data = [] }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedItem, setSelectedItem] = useState(null);
   const [showDropdown, setShowDropdown] = useState(false);
   const [generating, setGenerating] = useState(false);
+  const [divisa, setDivisa] = useState('MXN');
   
   // Hoja de cálculo para el cierre
   const [spreadsheet, setSpreadsheet] = useState({
     // Conceptos del cliente
-    venta: 0,
-    almacenajes: 0,
-    transporte: 0,
-    demoras: 0,
-    estadias: 0,
-    maniobras: 0,
-    honorarios: 0,
-    otros: 0,
+    venta: '',
+    almacenajes: '',
+    transporte: '',
+    demoras: '',
+    estadias: '',
+    maniobras: '',
+    honorarios: '',
+    otros: '',
     // Anticipos recibidos
-    anticipo1: 0,
-    anticipo2: 0,
-    anticipo3: 0
+    anticipo1: '',
+    anticipo2: '',
+    anticipo3: ''
   });
 
   // Filtrar opciones de búsqueda
@@ -43,20 +44,21 @@ const AccountClosure = ({ data = [] }) => {
     setSelectedItem(item);
     setSearchTerm(`${item.bl_master || item.bl} - ${item.contenedor}`);
     setShowDropdown(false);
+    setDivisa(item.divisa || 'MXN');
     
     // Pre-cargar datos del ticket si existen
     setSpreadsheet({
-      venta: 0,
-      almacenajes: parseFloat(item.costo_almacenaje) || 0,
-      transporte: parseFloat(item.costo_transporte) || 0,
-      demoras: parseFloat(item.costo_demoras) || 0,
-      estadias: 0,
-      maniobras: parseFloat(item.costo_operativos) || 0,
-      honorarios: 0,
-      otros: parseFloat(item.costo_apoyo) || 0,
-      anticipo1: 0,
-      anticipo2: 0,
-      anticipo3: 0
+      venta: '',
+      almacenajes: parseFloat(item.costo_almacenaje) || '',
+      transporte: parseFloat(item.costo_transporte) || '',
+      demoras: parseFloat(item.costo_demoras) || '',
+      estadias: '',
+      maniobras: parseFloat(item.costo_operativos) || '',
+      honorarios: '',
+      otros: parseFloat(item.costo_apoyo) || '',
+      anticipo1: '',
+      anticipo2: '',
+      anticipo3: ''
     });
   };
 
@@ -65,24 +67,27 @@ const AccountClosure = ({ data = [] }) => {
     setSelectedItem(null);
     setSearchTerm('');
     setSpreadsheet({
-      venta: 0, almacenajes: 0, transporte: 0, demoras: 0,
-      estadias: 0, maniobras: 0, honorarios: 0, otros: 0,
-      anticipo1: 0, anticipo2: 0, anticipo3: 0
+      venta: '', almacenajes: '', transporte: '', demoras: '',
+      estadias: '', maniobras: '', honorarios: '', otros: '',
+      anticipo1: '', anticipo2: '', anticipo3: ''
     });
   };
 
-  // Manejar cambios en la hoja de cálculo
-  const handleCalcChange = (e) => {
+  // Manejar cambios en la hoja de cálculo - useCallback para evitar re-renders
+  const handleCalcChange = useCallback((e) => {
     const { name, value } = e.target;
-    setSpreadsheet({ ...spreadsheet, [name]: parseFloat(value) || 0 });
-  };
+    setSpreadsheet(prev => ({ ...prev, [name]: value }));
+  }, []);
 
-  // Cálculos
-  const totalCliente = spreadsheet.venta + spreadsheet.almacenajes + spreadsheet.transporte +
-    spreadsheet.demoras + spreadsheet.estadias + spreadsheet.maniobras +
-    spreadsheet.honorarios + spreadsheet.otros;
+  // Cálculos - convertir strings a números para sumar
+  const getNum = (val) => parseFloat(val) || 0;
+  
+  const totalCliente = 
+    getNum(spreadsheet.venta) + getNum(spreadsheet.almacenajes) + getNum(spreadsheet.transporte) +
+    getNum(spreadsheet.demoras) + getNum(spreadsheet.estadias) + getNum(spreadsheet.maniobras) +
+    getNum(spreadsheet.honorarios) + getNum(spreadsheet.otros);
 
-  const totalAnticipo = spreadsheet.anticipo1 + spreadsheet.anticipo2 + spreadsheet.anticipo3;
+  const totalAnticipo = getNum(spreadsheet.anticipo1) + getNum(spreadsheet.anticipo2) + getNum(spreadsheet.anticipo3);
   const diferencia = totalCliente - totalAnticipo;
   const esSaldoAFavor = diferencia < 0;
 
@@ -127,11 +132,12 @@ const AccountClosure = ({ data = [] }) => {
         doc.setFont('helvetica', 'bold');
         doc.text(label, margin, y);
         doc.setFont('helvetica', 'normal');
-        doc.text(value || '-', margin + 50, y);
+        doc.text(String(value || '-'), margin + 50, y);
         y += 7;
       };
 
-      drawInfoRow('Empresa:', selectedItem.empresa?.nombre || selectedItem.empresa || '');
+      const empresaNombre = selectedItem.empresa_nombre || selectedItem.empresa?.nombre || selectedItem.empresa || '';
+      drawInfoRow('Empresa:', empresaNombre);
       drawInfoRow('BL Master:', selectedItem.bl_master || selectedItem.bl || '');
       drawInfoRow('Contenedor:', selectedItem.contenedor || '');
       drawInfoRow('Referencia:', selectedItem.comentarios || '');
@@ -151,14 +157,14 @@ const AccountClosure = ({ data = [] }) => {
 
       y += 10;
       const conceptos = [
-        { label: 'Venta / Mercancía', value: spreadsheet.venta },
-        { label: 'Almacenajes', value: spreadsheet.almacenajes },
-        { label: 'Transporte', value: spreadsheet.transporte },
-        { label: 'Demoras', value: spreadsheet.demoras },
-        { label: 'Estadías', value: spreadsheet.estadias },
-        { label: 'Maniobras / Operativos', value: spreadsheet.maniobras },
-        { label: 'Honorarios', value: spreadsheet.honorarios },
-        { label: 'Otros gastos', value: spreadsheet.otros }
+        { label: 'Venta / Mercancía', value: getNum(spreadsheet.venta) },
+        { label: 'Almacenajes', value: getNum(spreadsheet.almacenajes) },
+        { label: 'Transporte', value: getNum(spreadsheet.transporte) },
+        { label: 'Demoras', value: getNum(spreadsheet.demoras) },
+        { label: 'Estadías', value: getNum(spreadsheet.estadias) },
+        { label: 'Maniobras / Operativos', value: getNum(spreadsheet.maniobras) },
+        { label: 'Honorarios', value: getNum(spreadsheet.honorarios) },
+        { label: 'Otros gastos', value: getNum(spreadsheet.otros) }
       ];
 
       doc.setFont('helvetica', 'normal');
@@ -177,7 +183,7 @@ const AccountClosure = ({ data = [] }) => {
       y += 8;
       doc.setFont('helvetica', 'bold');
       doc.text('TOTAL CLIENTE:', margin + 5, y);
-      doc.text(`$${totalCliente.toLocaleString('es-MX', { minimumFractionDigits: 2 })}`, 170, y, { align: 'right' });
+      doc.text(`$${totalCliente.toLocaleString('es-MX', { minimumFractionDigits: 2 })} ${divisa}`, 170, y, { align: 'right' });
 
       // Anticipos
       y += 15;
@@ -193,21 +199,19 @@ const AccountClosure = ({ data = [] }) => {
 
       y += 10;
       doc.setFont('helvetica', 'normal');
-      if (spreadsheet.anticipo1 > 0) {
-        doc.text('Anticipo 1', margin + 5, y);
-        doc.text(`$${spreadsheet.anticipo1.toLocaleString('es-MX', { minimumFractionDigits: 2 })}`, 170, y, { align: 'right' });
-        y += 6;
-      }
-      if (spreadsheet.anticipo2 > 0) {
-        doc.text('Anticipo 2', margin + 5, y);
-        doc.text(`$${spreadsheet.anticipo2.toLocaleString('es-MX', { minimumFractionDigits: 2 })}`, 170, y, { align: 'right' });
-        y += 6;
-      }
-      if (spreadsheet.anticipo3 > 0) {
-        doc.text('Anticipo 3', margin + 5, y);
-        doc.text(`$${spreadsheet.anticipo3.toLocaleString('es-MX', { minimumFractionDigits: 2 })}`, 170, y, { align: 'right' });
-        y += 6;
-      }
+      const anticipos = [
+        { label: 'Anticipo 1', value: getNum(spreadsheet.anticipo1) },
+        { label: 'Anticipo 2', value: getNum(spreadsheet.anticipo2) },
+        { label: 'Anticipo 3', value: getNum(spreadsheet.anticipo3) }
+      ];
+      
+      anticipos.forEach(a => {
+        if (a.value > 0) {
+          doc.text(a.label, margin + 5, y);
+          doc.text(`$${a.value.toLocaleString('es-MX', { minimumFractionDigits: 2 })}`, 170, y, { align: 'right' });
+          y += 6;
+        }
+      });
 
       // Total anticipos
       y += 5;
@@ -215,24 +219,24 @@ const AccountClosure = ({ data = [] }) => {
       y += 8;
       doc.setFont('helvetica', 'bold');
       doc.text('TOTAL ANTICIPOS:', margin + 5, y);
-      doc.text(`$${totalAnticipo.toLocaleString('es-MX', { minimumFractionDigits: 2 })}`, 170, y, { align: 'right' });
+      doc.text(`$${totalAnticipo.toLocaleString('es-MX', { minimumFractionDigits: 2 })} ${divisa}`, 170, y, { align: 'right' });
 
       // Saldo final
       y += 15;
       if (esSaldoAFavor) {
-        doc.setFillColor(220, 252, 231); // Verde claro
+        doc.setFillColor(220, 252, 231);
       } else {
-        doc.setFillColor(254, 226, 226); // Rojo claro
+        doc.setFillColor(254, 226, 226);
       }
       doc.rect(margin, y, 170, 15, 'F');
       doc.setFontSize(14);
       if (esSaldoAFavor) {
-        doc.setTextColor(22, 163, 74); // Verde
+        doc.setTextColor(22, 163, 74);
       } else {
-        doc.setTextColor(220, 38, 38); // Rojo
+        doc.setTextColor(220, 38, 38);
       }
       doc.text(esSaldoAFavor ? 'SALDO A FAVOR:' : 'SALDO PENDIENTE:', margin + 5, y + 10);
-      doc.text(`$${Math.abs(diferencia).toLocaleString('es-MX', { minimumFractionDigits: 2 })}`, 170, y + 10, { align: 'right' });
+      doc.text(`$${Math.abs(diferencia).toLocaleString('es-MX', { minimumFractionDigits: 2 })} ${divisa}`, 170, y + 10, { align: 'right' });
 
       // Footer
       doc.setTextColor(150, 150, 150);
@@ -248,23 +252,10 @@ const AccountClosure = ({ data = [] }) => {
     }
   };
 
-  // Input de moneda reutilizable
-  const CurrencyInput = ({ name, value, label }) => (
-    <div>
-      <label className="text-xs font-medium text-slate-600 mb-1 block">{label}</label>
-      <div className="relative">
-        <span className="absolute left-3 top-2 text-slate-400 text-sm">$</span>
-        <input
-          type="number"
-          name={name}
-          value={value || ''}
-          onChange={handleCalcChange}
-          placeholder="0.00"
-          className="w-full pl-7 pr-3 py-2 border border-slate-300 rounded-lg text-right font-mono outline-none focus:ring-2 focus:ring-blue-500"
-        />
-      </div>
-    </div>
-  );
+  // Obtener nombre de empresa
+  const getEmpresaNombre = (item) => {
+    return item.empresa_nombre || item.empresa?.nombre || item.empresa || '';
+  };
 
   return (
     <div className="max-w-5xl mx-auto animate-fade-in space-y-6 pb-12">
@@ -316,7 +307,7 @@ const AccountClosure = ({ data = [] }) => {
                   >
                     <div className="font-bold text-slate-700">{item.bl_master || item.bl}</div>
                     <div className="text-xs text-slate-500">
-                      {item.empresa?.nombre || item.empresa} - {item.contenedor}
+                      {getEmpresaNombre(item)} - {item.contenedor}
                     </div>
                     <div className="text-xs text-blue-600 font-mono mt-1">{item.comentarios}</div>
                   </div>
@@ -339,7 +330,7 @@ const AccountClosure = ({ data = [] }) => {
             <div className="flex justify-between items-start">
               <div>
                 <h3 className="text-lg font-bold">{selectedItem.contenedor}</h3>
-                <p className="text-slate-300 text-sm">{selectedItem.empresa?.nombre || selectedItem.empresa}</p>
+                <p className="text-slate-300 text-sm">{getEmpresaNombre(selectedItem)}</p>
               </div>
               <div className="text-right">
                 <p className="text-xs text-slate-400">BL Master</p>
@@ -353,6 +344,21 @@ const AccountClosure = ({ data = [] }) => {
 
           {/* Cuerpo de la hoja de cálculo */}
           <div className="p-6 space-y-6">
+            {/* Selector de divisa */}
+            <div className="flex justify-end">
+              <div className="flex items-center gap-2">
+                <label className="text-xs font-bold text-slate-500">Divisa:</label>
+                <select
+                  value={divisa}
+                  onChange={(e) => setDivisa(e.target.value)}
+                  className="p-2 border border-slate-300 rounded-lg text-sm font-bold text-blue-600 bg-white outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="MXN">MXN - Pesos</option>
+                  <option value="USD">USD - Dólares</option>
+                </select>
+              </div>
+            </div>
+
             {/* Sección: Cobros al cliente */}
             <div>
               <h4 className="text-sm font-bold text-slate-700 uppercase mb-3 flex items-center">
@@ -360,18 +366,37 @@ const AccountClosure = ({ data = [] }) => {
                 Cobros al Cliente
               </h4>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <CurrencyInput name="venta" value={spreadsheet.venta} label="Venta / Mercancía" />
-                <CurrencyInput name="almacenajes" value={spreadsheet.almacenajes} label="Almacenajes" />
-                <CurrencyInput name="transporte" value={spreadsheet.transporte} label="Transporte" />
-                <CurrencyInput name="demoras" value={spreadsheet.demoras} label="Demoras" />
-                <CurrencyInput name="estadias" value={spreadsheet.estadias} label="Estadías" />
-                <CurrencyInput name="maniobras" value={spreadsheet.maniobras} label="Maniobras" />
-                <CurrencyInput name="honorarios" value={spreadsheet.honorarios} label="Honorarios" />
-                <CurrencyInput name="otros" value={spreadsheet.otros} label="Otros" />
+                {[
+                  { name: 'venta', label: 'Venta / Mercancía' },
+                  { name: 'almacenajes', label: 'Almacenajes' },
+                  { name: 'transporte', label: 'Transporte' },
+                  { name: 'demoras', label: 'Demoras' },
+                  { name: 'estadias', label: 'Estadías' },
+                  { name: 'maniobras', label: 'Maniobras' },
+                  { name: 'honorarios', label: 'Honorarios' },
+                  { name: 'otros', label: 'Otros' }
+                ].map(field => (
+                  <div key={field.name}>
+                    <label className="text-xs font-medium text-slate-600 mb-1 block">{field.label}</label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-2 text-slate-400 text-sm">$</span>
+                      <input
+                        type="number"
+                        name={field.name}
+                        value={spreadsheet[field.name]}
+                        onChange={handleCalcChange}
+                        placeholder="0.00"
+                        step="0.01"
+                        min="0"
+                        className="w-full pl-7 pr-3 py-2 border border-slate-300 rounded-lg text-right font-mono outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      />
+                    </div>
+                  </div>
+                ))}
               </div>
               <div className="mt-4 p-3 bg-blue-50 rounded-lg flex justify-between items-center">
                 <span className="font-bold text-blue-800">Total Cliente:</span>
-                <span className="text-xl font-bold text-blue-800">{formatCurrency(totalCliente)}</span>
+                <span className="text-xl font-bold text-blue-800">{formatCurrency(totalCliente, divisa)}</span>
               </div>
             </div>
 
@@ -382,13 +407,32 @@ const AccountClosure = ({ data = [] }) => {
                 Anticipos Recibidos
               </h4>
               <div className="grid grid-cols-3 gap-4">
-                <CurrencyInput name="anticipo1" value={spreadsheet.anticipo1} label="Anticipo 1" />
-                <CurrencyInput name="anticipo2" value={spreadsheet.anticipo2} label="Anticipo 2" />
-                <CurrencyInput name="anticipo3" value={spreadsheet.anticipo3} label="Anticipo 3" />
+                {[
+                  { name: 'anticipo1', label: 'Anticipo 1' },
+                  { name: 'anticipo2', label: 'Anticipo 2' },
+                  { name: 'anticipo3', label: 'Anticipo 3' }
+                ].map(field => (
+                  <div key={field.name}>
+                    <label className="text-xs font-medium text-slate-600 mb-1 block">{field.label}</label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-2 text-slate-400 text-sm">$</span>
+                      <input
+                        type="number"
+                        name={field.name}
+                        value={spreadsheet[field.name]}
+                        onChange={handleCalcChange}
+                        placeholder="0.00"
+                        step="0.01"
+                        min="0"
+                        className="w-full pl-7 pr-3 py-2 border border-slate-300 rounded-lg text-right font-mono outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                      />
+                    </div>
+                  </div>
+                ))}
               </div>
               <div className="mt-4 p-3 bg-green-50 rounded-lg flex justify-between items-center">
                 <span className="font-bold text-green-800">Total Anticipos:</span>
-                <span className="text-xl font-bold text-green-800">{formatCurrency(totalAnticipo)}</span>
+                <span className="text-xl font-bold text-green-800">{formatCurrency(totalAnticipo, divisa)}</span>
               </div>
             </div>
 
@@ -404,7 +448,7 @@ const AccountClosure = ({ data = [] }) => {
                   </p>
                 </div>
                 <span className={`text-3xl font-bold ${esSaldoAFavor ? 'text-green-700' : 'text-red-700'}`}>
-                  {formatCurrency(Math.abs(diferencia))}
+                  {formatCurrency(Math.abs(diferencia), divisa)}
                 </span>
               </div>
             </div>
@@ -452,24 +496,5 @@ const AccountClosure = ({ data = [] }) => {
     </div>
   );
 };
-
-// Componente auxiliar para el ícono de dólar
-const DollarSign = ({ size, className }) => (
-  <svg
-    xmlns="http://www.w3.org/2000/svg"
-    width={size}
-    height={size}
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    className={className}
-  >
-    <line x1="12" y1="1" x2="12" y2="23"></line>
-    <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
-  </svg>
-);
 
 export default AccountClosure;

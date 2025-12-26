@@ -79,8 +79,11 @@ export const AuthProvider = ({ children }) => {
   const isAdmin = role === 'admin';
   const isEjecutivo = role === 'ejecutivo';
   const isPagos = role === 'pagos';
+  const isRevalidaciones = role === 'revalidaciones';
   const canCreateTickets = isAdmin || isEjecutivo;
-  const canRegisterPayments = isAdmin || isPagos;
+  const canRegisterPayments = isAdmin || isPagos || isRevalidaciones;
+  const canCloseOperations = isAdmin || isEjecutivo || isRevalidaciones;
+  const canEditTickets = isAdmin || isEjecutivo || isRevalidaciones;
 
   const value = {
     user,
@@ -95,8 +98,11 @@ export const AuthProvider = ({ children }) => {
     isAdmin,
     isEjecutivo,
     isPagos,
+    isRevalidaciones,
     canCreateTickets,
     canRegisterPayments,
+    canCloseOperations,
+    canEditTickets,
   };
 
   return (

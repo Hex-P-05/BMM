@@ -1,0 +1,25 @@
+# Dockerfile.frontend - Para el frontend React
+FROM node:20-alpine
+
+WORKDIR /app
+
+# Copiar archivos de dependencias
+COPY package*.json ./
+
+# Instalar dependencias
+RUN npm install
+
+# Copiar archivos de configuración
+COPY vite.config.js ./
+COPY tailwind.config.js ./
+COPY postcss.config.js ./
+COPY index.html ./
+
+# Copiar código fuente
+COPY src ./src
+
+# Exponer puerto
+EXPOSE 5173
+
+# Comando para desarrollo (--host para acceso externo al container)
+CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0"]
