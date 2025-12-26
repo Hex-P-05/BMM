@@ -11,7 +11,7 @@ const CaptureForm = ({ onSave, onCancel, role, userName }) => {
       <div className="p-10 text-center">
         <AlertCircle size={48} className="text-red-500 mx-auto mb-4" />
         <p className="text-red-500 font-bold">Acceso denegado</p>
-        <p className="text-slate-500 text-sm mt-2">No tienes permisos para crear tickets.</p>
+        <p className="text-slate-500 text-sm mt-2">No tienes permisos para crear contenedores.</p>
       </div>
     );
   }
@@ -157,7 +157,7 @@ const CaptureForm = ({ onSave, onCancel, role, userName }) => {
 
     } catch (err) {
       console.error('Error al guardar:', err);
-      setError(err.response?.data?.detail || 'Error al crear el ticket');
+      setError(err.response?.data?.detail || 'Error al crear el contenedor');
     } finally {
       setSubmitting(false);
     }

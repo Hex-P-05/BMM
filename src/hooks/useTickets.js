@@ -24,7 +24,7 @@ export const useTickets = () => {
       
     } catch (err) {
       console.error('Error fetching tickets:', err);
-      setError('Error al cargar los tickets');
+      setError('Error al cargar los contenedores');
     } finally {
       setLoading(false);
     }
@@ -50,7 +50,7 @@ export const useTickets = () => {
       console.error('Error creating ticket:', err);
       return { 
         success: false, 
-        error: err.response?.data || 'Error al crear el ticket' 
+        error: err.response?.data || 'Error al crear el contenedor' 
       };
     }
   };
@@ -65,7 +65,7 @@ export const useTickets = () => {
       console.error('Error updating ticket:', err);
       return { 
         success: false, 
-        error: err.response?.data || 'Error al actualizar el ticket' 
+        error: err.response?.data || 'Error al actualizar el contenedor' 
       };
     }
   };

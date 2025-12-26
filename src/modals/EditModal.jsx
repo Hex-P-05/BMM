@@ -113,7 +113,7 @@ const EditModal = ({ isOpen, onClose, onSave, item, role, loading }) => {
               <AlertCircle size={16} className="mr-2 flex-shrink-0" />
               {edicionesRestantes === 0 
                 ? 'Has alcanzado el límite de ediciones. Contacta al administrador.'
-                : 'Esta es tu última edición disponible para este ticket.'
+                : 'Esta es tu última edición disponible para este contenedor.'
               }
             </div>
           )}
