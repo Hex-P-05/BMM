@@ -6,8 +6,15 @@ from decimal import Decimal
 
 class Cotizacion(models.Model):
     """
-    Módulo de cotizaciones según documento de requerimientos e imagen del cliente.
-    
+    Módulo de cotizaciones según documento de requerimientos actualizado.
+
+    Cambios respecto a versión anterior:
+    - Se quita el campo "referencia" manual
+    - Se agrega cliente (del catálogo)
+    - Se agrega consecutivo
+    - Se agrega # pedimento
+    - Se agrega aduana
+
     Formato bilingüe (Chino Simplificado // Español) con 8 conceptos de costo fijos:
     1. Demoras (延误)
     2. Almacenaje (贮存)
@@ -18,11 +25,11 @@ class Cotizacion(models.Model):
     7. Liberación de Abandono (摆脱遗弃)
     8. Transporte (運輸)
     """
-    
+
     class Divisa(models.TextChoices):
         MXN = 'MXN', 'Pesos Mexicanos'
         USD = 'USD', 'Dólares Americanos'
-    
+
     # Usuario que crea la cotización
     usuario = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -30,23 +37,65 @@ class Cotizacion(models.Model):
         related_name='cotizaciones',
         verbose_name='Creado por'
     )
-    
-    # A. Datos del encabezado (cliente)
-    razon_social = models.CharField('Razón social', max_length=200)
-    referencia = models.CharField('Referencia', max_length=100, blank=True)
+
+    # A. Datos del cliente (nuevo - reemplaza referencia manual)
+    cliente = models.ForeignKey(
+        'catalogos.Cliente',
+        on_delete=models.PROTECT,
+        related_name='cotizaciones',
+        verbose_name='Cliente'
+    )
+    razon_social = models.CharField(
+        'Razón social',
+        max_length=200,
+        blank=True,
+        help_text='Se auto-llena del cliente pero puede modificarse'
+    )
+
+    # Nuevo: Consecutivo de cotización (por cliente/prefijo)
+    consecutivo = models.PositiveIntegerField(
+        'Consecutivo',
+        help_text='Número consecutivo de la cotización'
+    )
+
     fecha_emision = models.DateField('Fecha de emisión')
-    
+
     # B. Datos operativos
     bl_master = models.CharField('BL Master', max_length=50)
     contenedor = models.CharField('Contenedor', max_length=20)
-    puerto = models.CharField('Puerto', max_length=100, default='MANZANILLO')
+
+    # Puerto y aduana
+    puerto = models.ForeignKey(
+        'catalogos.Puerto',
+        on_delete=models.PROTECT,
+        related_name='cotizaciones',
+        verbose_name='Puerto'
+    )
+    aduana = models.ForeignKey(
+        'catalogos.Aduana',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='cotizaciones',
+        verbose_name='Aduana'
+    )
+
     terminal = models.CharField('Terminal', max_length=100, blank=True)
     naviera = models.CharField('Naviera', max_length=100, blank=True)
+
+    # Nuevo: Número de pedimento
+    pedimento = models.CharField(
+        '# Pedimento',
+        max_length=30,
+        blank=True,
+        help_text='Número de pedimento aduanal'
+    )
+
     eta = models.DateField('ETA', null=True, blank=True)
     fecha_entrega = models.DateField('Fecha de entrega', null=True, blank=True)
     dias_demoras = models.PositiveIntegerField('Días de demoras', default=0)
     dias_almacenaje = models.PositiveIntegerField('Días de almacenaje', default=0)
-    
+
     # C. Desglose de costos (8 conceptos fijos)
     divisa = models.CharField(
         'Divisa',
@@ -54,7 +103,7 @@ class Cotizacion(models.Model):
         choices=Divisa.choices,
         default=Divisa.MXN
     )
-    
+
     # Los 8 conceptos según la imagen
     costo_demoras = models.DecimalField(
         '延误 / Demoras',
@@ -113,7 +162,7 @@ class Cotizacion(models.Model):
         default=Decimal('0.00'),
         validators=[MinValueValidator(0)]
     )
-    
+
     # Subtotal calculado automáticamente
     subtotal = models.DecimalField(
         '全部的 / Total',
@@ -122,7 +171,7 @@ class Cotizacion(models.Model):
         default=Decimal('0.00'),
         validators=[MinValueValidator(0)]
     )
-    
+
     # Tipo de cambio (opcional, para cotizaciones en USD)
     tipo_cambio = models.DecimalField(
         'Tipo de cambio',
@@ -132,22 +181,24 @@ class Cotizacion(models.Model):
         blank=True,
         help_text='Tipo de cambio USD/MXN'
     )
-    
+
     observaciones = models.TextField('Observaciones', blank=True)
-    
+
     # Metadatos
     fecha_creacion = models.DateTimeField('Fecha de creación', auto_now_add=True)
     fecha_actualizacion = models.DateTimeField('Última actualización', auto_now=True)
-    
+
     class Meta:
         db_table = 'cotizaciones'
         verbose_name = 'Cotización'
         verbose_name_plural = 'Cotizaciones'
         ordering = ['-fecha_emision', '-id']
-    
+        # Consecutivo único por cliente
+        unique_together = ['cliente', 'consecutivo']
+
     def __str__(self):
-        return f"Cotización {self.contenedor} - {self.razon_social}"
-    
+        return f"Cotización {self.cliente.prefijo}-{self.consecutivo} - {self.contenedor}"
+
     def save(self, *args, **kwargs):
         # Calcular subtotal automáticamente
         self.subtotal = (
@@ -160,8 +211,18 @@ class Cotizacion(models.Model):
             self.costo_liberacion +
             self.costo_transporte
         )
+
+        # Auto-llenar razón social del cliente si está vacío
+        if not self.razon_social and self.cliente:
+            self.razon_social = self.cliente.nombre
+
         super().save(*args, **kwargs)
-    
+
+    @property
+    def referencia_generada(self):
+        """Genera referencia automática: PREFIJO-CONSECUTIVO"""
+        return f"{self.cliente.prefijo}-{self.consecutivo}"
+
     @property
     def desglose_costos(self):
         """Retorna el desglose de costos como diccionario"""
@@ -175,3 +236,9 @@ class Cotizacion(models.Model):
             'liberacion': {'chino': '摆脱遗弃', 'espanol': 'Liberación de Abandono', 'valor': float(self.costo_liberacion)},
             'transporte': {'chino': '運輸', 'espanol': 'Transporte', 'valor': float(self.costo_transporte)},
         }
+
+    @classmethod
+    def obtener_siguiente_consecutivo(cls, cliente):
+        """Obtener el siguiente consecutivo para un cliente dado"""
+        ultimo = cls.objects.filter(cliente=cliente).order_by('-consecutivo').first()
+        return (ultimo.consecutivo + 1) if ultimo else 1
