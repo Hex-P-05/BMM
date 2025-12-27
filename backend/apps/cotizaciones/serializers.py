@@ -1,18 +1,24 @@
 from rest_framework import serializers
 from .models import Cotizacion
+from apps.catalogos.serializers import ClienteSerializer, PuertoSerializer, AduanaSerializer
 
 
 class CotizacionListSerializer(serializers.ModelSerializer):
     """Serializer para listado de cotizaciones"""
     usuario_nombre = serializers.CharField(source='usuario.nombre', read_only=True)
+    cliente_nombre = serializers.CharField(source='cliente.nombre', read_only=True)
+    cliente_prefijo = serializers.CharField(source='cliente.prefijo', read_only=True)
+    puerto_nombre = serializers.CharField(source='puerto.nombre', read_only=True)
     divisa_display = serializers.CharField(source='get_divisa_display', read_only=True)
-    
+    referencia_generada = serializers.CharField(read_only=True)
+
     class Meta:
         model = Cotizacion
         fields = [
             'id', 'usuario', 'usuario_nombre',
-            'razon_social', 'referencia', 'fecha_emision',
-            'bl_master', 'contenedor', 'puerto', 'naviera',
+            'cliente', 'cliente_nombre', 'cliente_prefijo',
+            'razon_social', 'consecutivo', 'referencia_generada', 'fecha_emision',
+            'bl_master', 'contenedor', 'puerto', 'puerto_nombre', 'naviera',
             'subtotal', 'divisa', 'divisa_display',
             'fecha_creacion'
         ]
@@ -21,17 +27,24 @@ class CotizacionListSerializer(serializers.ModelSerializer):
 class CotizacionDetailSerializer(serializers.ModelSerializer):
     """Serializer para detalle de cotización (datos completos para PDF)"""
     usuario_nombre = serializers.CharField(source='usuario.nombre', read_only=True)
+    cliente_data = ClienteSerializer(source='cliente', read_only=True)
+    puerto_data = PuertoSerializer(source='puerto', read_only=True)
+    aduana_data = AduanaSerializer(source='aduana', read_only=True)
     divisa_display = serializers.CharField(source='get_divisa_display', read_only=True)
     desglose_costos = serializers.JSONField(read_only=True)
-    
+    referencia_generada = serializers.CharField(read_only=True)
+
     class Meta:
         model = Cotizacion
         fields = [
             'id', 'usuario', 'usuario_nombre',
-            # Encabezado
-            'razon_social', 'referencia', 'fecha_emision',
+            # Cliente
+            'cliente', 'cliente_data', 'razon_social', 'consecutivo', 'referencia_generada',
+            'fecha_emision',
             # Datos operativos
-            'bl_master', 'contenedor', 'puerto', 'terminal', 'naviera',
+            'bl_master', 'contenedor',
+            'puerto', 'puerto_data', 'aduana', 'aduana_data',
+            'terminal', 'naviera', 'pedimento',
             'eta', 'fecha_entrega', 'dias_demoras', 'dias_almacenaje',
             # Costos
             'divisa', 'divisa_display',
@@ -47,14 +60,15 @@ class CotizacionDetailSerializer(serializers.ModelSerializer):
 
 class CotizacionCreateSerializer(serializers.ModelSerializer):
     """Serializer para crear cotizaciones"""
-    
+
     class Meta:
         model = Cotizacion
         fields = [
-            # Encabezado
-            'razon_social', 'referencia', 'fecha_emision',
+            # Cliente
+            'cliente', 'razon_social', 'fecha_emision',
             # Datos operativos
-            'bl_master', 'contenedor', 'puerto', 'terminal', 'naviera',
+            'bl_master', 'contenedor', 'puerto', 'aduana',
+            'terminal', 'naviera', 'pedimento',
             'eta', 'fecha_entrega', 'dias_demoras', 'dias_almacenaje',
             # Costos
             'divisa',
@@ -63,7 +77,7 @@ class CotizacionCreateSerializer(serializers.ModelSerializer):
             'costo_liberacion', 'costo_transporte',
             'tipo_cambio', 'observaciones'
         ]
-    
+
     def validate(self, attrs):
         # Validar que al menos haya un costo
         costos = [
@@ -76,13 +90,19 @@ class CotizacionCreateSerializer(serializers.ModelSerializer):
             attrs.get('costo_liberacion', 0),
             attrs.get('costo_transporte', 0),
         ]
-        
+
         if sum(costos) == 0:
             raise serializers.ValidationError(
                 'Debe ingresar al menos un costo'
             )
-        
+
         return attrs
+
+    def create(self, validated_data):
+        # Obtener siguiente consecutivo para el cliente
+        cliente = validated_data.get('cliente')
+        validated_data['consecutivo'] = Cotizacion.obtener_siguiente_consecutivo(cliente)
+        return super().create(validated_data)
 
 
 class CotizacionPDFSerializer(serializers.ModelSerializer):
@@ -90,18 +110,19 @@ class CotizacionPDFSerializer(serializers.ModelSerializer):
     Serializer con datos formateados para generar el PDF bilingüe.
     Incluye las etiquetas en chino y español según la imagen del cliente.
     """
-    
+
     datos_operativos = serializers.SerializerMethodField()
     tabla_costos = serializers.SerializerMethodField()
-    
+    referencia_generada = serializers.CharField(read_only=True)
+
     class Meta:
         model = Cotizacion
         fields = [
-            'id', 'razon_social', 'referencia', 'fecha_emision',
+            'id', 'razon_social', 'referencia_generada', 'fecha_emision',
             'datos_operativos', 'tabla_costos',
             'subtotal', 'divisa'
         ]
-    
+
     def get_datos_operativos(self, obj):
         """Datos operativos con etiquetas bilingües"""
         return [
@@ -109,13 +130,15 @@ class CotizacionPDFSerializer(serializers.ModelSerializer):
             {'chino': '容器', 'espanol': 'CONTENEDOR', 'valor': obj.contenedor},
             {'chino': '预计到达时间', 'espanol': 'ETA', 'valor': obj.eta.strftime('%d/%m/%Y') if obj.eta else ''},
             {'chino': '交货日期', 'espanol': 'FECHA DE ENTREGA', 'valor': obj.fecha_entrega.strftime('%d/%m/%Y') if obj.fecha_entrega else '', 'destacado_verde': True},
-            {'chino': '卸货港', 'espanol': 'PUERTO', 'valor': obj.puerto},
+            {'chino': '卸货港', 'espanol': 'PUERTO', 'valor': obj.puerto.nombre if obj.puerto else ''},
             {'chino': '热的', 'espanol': 'TERMINAL', 'valor': obj.terminal},
             {'chino': '延误數日', 'espanol': 'DIAS DE DEMORAS', 'valor': obj.dias_demoras},
             {'chino': '儲存天數', 'espanol': 'DIAS DE ALMACENAJE', 'valor': obj.dias_almacenaje},
             {'chino': '航运公司', 'espanol': 'NAVIERA', 'valor': obj.naviera},
+            {'chino': '报关单', 'espanol': 'PEDIMENTO', 'valor': obj.pedimento},
+            {'chino': '海关', 'espanol': 'ADUANA', 'valor': obj.aduana.nombre if obj.aduana else ''},
         ]
-    
+
     def get_tabla_costos(self, obj):
         """Tabla de costos con etiquetas bilingües"""
         return [

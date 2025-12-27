@@ -1,0 +1,947 @@
+[
+  {
+    "model": "catalogos.puerto",
+    "pk": 1,
+    "fields": {
+      "nombre": "Manzanillo",
+      "codigo": "MZN",
+      "activo": true
+    }
+  },
+  {
+    "model": "catalogos.puerto",
+    "pk": 2,
+    "fields": {
+      "nombre": "Lázaro Cárdenas",
+      "codigo": "LZC",
+      "activo": true
+    }
+  },
+  {
+    "model": "catalogos.puerto",
+    "pk": 3,
+    "fields": {
+      "nombre": "Veracruz",
+      "codigo": "VER",
+      "activo": true
+    }
+  },
+  {
+    "model": "catalogos.puerto",
+    "pk": 4,
+    "fields": {
+      "nombre": "Ciudad de México / Pantaco",
+      "codigo": "CDMX",
+      "activo": true
+    }
+  },
+  {
+    "model": "catalogos.empresa",
+    "pk": 1,
+    "fields": {
+      "nombre": "B&MM",
+      "razon_social": "",
+      "rfc": "",
+      "es_principal": true,
+      "activo": true
+    }
+  },
+  {
+    "model": "catalogos.empresa",
+    "pk": 2,
+    "fields": {
+      "nombre": "MICRA",
+      "razon_social": "",
+      "rfc": "",
+      "es_principal": true,
+      "activo": true
+    }
+  },
+  {
+    "model": "catalogos.empresa",
+    "pk": 3,
+    "fields": {
+      "nombre": "HARUT",
+      "razon_social": "",
+      "rfc": "",
+      "es_principal": false,
+      "activo": true
+    }
+  },
+  {
+    "model": "catalogos.empresa",
+    "pk": 4,
+    "fields": {
+      "nombre": "TWIN",
+      "razon_social": "",
+      "rfc": "",
+      "es_principal": false,
+      "activo": true
+    }
+  },
+  {
+    "model": "catalogos.empresa",
+    "pk": 5,
+    "fields": {
+      "nombre": "GANESHA",
+      "razon_social": "",
+      "rfc": "",
+      "es_principal": false,
+      "activo": true
+    }
+  },
+  {
+    "model": "catalogos.empresa",
+    "pk": 6,
+    "fields": {
+      "nombre": "RAMEH",
+      "razon_social": "",
+      "rfc": "",
+      "es_principal": false,
+      "activo": true
+    }
+  },
+  {
+    "model": "catalogos.empresa",
+    "pk": 7,
+    "fields": {
+      "nombre": "TESTRUM",
+      "razon_social": "",
+      "rfc": "",
+      "es_principal": false,
+      "activo": true
+    }
+  },
+  {
+    "model": "catalogos.concepto",
+    "pk": 1,
+    "fields": {
+      "nombre": "CARGOS LOCALES",
+      "descripcion": "Cargos locales de revalidación",
+      "tipo_rol": "revalidacion",
+      "naviera": null,
+      "terminal": null,
+      "puerto": null,
+      "es_base": true,
+      "activo": true
+    }
+  },
+  {
+    "model": "catalogos.concepto",
+    "pk": 2,
+    "fields": {
+      "nombre": "CAMBIO A.A",
+      "descripcion": "Cambio de agente aduanal",
+      "tipo_rol": "revalidacion",
+      "naviera": null,
+      "terminal": null,
+      "puerto": null,
+      "es_base": true,
+      "activo": true
+    }
+  },
+  {
+    "model": "catalogos.concepto",
+    "pk": 3,
+    "fields": {
+      "nombre": "FLETE MARITIMO",
+      "descripcion": "Flete marítimo",
+      "tipo_rol": "revalidacion",
+      "naviera": null,
+      "terminal": null,
+      "puerto": null,
+      "es_base": true,
+      "activo": true
+    }
+  },
+  {
+    "model": "catalogos.concepto",
+    "pk": 4,
+    "fields": {
+      "nombre": "DEMORAS",
+      "descripcion": "Demoras por contenedor",
+      "tipo_rol": "revalidacion",
+      "naviera": null,
+      "terminal": null,
+      "puerto": null,
+      "es_base": true,
+      "activo": true
+    }
+  },
+  {
+    "model": "catalogos.concepto",
+    "pk": 5,
+    "fields": {
+      "nombre": "GARANTIA",
+      "descripcion": "Garantía de contenedor",
+      "tipo_rol": "revalidacion",
+      "naviera": null,
+      "terminal": null,
+      "puerto": null,
+      "es_base": true,
+      "activo": true
+    }
+  },
+  {
+    "model": "catalogos.concepto",
+    "pk": 6,
+    "fields": {
+      "nombre": "LIMPIEZA",
+      "descripcion": "Limpieza de contenedor (Revalidaciones)",
+      "tipo_rol": "revalidacion",
+      "naviera": null,
+      "terminal": null,
+      "puerto": null,
+      "es_base": true,
+      "activo": true
+    }
+  },
+  {
+    "model": "catalogos.concepto",
+    "pk": 7,
+    "fields": {
+      "nombre": "REV TARDIA",
+      "descripcion": "Revalidación tardía",
+      "tipo_rol": "revalidacion",
+      "naviera": null,
+      "terminal": null,
+      "puerto": null,
+      "es_base": true,
+      "activo": true
+    }
+  },
+  {
+    "model": "catalogos.concepto",
+    "pk": 8,
+    "fields": {
+      "nombre": "SEGURIDAD",
+      "descripcion": "Cargo por seguridad",
+      "tipo_rol": "revalidacion",
+      "naviera": null,
+      "terminal": null,
+      "puerto": null,
+      "es_base": true,
+      "activo": true
+    }
+  },
+  {
+    "model": "catalogos.concepto",
+    "pk": 9,
+    "fields": {
+      "nombre": "ISPS",
+      "descripcion": "International Ship and Port Facility Security",
+      "tipo_rol": "revalidacion",
+      "naviera": null,
+      "terminal": null,
+      "puerto": null,
+      "es_base": true,
+      "activo": true
+    }
+  },
+  {
+    "model": "catalogos.concepto",
+    "pk": 10,
+    "fields": {
+      "nombre": "TRANSITO INTERNO",
+      "descripcion": "Tránsito interno",
+      "tipo_rol": "revalidacion",
+      "naviera": null,
+      "terminal": null,
+      "puerto": null,
+      "es_base": true,
+      "activo": true
+    }
+  },
+  {
+    "model": "catalogos.concepto",
+    "pk": 11,
+    "fields": {
+      "nombre": "RETRANSMISION",
+      "descripcion": "Retransmisión",
+      "tipo_rol": "revalidacion",
+      "naviera": null,
+      "terminal": null,
+      "puerto": null,
+      "es_base": true,
+      "activo": true
+    }
+  },
+  {
+    "model": "catalogos.concepto",
+    "pk": 12,
+    "fields": {
+      "nombre": "MULTA",
+      "descripcion": "Multas",
+      "tipo_rol": "revalidacion",
+      "naviera": null,
+      "terminal": null,
+      "puerto": null,
+      "es_base": true,
+      "activo": true
+    }
+  },
+  {
+    "model": "catalogos.concepto",
+    "pk": 13,
+    "fields": {
+      "nombre": "SEG. REVALIDACION",
+      "descripcion": "Seguro de revalidación",
+      "tipo_rol": "revalidacion",
+      "naviera": null,
+      "terminal": null,
+      "puerto": null,
+      "es_base": true,
+      "activo": true
+    }
+  },
+  {
+    "model": "catalogos.concepto",
+    "pk": 14,
+    "fields": {
+      "nombre": "SAC",
+      "descripcion": "SAC",
+      "tipo_rol": "revalidacion",
+      "naviera": null,
+      "terminal": null,
+      "puerto": null,
+      "es_base": true,
+      "activo": true
+    }
+  },
+  {
+    "model": "catalogos.concepto",
+    "pk": 15,
+    "fields": {
+      "nombre": "T3 ALMACENAJE",
+      "descripcion": "T3 Almacenaje (Revalidaciones)",
+      "tipo_rol": "revalidacion",
+      "naviera": null,
+      "terminal": null,
+      "puerto": null,
+      "es_base": true,
+      "activo": true
+    }
+  },
+  {
+    "model": "catalogos.concepto",
+    "pk": 16,
+    "fields": {
+      "nombre": "CEDI",
+      "descripcion": "CEDI",
+      "tipo_rol": "revalidacion",
+      "naviera": null,
+      "terminal": null,
+      "puerto": null,
+      "es_base": true,
+      "activo": true
+    }
+  },
+  {
+    "model": "catalogos.concepto",
+    "pk": 17,
+    "fields": {
+      "nombre": "IMPUESTOS",
+      "descripcion": "Impuestos",
+      "tipo_rol": "logistica",
+      "naviera": null,
+      "terminal": null,
+      "puerto": null,
+      "es_base": true,
+      "activo": true
+    }
+  },
+  {
+    "model": "catalogos.concepto",
+    "pk": 18,
+    "fields": {
+      "nombre": "HONORARIOS AA",
+      "descripcion": "Honorarios Agente Aduanal",
+      "tipo_rol": "logistica",
+      "naviera": null,
+      "terminal": null,
+      "puerto": null,
+      "es_base": true,
+      "activo": true
+    }
+  },
+  {
+    "model": "catalogos.concepto",
+    "pk": 19,
+    "fields": {
+      "nombre": "MANIOBRAS",
+      "descripcion": "Maniobras",
+      "tipo_rol": "logistica",
+      "naviera": null,
+      "terminal": null,
+      "puerto": null,
+      "es_base": true,
+      "activo": true
+    }
+  },
+  {
+    "model": "catalogos.concepto",
+    "pk": 20,
+    "fields": {
+      "nombre": "ALMACENAJES",
+      "descripcion": "Almacenajes (Logística)",
+      "tipo_rol": "logistica",
+      "naviera": null,
+      "terminal": null,
+      "puerto": null,
+      "es_base": true,
+      "activo": true
+    }
+  },
+  {
+    "model": "catalogos.concepto",
+    "pk": 21,
+    "fields": {
+      "nombre": "CIERRE DE CUENTA",
+      "descripcion": "Cierre de cuenta",
+      "tipo_rol": "logistica",
+      "naviera": null,
+      "terminal": null,
+      "puerto": null,
+      "es_base": true,
+      "activo": true
+    }
+  },
+  {
+    "model": "catalogos.concepto",
+    "pk": 22,
+    "fields": {
+      "nombre": "CONSTANCIA",
+      "descripcion": "Constancia",
+      "tipo_rol": "logistica",
+      "naviera": null,
+      "terminal": null,
+      "puerto": null,
+      "es_base": true,
+      "activo": true
+    }
+  },
+  {
+    "model": "catalogos.concepto",
+    "pk": 23,
+    "fields": {
+      "nombre": "COMPLEMENTO IMPUESTOS",
+      "descripcion": "Complemento de impuestos",
+      "tipo_rol": "logistica",
+      "naviera": null,
+      "terminal": null,
+      "puerto": null,
+      "es_base": true,
+      "activo": true
+    }
+  },
+  {
+    "model": "catalogos.concepto",
+    "pk": 24,
+    "fields": {
+      "nombre": "UVA",
+      "descripcion": "UVA",
+      "tipo_rol": "logistica",
+      "naviera": null,
+      "terminal": null,
+      "puerto": null,
+      "es_base": true,
+      "activo": true
+    }
+  },
+  {
+    "model": "catalogos.concepto",
+    "pk": 25,
+    "fields": {
+      "nombre": "G1",
+      "descripcion": "G1",
+      "tipo_rol": "logistica",
+      "naviera": null,
+      "terminal": null,
+      "puerto": null,
+      "es_base": true,
+      "activo": true
+    }
+  },
+  {
+    "model": "catalogos.concepto",
+    "pk": 26,
+    "fields": {
+      "nombre": "ANTICIPO",
+      "descripcion": "Anticipo",
+      "tipo_rol": "logistica",
+      "naviera": null,
+      "terminal": null,
+      "puerto": null,
+      "es_base": true,
+      "activo": true
+    }
+  },
+  {
+    "model": "catalogos.concepto",
+    "pk": 27,
+    "fields": {
+      "nombre": "PREVIO",
+      "descripcion": "Previo",
+      "tipo_rol": "logistica",
+      "naviera": null,
+      "terminal": null,
+      "puerto": null,
+      "es_base": true,
+      "activo": true
+    }
+  },
+  {
+    "model": "catalogos.concepto",
+    "pk": 28,
+    "fields": {
+      "nombre": "PROFEPA",
+      "descripcion": "PROFEPA",
+      "tipo_rol": "logistica",
+      "naviera": null,
+      "terminal": null,
+      "puerto": null,
+      "es_base": true,
+      "activo": true
+    }
+  },
+  {
+    "model": "catalogos.concepto",
+    "pk": 29,
+    "fields": {
+      "nombre": "FLETE",
+      "descripcion": "Flete terrestre",
+      "tipo_rol": "logistica",
+      "naviera": null,
+      "terminal": null,
+      "puerto": null,
+      "es_base": true,
+      "activo": true
+    }
+  },
+  {
+    "model": "catalogos.concepto",
+    "pk": 30,
+    "fields": {
+      "nombre": "MANIOBRA DE CARGA",
+      "descripcion": "Maniobra de carga",
+      "tipo_rol": "logistica",
+      "naviera": null,
+      "terminal": null,
+      "puerto": null,
+      "es_base": true,
+      "activo": true
+    }
+  },
+  {
+    "model": "catalogos.concepto",
+    "pk": 31,
+    "fields": {
+      "nombre": "MANIOBRA DE DESCARGA",
+      "descripcion": "Maniobra de descarga",
+      "tipo_rol": "logistica",
+      "naviera": null,
+      "terminal": null,
+      "puerto": null,
+      "es_base": true,
+      "activo": true
+    }
+  },
+  {
+    "model": "catalogos.concepto",
+    "pk": 32,
+    "fields": {
+      "nombre": "CONSULTA",
+      "descripcion": "Consulta",
+      "tipo_rol": "logistica",
+      "naviera": null,
+      "terminal": null,
+      "puerto": null,
+      "es_base": true,
+      "activo": true
+    }
+  },
+  {
+    "model": "catalogos.concepto",
+    "pk": 33,
+    "fields": {
+      "nombre": "ESTADIA",
+      "descripcion": "Estadía",
+      "tipo_rol": "logistica",
+      "naviera": null,
+      "terminal": null,
+      "puerto": null,
+      "es_base": true,
+      "activo": true
+    }
+  },
+  {
+    "model": "catalogos.concepto",
+    "pk": 34,
+    "fields": {
+      "nombre": "BURRERO",
+      "descripcion": "Burrero",
+      "tipo_rol": "logistica",
+      "naviera": null,
+      "terminal": null,
+      "puerto": null,
+      "es_base": true,
+      "activo": true
+    }
+  },
+  {
+    "model": "catalogos.concepto",
+    "pk": 35,
+    "fields": {
+      "nombre": "ESTADIAS EN PATIO",
+      "descripcion": "Estadías en patio",
+      "tipo_rol": "logistica",
+      "naviera": null,
+      "terminal": null,
+      "puerto": null,
+      "es_base": true,
+      "activo": true
+    }
+  },
+  {
+    "model": "catalogos.concepto",
+    "pk": 36,
+    "fields": {
+      "nombre": "REEXPEDICION",
+      "descripcion": "Reexpedición",
+      "tipo_rol": "logistica",
+      "naviera": null,
+      "terminal": null,
+      "puerto": null,
+      "es_base": true,
+      "activo": true
+    }
+  },
+  {
+    "model": "catalogos.concepto",
+    "pk": 37,
+    "fields": {
+      "nombre": "FLETE EN FALSO",
+      "descripcion": "Flete en falso",
+      "tipo_rol": "logistica",
+      "naviera": null,
+      "terminal": null,
+      "puerto": null,
+      "es_base": true,
+      "activo": true
+    }
+  },
+  {
+    "model": "catalogos.concepto",
+    "pk": 38,
+    "fields": {
+      "nombre": "ESTADIAS EN JAULA",
+      "descripcion": "Estadías en jaula",
+      "tipo_rol": "logistica",
+      "naviera": null,
+      "terminal": null,
+      "puerto": null,
+      "es_base": true,
+      "activo": true
+    }
+  },
+  {
+    "model": "catalogos.concepto",
+    "pk": 39,
+    "fields": {
+      "nombre": "LIMPIEZA LOGISTICA",
+      "descripcion": "Limpieza (Logística)",
+      "tipo_rol": "logistica",
+      "naviera": null,
+      "terminal": null,
+      "puerto": null,
+      "es_base": true,
+      "activo": true
+    }
+  },
+  {
+    "model": "catalogos.concepto",
+    "pk": 40,
+    "fields": {
+      "nombre": "RECONOCIMIENTO",
+      "descripcion": "Reconocimiento",
+      "tipo_rol": "logistica",
+      "naviera": null,
+      "terminal": null,
+      "puerto": null,
+      "es_base": true,
+      "activo": true
+    }
+  },
+  {
+    "model": "catalogos.concepto",
+    "pk": 41,
+    "fields": {
+      "nombre": "VACIO",
+      "descripcion": "Vacío",
+      "tipo_rol": "logistica",
+      "naviera": null,
+      "terminal": null,
+      "puerto": null,
+      "es_base": true,
+      "activo": true
+    }
+  },
+  {
+    "model": "catalogos.concepto",
+    "pk": 42,
+    "fields": {
+      "nombre": "SOBREPESO",
+      "descripcion": "Sobrepeso",
+      "tipo_rol": "logistica",
+      "naviera": null,
+      "terminal": null,
+      "puerto": null,
+      "es_base": true,
+      "activo": true
+    }
+  },
+  {
+    "model": "catalogos.concepto",
+    "pk": 43,
+    "fields": {
+      "nombre": "TIEMPO EXTRA DESCARGA",
+      "descripcion": "Tiempo extra de descarga",
+      "tipo_rol": "logistica",
+      "naviera": null,
+      "terminal": null,
+      "puerto": null,
+      "es_base": true,
+      "activo": true
+    }
+  },
+  {
+    "model": "catalogos.concepto",
+    "pk": 44,
+    "fields": {
+      "nombre": "APOYO FERREO",
+      "descripcion": "Apoyo férreo",
+      "tipo_rol": "logistica",
+      "naviera": null,
+      "terminal": null,
+      "puerto": null,
+      "es_base": true,
+      "activo": true
+    }
+  },
+  {
+    "model": "catalogos.concepto",
+    "pk": 45,
+    "fields": {
+      "nombre": "RECTIFICACION",
+      "descripcion": "Rectificación",
+      "tipo_rol": "logistica",
+      "naviera": null,
+      "terminal": null,
+      "puerto": null,
+      "es_base": true,
+      "activo": true
+    }
+  },
+  {
+    "model": "catalogos.concepto",
+    "pk": 46,
+    "fields": {
+      "nombre": "SERVICIOS",
+      "descripcion": "Servicios varios",
+      "tipo_rol": "logistica",
+      "naviera": null,
+      "terminal": null,
+      "puerto": null,
+      "es_base": true,
+      "activo": true
+    }
+  },
+  {
+    "model": "catalogos.concepto",
+    "pk": 47,
+    "fields": {
+      "nombre": "CERTIFICADOS",
+      "descripcion": "Certificados",
+      "tipo_rol": "logistica",
+      "naviera": null,
+      "terminal": null,
+      "puerto": null,
+      "es_base": true,
+      "activo": true
+    }
+  },
+  {
+    "model": "catalogos.concepto",
+    "pk": 48,
+    "fields": {
+      "nombre": "HONORARIOS COMER",
+      "descripcion": "Honorarios comercializadora",
+      "tipo_rol": "logistica",
+      "naviera": null,
+      "terminal": null,
+      "puerto": null,
+      "es_base": true,
+      "activo": true
+    }
+  },
+  {
+    "model": "catalogos.concepto",
+    "pk": 49,
+    "fields": {
+      "nombre": "NO PREVIO",
+      "descripcion": "No previo",
+      "tipo_rol": "logistica",
+      "naviera": null,
+      "terminal": null,
+      "puerto": null,
+      "es_base": true,
+      "activo": true
+    }
+  },
+  {
+    "model": "catalogos.concepto",
+    "pk": 50,
+    "fields": {
+      "nombre": "PAMA",
+      "descripcion": "PAMA (Procedimiento Administrativo en Materia Aduanera)",
+      "tipo_rol": "logistica",
+      "naviera": null,
+      "terminal": null,
+      "puerto": null,
+      "es_base": true,
+      "activo": true
+    }
+  },
+  {
+    "model": "catalogos.naviera",
+    "pk": 1,
+    "fields": {
+      "nombre": "COSCO",
+      "codigo": "COSCO",
+      "activo": true
+    }
+  },
+  {
+    "model": "catalogos.naviera",
+    "pk": 2,
+    "fields": {
+      "nombre": "MSC",
+      "codigo": "MSC",
+      "activo": true
+    }
+  },
+  {
+    "model": "catalogos.naviera",
+    "pk": 3,
+    "fields": {
+      "nombre": "EVERGREEN",
+      "codigo": "EVER",
+      "activo": true
+    }
+  },
+  {
+    "model": "catalogos.naviera",
+    "pk": 4,
+    "fields": {
+      "nombre": "MAERSK",
+      "codigo": "MAERSK",
+      "activo": true
+    }
+  },
+  {
+    "model": "catalogos.naviera",
+    "pk": 5,
+    "fields": {
+      "nombre": "ONE",
+      "codigo": "ONE",
+      "activo": true
+    }
+  },
+  {
+    "model": "catalogos.naviera",
+    "pk": 6,
+    "fields": {
+      "nombre": "CMA CGM",
+      "codigo": "CMA",
+      "activo": true
+    }
+  },
+  {
+    "model": "catalogos.naviera",
+    "pk": 7,
+    "fields": {
+      "nombre": "HAPAG LLOYD",
+      "codigo": "HAPAG",
+      "activo": true
+    }
+  },
+  {
+    "model": "catalogos.naviera",
+    "pk": 8,
+    "fields": {
+      "nombre": "YANG MING",
+      "codigo": "YANG",
+      "activo": true
+    }
+  },
+  {
+    "model": "catalogos.terminal",
+    "pk": 1,
+    "fields": {
+      "nombre": "SSA MEXICO",
+      "puerto": 1,
+      "banco": "",
+      "cuenta": "",
+      "clabe": "",
+      "activo": true
+    }
+  },
+  {
+    "model": "catalogos.terminal",
+    "pk": 2,
+    "fields": {
+      "nombre": "CONTECON",
+      "puerto": 1,
+      "banco": "",
+      "cuenta": "",
+      "clabe": "",
+      "activo": true
+    }
+  },
+  {
+    "model": "catalogos.terminal",
+    "pk": 3,
+    "fields": {
+      "nombre": "HUTCHISON",
+      "puerto": 3,
+      "banco": "",
+      "cuenta": "",
+      "clabe": "",
+      "activo": true
+    }
+  },
+  {
+    "model": "catalogos.terminal",
+    "pk": 4,
+    "fields": {
+      "nombre": "CAREVO",
+      "puerto": 2,
+      "banco": "",
+      "cuenta": "",
+      "clabe": "",
+      "activo": true
+    }
+  },
+  {
+    "model": "catalogos.terminal",
+    "pk": 5,
+    "fields": {
+      "nombre": "APM TERMINALS",
+      "puerto": 2,
+      "banco": "",
+      "cuenta": "",
+      "clabe": "",
+      "activo": true
+    }
+  }
+]
