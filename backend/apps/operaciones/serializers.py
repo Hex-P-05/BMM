@@ -485,3 +485,19 @@ class TicketUpdateSerializer(serializers.ModelSerializer):
                 )
 
         return attrs
+
+
+class TicketEditarEtaSerializer(serializers.ModelSerializer):
+    """Serializer para editar solo ETA, fechas y días libres (rol revalidaciones)"""
+
+    class Meta:
+        model = Ticket
+        fields = ['eta', 'dias_libres', 'fecha_pago', 'fecha_alta']
+
+    def update(self, instance, validated_data):
+        # Incrementar contador de ediciones si no es admin
+        request = self.context.get('request')
+        if request and hasattr(request.user, 'es_admin') and not request.user.es_admin:
+            instance.contador_ediciones += 1
+        
+        return super().update(instance, validated_data)

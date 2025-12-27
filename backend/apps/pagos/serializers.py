@@ -24,6 +24,40 @@ class PagoSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'usuario', 'dias_retraso', 'fecha_registro']
 
 
+class PagoCreateSerializer(serializers.ModelSerializer):
+    """Serializer para crear pagos genéricos"""
+
+    class Meta:
+        model = Pago
+        fields = [
+            'content_type', 'object_id',
+            'monto', 'fecha_pago',
+            'concepto_pago', 'referencia', 'comprobante',
+            'observaciones'
+        ]
+
+    def validate(self, attrs):
+        # Validar que la operación exista
+        content_type = attrs.get('content_type')
+        object_id = attrs.get('object_id')
+        
+        if content_type and object_id:
+            model_class = content_type.model_class()
+            if model_class:
+                try:
+                    obj = model_class.objects.get(pk=object_id)
+                    if hasattr(obj, 'estatus') and obj.estatus in ['pagado', 'cerrado']:
+                        raise serializers.ValidationError(
+                            'Esta operación ya está pagada o cerrada'
+                        )
+                except model_class.DoesNotExist:
+                    raise serializers.ValidationError(
+                        'La operación especificada no existe'
+                    )
+        
+        return attrs
+
+
 # ============ PAGO LOGISTICA ============
 
 class PagoLogisticaSerializer(serializers.ModelSerializer):
