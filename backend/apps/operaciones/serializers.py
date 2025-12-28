@@ -8,6 +8,7 @@ from apps.catalogos.serializers import (
     ClienteSerializer, NavieraCuentaSerializer, PuertoSerializer,
     TerminalSerializer, NavieraSerializer
 )
+from apps.catalogos.models import Concepto
 
 
 # ============ CONTENEDOR ============
@@ -383,7 +384,7 @@ class TicketDetailSerializer(TicketListSerializer):
 class TicketCreateSerializer(serializers.ModelSerializer):
     """Serializer para crear tickets - LEGACY (concepto ahora es opcional)"""
     concepto = serializers.PrimaryKeyRelatedField(
-        queryset=None,  # Se setea en __init__
+        queryset=Concepto.objects.all(),
         required=False,
         allow_null=True
     )
@@ -395,11 +396,6 @@ class TicketCreateSerializer(serializers.ModelSerializer):
             'bl_master', 'pedimento', 'factura', 'proveedor',
             'importe', 'divisa', 'eta', 'dias_libres', 'observaciones'
         ]
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        from apps.catalogos.models import Concepto
-        self.fields['concepto'].queryset = Concepto.objects.all()
 
     def create(self, validated_data):
         prefijo = validated_data.get('prefijo', '').upper()
