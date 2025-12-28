@@ -28,7 +28,7 @@ import EditModal from './modals/EditModal';
 import CloseModal from './modals/CloseModal';
 
 // Componentes
-import RoleBadge from './components/RoleBadge';
+import RoleBadge, { PuertoBadge } from './components/RoleBadge';
 
 function AppContent() {
   const { 
@@ -36,8 +36,16 @@ function AppContent() {
     loading: authLoading, 
     logout, 
     role, 
-    userName, 
-    canCreateTickets 
+    userName,
+    puertoCodigo,
+    puertoNombre,
+    esGlobal,
+    // Permisos
+    canCreateContainers,
+    canViewLogistica,
+    canViewRevalidaciones,
+    isRevalidaciones,
+    isLogistica,
   } = useAuth();
   
   // Hooks de datos
@@ -225,16 +233,16 @@ function AppContent() {
           {!isSidebarCollapsed && (
             <div className="overflow-hidden">
               <span className="text-lg font-bold tracking-tight whitespace-nowrap">AduanaSoft</span>
-              <p className="text-xs text-slate-500 mt-0.5 whitespace-nowrap">v2.3 Beta</p>
+              <p className="text-xs text-slate-500 mt-0.5 whitespace-nowrap">v2.4 Beta</p>
             </div>
           )}
         </div>
 
-        {/* Navigation - Todos ven todo excepto Alta que solo admin y revalidaciones */}
+        {/* Navigation */}
         <nav className="flex-1 p-4 overflow-y-auto overflow-x-hidden">
           <NavItem id="dashboard" icon={LayoutDashboard} label="Visión general" />
           <NavItem id="list" icon={TableIcon} label="Sábana operativa" />
-          <NavItem id="capture" icon={Plus} label="Alta de contenedores" visible={canCreateTickets} />
+          <NavItem id="capture" icon={Plus} label="Alta de pago" visible={canCreateContainers || isRevalidaciones || isLogistica} />
           <NavItem id="closure" icon={ClipboardCheck} label="Cierre de cuenta" />
           <NavItem id="quotes" icon={Calculator} label="Cotizador" />
         </nav>
@@ -248,7 +256,12 @@ function AppContent() {
             {!isSidebarCollapsed && (
               <div className="overflow-hidden">
                 <p className="text-sm font-medium whitespace-nowrap">Hola, {userName}</p>
-                <RoleBadge role={role} />
+                <div className="flex gap-1 mt-1 flex-wrap">
+                  <RoleBadge role={role} />
+                  {!esGlobal && puertoCodigo && (
+                    <PuertoBadge codigo={puertoCodigo} nombre={puertoNombre} />
+                  )}
+                </div>
               </div>
             )}
           </div>
@@ -269,11 +282,14 @@ function AppContent() {
           <div className="text-xl font-bold text-slate-800 flex items-center gap-2">
             {activeTab === 'dashboard' && 'Visión general'}
             {activeTab === 'list' && 'Gestión y pagos'}
-            {activeTab === 'capture' && 'Alta de contenedores'}
+            {activeTab === 'capture' && 'Alta de pago'}
             {activeTab === 'closure' && 'Cierre de cuenta'}
             {activeTab === 'quotes' && 'Cotizador'}
-            <span className="hidden md:inline-flex ml-4 transform scale-90 origin-left">
+            <span className="hidden md:inline-flex ml-4 transform scale-90 origin-left gap-2">
               <RoleBadge role={role} />
+              {!esGlobal && puertoCodigo && (
+                <PuertoBadge codigo={puertoCodigo} nombre={puertoNombre} />
+              )}
             </span>
           </div>
           {ticketsLoading && (
@@ -289,7 +305,7 @@ function AppContent() {
           {activeTab === 'dashboard' && (
             <DashboardView data={tickets} dashboard={dashboard} />
           )}
-          {activeTab === 'capture' && canCreateTickets && (
+          {activeTab === 'capture' && (canCreateContainers || isRevalidaciones || isLogistica) && (
             <CaptureForm 
               onSave={handleSave} 
               onCancel={() => setActiveTab('dashboard')} 

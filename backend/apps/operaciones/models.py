@@ -250,8 +250,7 @@ class OperacionLogistica(models.Model):
     FLETE, MANIOBRA DE CARGA, MANIOBRA DE DESCARGA, CONSULTA, ESTADIA,
     BURRERO, ESTADIAS EN PATIO, REEXPEDICION, FLETE EN FALSO, ESTADIAS EN JAULA,
     LIMPIEZA, RECONOCIMIENTO, VACIO, SOBREPESO, TIEMPO EXTRA DESCARGA,
-    APOYO FERREO, RECTIFICACION, SERVICIOS, CERTIFICADOS, HONORARIOS COMER,
-    NO PREVIO, PAMA
+    SEGURO, DEMORAS, CIERRE DE CUENTA DE CUSTODIA
     """
 
     class Estatus(models.TextChoices):
@@ -263,10 +262,10 @@ class OperacionLogistica(models.Model):
         MXN = 'MXN', 'Pesos Mexicanos'
         USD = 'USD', 'Dólares Americanos'
 
-    # Relaciones principales
+    # Relaciones
     contenedor = models.ForeignKey(
         Contenedor,
-        on_delete=models.PROTECT,
+        on_delete=models.CASCADE,
         related_name='operaciones_logistica',
         verbose_name='Contenedor'
     )
@@ -289,36 +288,35 @@ class OperacionLogistica(models.Model):
         'catalogos.Concepto',
         on_delete=models.PROTECT,
         related_name='operaciones_logistica',
-        verbose_name='Concepto'
+        verbose_name='Concepto',
+        limit_choices_to={'tipo_rol__in': ['logistica', 'ambos']}
     )
 
     # Referencia única: PREFIJO + CONSECUTIVO
     prefijo = models.CharField('Prefijo', max_length=10)
     consecutivo = models.PositiveIntegerField('Consecutivo')
-
-    # Comentarios auto-generados: CONCEPTO PREFIJO # CONTENEDOR
     comentarios = models.CharField(
         'Comentarios',
-        max_length=200,
+        max_length=150,
         blank=True,
-        help_text='Generado automático: CONCEPTO PREFIJO # CONTENEDOR'
+        help_text='Se genera automáticamente: CONCEPTO PREFIJO CONSEC CONTENEDOR'
     )
 
-    # Datos documentales
+    # Documentos
     pedimento = models.CharField('Pedimento', max_length=30, blank=True)
     factura = models.CharField('Factura', max_length=30, blank=True)
 
-    # Proveedor (terminal, transportista, etc.)
+    # Proveedor (Terminal)
     proveedor = models.ForeignKey(
         'catalogos.Proveedor',
-        on_delete=models.PROTECT,
+        on_delete=models.SET_NULL,
         null=True,
         blank=True,
         related_name='operaciones_logistica',
         verbose_name='Proveedor'
     )
 
-    # Datos financieros
+    # Montos
     importe = models.DecimalField(
         'Importe',
         max_digits=12,
@@ -341,7 +339,7 @@ class OperacionLogistica(models.Model):
     )
     fecha_pago = models.DateField('Fecha de pago', null=True, blank=True)
 
-    # Observaciones
+    # Notas
     observaciones = models.TextField('Observaciones', blank=True)
 
     # Metadatos
@@ -350,8 +348,8 @@ class OperacionLogistica(models.Model):
 
     class Meta:
         db_table = 'operaciones_logistica'
-        verbose_name = 'Operación de logística'
-        verbose_name_plural = 'Operaciones de logística'
+        verbose_name = 'Operación de Logística'
+        verbose_name_plural = 'Operaciones de Logística'
         ordering = ['-fecha', '-id']
         unique_together = ['prefijo', 'consecutivo']
 
@@ -366,7 +364,6 @@ class OperacionLogistica(models.Model):
 
     @classmethod
     def obtener_siguiente_consecutivo(cls, prefijo):
-        """Obtener el siguiente consecutivo para un prefijo dado"""
         ultimo = cls.objects.filter(prefijo=prefijo).order_by('-consecutivo').first()
         return (ultimo.consecutivo + 1) if ultimo else 1
 
@@ -378,23 +375,25 @@ class OperacionRevalidacion(models.Model):
     Usa BL como ID principal.
 
     Conceptos de Revalidación:
-    CARGOS LOCALES, CAMBIO A.A, FLETE MARITIMO, DEMORAS, GARANTIA,
-    LIMPIEZA, REV TARDIA, SEGURIDAD, ISPS, TRANSITO INTERNO,
-    RETRANSMISION, MULTA, SEG. REVALIDACION, SAC, T3 ALMACENAJE, CEDI
+    CARGOS LOCALES, FLETE MARÍTIMO, DEMORAS, GARANTÍA, LIMPIEZA,
+    REV TARDÍA, SEGURIDAD, ISPS, TRANSITO INTERNO, RETRANSMISIÓN,
+    MULTA, SEG. REVALIDACIÓN, SAC, T3 ALMACENAJE, CEDI
     """
 
     class Estatus(models.TextChoices):
-        PENDIENTE = 'pendiente', 'Pendiente'
+        PENDIENTE = 'pendiente', 'Pendiente de pago'
+        SOLICITADO = 'solicitado', 'Pago solicitado'
         PAGADO = 'pagado', 'Pagado'
+        CERRADO = 'cerrado', 'Cerrado'
 
     class Divisa(models.TextChoices):
         MXN = 'MXN', 'Pesos Mexicanos'
         USD = 'USD', 'Dólares Americanos'
 
-    # Relaciones principales
+    # Relaciones
     contenedor = models.ForeignKey(
         Contenedor,
-        on_delete=models.PROTECT,
+        on_delete=models.CASCADE,
         related_name='operaciones_revalidacion',
         verbose_name='Contenedor'
     )
@@ -413,40 +412,41 @@ class OperacionRevalidacion(models.Model):
 
     # Datos de la operación
     fecha = models.DateField('Fecha', default=date.today)
-
-    # BL es el ID principal para revalidaciones
-    bl = models.CharField('BL', max_length=50)
-
+    bl = models.CharField(
+        'BL',
+        max_length=50,
+        help_text='Bill of Lading - ID principal para revalidaciones'
+    )
     concepto = models.ForeignKey(
         'catalogos.Concepto',
         on_delete=models.PROTECT,
         related_name='operaciones_revalidacion',
-        verbose_name='Concepto'
+        verbose_name='Concepto',
+        limit_choices_to={'tipo_rol__in': ['revalidacion', 'ambos']}
     )
 
-    # Referencia única: CLIENTE (PREFIJO) + CONSECUTIVO
-    cliente_prefijo = models.CharField('Prefijo cliente', max_length=10)
+    # Referencia única: PREFIJO + CONSECUTIVO
+    prefijo = models.CharField('Prefijo', max_length=10)
     consecutivo = models.PositiveIntegerField('Consecutivo')
-
-    # Referencia auto-generada: CONCEPTO BL PREFIJO #
     referencia = models.CharField(
         'Referencia',
-        max_length=200,
+        max_length=150,
         blank=True,
-        help_text='Generado automático: CONCEPTO BL PREFIJO #'
+        help_text='Se genera automáticamente: CONCEPTO PREFIJO CONSEC BL'
     )
+    comentarios = models.CharField('Comentarios', max_length=150, blank=True)
 
-    # Cuenta de naviera para el pago
+    # Cuenta de naviera para pago
     naviera_cuenta = models.ForeignKey(
         'catalogos.NavieraCuenta',
-        on_delete=models.PROTECT,
+        on_delete=models.SET_NULL,
         null=True,
         blank=True,
-        related_name='operaciones',
+        related_name='operaciones_revalidacion',
         verbose_name='Cuenta de naviera'
     )
 
-    # Datos financieros
+    # Montos
     importe = models.DecimalField(
         'Importe',
         max_digits=12,
@@ -457,14 +457,14 @@ class OperacionRevalidacion(models.Model):
         'Divisa',
         max_length=3,
         choices=Divisa.choices,
-        default=Divisa.USD  # Revalidaciones generalmente en USD
+        default=Divisa.MXN
     )
     tipo_cambio = models.DecimalField(
         'Tipo de cambio',
         max_digits=8,
         decimal_places=4,
-        null=True,
-        blank=True
+        default=Decimal('1.0000'),
+        help_text='TC del día para conversión USD a MXN'
     )
 
     # Estatus y pago
@@ -474,18 +474,22 @@ class OperacionRevalidacion(models.Model):
         choices=Estatus.choices,
         default=Estatus.PENDIENTE
     )
+    fecha_pago_solicitado = models.DateField(
+        'Fecha pago solicitado',
+        null=True,
+        blank=True
+    )
     fecha_pago_tesoreria = models.DateField(
-        'Fecha de pago tesorería',
+        'Fecha pago tesorería',
         null=True,
         blank=True
     )
 
-    # Observaciones
+    # Notas
     observaciones = models.TextField('Observaciones', blank=True)
     observaciones_tesoreria = models.TextField(
-        'Observaciones tesorería',
-        blank=True,
-        help_text='Ej: SE TOMA DEL SALDO DE MICRA $66,906.00'
+        'Observaciones de tesorería',
+        blank=True
     )
 
     # Metadatos
@@ -494,116 +498,85 @@ class OperacionRevalidacion(models.Model):
 
     class Meta:
         db_table = 'operaciones_revalidacion'
-        verbose_name = 'Operación de revalidación'
-        verbose_name_plural = 'Operaciones de revalidación'
+        verbose_name = 'Operación de Revalidación'
+        verbose_name_plural = 'Operaciones de Revalidación'
         ordering = ['-fecha', '-id']
+        unique_together = ['prefijo', 'consecutivo']
 
     def __str__(self):
         return f"{self.referencia} - ${self.importe:,.2f}"
 
     def save(self, *args, **kwargs):
         # Generar referencia automáticamente
-        if self.concepto and self.bl and self.cliente_prefijo:
-            self.referencia = f"{self.concepto.nombre} {self.bl} {self.cliente_prefijo} {self.consecutivo}"
+        if self.concepto and self.prefijo and self.bl:
+            self.referencia = f"{self.concepto.nombre} {self.prefijo} {self.consecutivo} {self.bl}"
         super().save(*args, **kwargs)
 
     @property
     def importe_mxn(self):
-        """Calcular importe en MXN si está en USD"""
-        if self.divisa == self.Divisa.USD and self.tipo_cambio:
+        """Calcular importe en MXN"""
+        if self.divisa == 'USD':
             return self.importe * self.tipo_cambio
         return self.importe
+
+    @classmethod
+    def obtener_siguiente_consecutivo(cls, prefijo):
+        ultimo = cls.objects.filter(prefijo=prefijo).order_by('-consecutivo').first()
+        return (ultimo.consecutivo + 1) if ultimo else 1
 
 
 class Clasificacion(models.Model):
     """
-    Módulo de Clasificación.
-    Da de alta datos iniciales del contenedor.
-    Requiere visto bueno del dirigente para proseguir.
-
-    Clasificación da de alta:
-    - Agente aduanal
-    - Comercializadora
-    - Consecutivo y el prefijo
-    - # de factura
-    - # de contenedor
-    - BL
-    - Tienen su propia ETA
+    Visto bueno del dirigente para clasificaciones.
+    Solo el admin puede dar visto bueno.
     """
 
-    class Estatus(models.TextChoices):
-        PENDIENTE = 'pendiente', 'Pendiente visto bueno'
-        APROBADO = 'aprobado', 'Aprobado'
-        RECHAZADO = 'rechazado', 'Rechazado'
-
-    # Relaciones principales
-    contenedor = models.OneToOneField(
+    contenedor = models.ForeignKey(
         Contenedor,
         on_delete=models.CASCADE,
-        related_name='clasificacion',
+        related_name='clasificaciones',
         verbose_name='Contenedor'
     )
-    ejecutivo = models.ForeignKey(
+    clasificado_por = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.PROTECT,
-        related_name='clasificaciones',
-        verbose_name='Ejecutivo de clasificación'
+        related_name='clasificaciones_realizadas',
+        verbose_name='Clasificado por'
     )
 
-    # Datos que clasificación da de alta
-    agente_aduanal = models.ForeignKey(
-        'catalogos.AgenteAduanal',
-        on_delete=models.PROTECT,
-        related_name='clasificaciones',
-        verbose_name='Agente aduanal'
+    # Datos de clasificación
+    descripcion_mercancia = models.TextField('Descripción de mercancía')
+    fraccion_arancelaria = models.CharField(
+        'Fracción arancelaria',
+        max_length=20,
+        blank=True
     )
-    comercializadora = models.ForeignKey(
-        'catalogos.Comercializadora',
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name='clasificaciones',
-        verbose_name='Comercializadora'
-    )
-
-    # Identificadores
-    prefijo = models.CharField('Prefijo', max_length=10)
-    consecutivo = models.PositiveIntegerField('Consecutivo')
-    factura = models.CharField('# de factura', max_length=30, blank=True)
-    bl = models.CharField('BL', max_length=50)
-
-    # ETA propia de clasificación
-    eta = models.DateField('ETA', null=True, blank=True)
 
     # Visto bueno del dirigente
-    estatus = models.CharField(
-        'Estatus',
-        max_length=20,
-        choices=Estatus.choices,
-        default=Estatus.PENDIENTE
+    requiere_visto_bueno = models.BooleanField(
+        'Requiere visto bueno',
+        default=False
     )
-    visto_bueno = models.BooleanField('Visto bueno', default=False)
-    visto_bueno_por = models.ForeignKey(
+    visto_bueno_otorgado = models.BooleanField(
+        'Visto bueno otorgado',
+        default=False
+    )
+    aprobado_por = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
-        related_name='vistos_buenos',
-        verbose_name='Visto bueno por'
+        related_name='clasificaciones_aprobadas',
+        verbose_name='Aprobado por'
     )
-    visto_bueno_fecha = models.DateTimeField(
-        'Fecha de visto bueno',
+    fecha_aprobacion = models.DateTimeField(
+        'Fecha de aprobación',
         null=True,
         blank=True
     )
-    comentarios_rechazo = models.TextField(
-        'Comentarios de rechazo',
-        blank=True
-    )
 
-    # Metadatos
+    observaciones = models.TextField('Observaciones', blank=True)
     fecha_creacion = models.DateTimeField('Fecha de creación', auto_now_add=True)
-    fecha_actualizacion = models.DateTimeField('Última actualización', auto_now=True)
 
     class Meta:
         db_table = 'clasificaciones'
@@ -614,79 +587,38 @@ class Clasificacion(models.Model):
     def __str__(self):
         return f"Clasificación {self.contenedor.numero}"
 
-    def aprobar(self, usuario):
-        """Aprobar clasificación (dar visto bueno)"""
-        from django.utils import timezone
-        self.visto_bueno = True
-        self.visto_bueno_por = usuario
-        self.visto_bueno_fecha = timezone.now()
-        self.estatus = self.Estatus.APROBADO
-        self.save()
-
-    def rechazar(self, usuario, comentarios=''):
-        """Rechazar clasificación"""
-        self.estatus = self.Estatus.RECHAZADO
-        self.comentarios_rechazo = comentarios
-        self.save()
-
 
 class Documento(models.Model):
     """
-    Documentos asociados a clasificaciones y contenedores.
-
-    Tipos de documentos:
-    - Factura
-    - PL (Packing List)
-    - Certificados
-    - Constancias
-    - Manifestación de valor electrónica
-    - BL (Revalidación y clasificación)
-    - Comprobante de pago
-    - EIR (para verificar regreso de contenedor)
+    Documentos asociados a contenedores:
+    Factura, PL (Packing List), BL (Bill of Lading), EIR
     """
 
     class TipoDocumento(models.TextChoices):
         FACTURA = 'factura', 'Factura'
         PL = 'pl', 'Packing List'
-        CERTIFICADO = 'certificado', 'Certificado'
-        CONSTANCIA = 'constancia', 'Constancia'
-        MANIFESTACION_VALOR = 'manifestacion_valor', 'Manifestación de valor electrónica'
         BL = 'bl', 'Bill of Lading'
-        COMPROBANTE_PAGO = 'comprobante_pago', 'Comprobante de pago'
-        EIR = 'eir', 'EIR (Equipment Interchange Receipt)'
+        EIR = 'eir', 'EIR'
+        OTRO = 'otro', 'Otro'
 
-    # Relaciones - puede estar asociado a clasificación o contenedor
-    clasificacion = models.ForeignKey(
-        Clasificacion,
-        on_delete=models.CASCADE,
-        null=True,
-        blank=True,
-        related_name='documentos',
-        verbose_name='Clasificación'
-    )
     contenedor = models.ForeignKey(
         Contenedor,
         on_delete=models.CASCADE,
-        null=True,
-        blank=True,
         related_name='documentos',
         verbose_name='Contenedor'
     )
-
-    # Datos del documento
     tipo = models.CharField(
-        'Tipo de documento',
-        max_length=30,
+        'Tipo',
+        max_length=20,
         choices=TipoDocumento.choices
     )
+    numero = models.CharField('Número', max_length=50, blank=True)
     archivo = models.FileField(
         'Archivo',
-        upload_to='documentos/%Y/%m/'
+        upload_to='documentos/%Y/%m/',
+        blank=True
     )
-    nombre_archivo = models.CharField('Nombre del archivo', max_length=255)
-    descripcion = models.TextField('Descripción', blank=True)
-
-    # Metadatos
+    notas = models.TextField('Notas', blank=True)
     subido_por = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.PROTECT,
@@ -702,24 +634,14 @@ class Documento(models.Model):
         ordering = ['-fecha_subida']
 
     def __str__(self):
-        return f"{self.get_tipo_display()} - {self.nombre_archivo}"
+        return f"{self.get_tipo_display()} - {self.contenedor.numero}"
 
 
 class Demora(models.Model):
     """
     Registro de demoras por contenedor.
-    Pasados los días libres del contenedor comienza a cobrarse los días de demora.
-    Solo Revalidaciones pagan demoras, Pagos no.
+    Cálculo: días * tarifa diaria
     """
-
-    class Estatus(models.TextChoices):
-        ACTIVO = 'activo', 'Activo (acumulando)'
-        PAGADO = 'pagado', 'Pagado'
-        CANCELADO = 'cancelado', 'Cancelado'
-
-    class Divisa(models.TextChoices):
-        MXN = 'MXN', 'Pesos Mexicanos'
-        USD = 'USD', 'Dólares Americanos'
 
     contenedor = models.ForeignKey(
         Contenedor,
@@ -727,86 +649,48 @@ class Demora(models.Model):
         related_name='demoras',
         verbose_name='Contenedor'
     )
-    naviera = models.ForeignKey(
-        'catalogos.Naviera',
-        on_delete=models.PROTECT,
-        related_name='demoras',
-        verbose_name='Naviera'
-    )
-
-    # Fechas
-    fecha_inicio_demora = models.DateField(
-        'Fecha inicio demora',
-        help_text='Cuando terminan los días libres'
-    )
-    fecha_corte = models.DateField(
-        'Fecha de corte',
-        null=True,
-        blank=True
-    )
-
-    # Cálculos
-    dias_demora = models.PositiveIntegerField('Días de demora', default=0)
-    costo_diario = models.DecimalField(
-        'Costo diario',
+    fecha_inicio = models.DateField('Fecha inicio demora')
+    fecha_fin = models.DateField('Fecha fin demora', null=True, blank=True)
+    tarifa_diaria = models.DecimalField(
+        'Tarifa diaria',
         max_digits=10,
         decimal_places=2,
         validators=[MinValueValidator(0)]
     )
-    costo_total = models.DecimalField(
-        'Costo total',
-        max_digits=12,
-        decimal_places=2,
-        validators=[MinValueValidator(0)]
-    )
-    divisa = models.CharField(
-        'Divisa',
-        max_length=3,
-        choices=Divisa.choices,
-        default=Divisa.USD
-    )
-
-    # Estatus
-    estatus = models.CharField(
-        'Estatus',
-        max_length=20,
-        choices=Estatus.choices,
-        default=Estatus.ACTIVO
-    )
-
-    # Observaciones
+    pagada = models.BooleanField('Pagada', default=False)
+    fecha_pago = models.DateField('Fecha de pago', null=True, blank=True)
     observaciones = models.TextField('Observaciones', blank=True)
-
-    # Metadatos
-    fecha_creacion = models.DateTimeField('Fecha de creación', auto_now_add=True)
-    fecha_actualizacion = models.DateTimeField('Última actualización', auto_now=True)
 
     class Meta:
         db_table = 'demoras'
         verbose_name = 'Demora'
         verbose_name_plural = 'Demoras'
-        ordering = ['-fecha_inicio_demora']
+        ordering = ['-fecha_inicio']
 
     def __str__(self):
-        return f"Demora {self.contenedor.numero} - {self.dias_demora} días"
+        return f"Demora {self.contenedor.numero} - {self.dias} días"
 
-    def calcular_costo_total(self):
-        """Calcular costo total de demoras"""
-        self.costo_total = self.dias_demora * self.costo_diario
-        return self.costo_total
+    @property
+    def dias(self):
+        """Calcular días de demora"""
+        fin = self.fecha_fin or date.today()
+        return (fin - self.fecha_inicio).days
+
+    @property
+    def costo_calculado(self):
+        """Calcular costo total de demora"""
+        return self.dias * self.tarifa_diaria
 
 
 class Garantia(models.Model):
     """
-    Registro de garantías por contenedor.
-    Cuando se marca como completada la operación, se tiene que verificar
-    el regreso de la garantía o el EIR.
-
-    Formato de las garantías: Fecha en la que se hizo el pago concatenado + comentarios
+    Garantías depositadas a navieras.
+    Se devuelve cuando se recibe el EIR del contenedor.
     """
 
     class Estatus(models.TextChoices):
         DEPOSITADA = 'depositada', 'Depositada'
+        EN_REVISION = 'en_revision', 'En revisión'
         DEVUELTA = 'devuelta', 'Devuelta'
         APLICADA = 'aplicada', 'Aplicada a demoras'
 
@@ -823,13 +707,11 @@ class Garantia(models.Model):
     naviera = models.ForeignKey(
         'catalogos.Naviera',
         on_delete=models.PROTECT,
-        null=True,
-        blank=True,
         related_name='garantias',
         verbose_name='Naviera'
     )
 
-    # Datos financieros
+    # Monto
     monto = models.DecimalField(
         'Monto',
         max_digits=12,
@@ -845,20 +727,17 @@ class Garantia(models.Model):
 
     # Fechas
     fecha_deposito = models.DateField('Fecha de depósito')
-    fecha_devolucion = models.DateField('Fecha de devolución', null=True, blank=True)
-
-    # Formato: Fecha pago + comentarios
-    comentarios = models.TextField(
-        'Comentarios',
-        blank=True,
-        help_text='Formato: Fecha de pago + comentarios'
+    fecha_devolucion = models.DateField(
+        'Fecha de devolución',
+        null=True,
+        blank=True
     )
 
-    # Comprobante
+    # Documentación
+    comentarios = models.CharField('Comentarios', max_length=150, blank=True)
     comprobante = models.FileField(
-        'Comprobante de pago',
+        'Comprobante',
         upload_to='garantias/%Y/%m/',
-        null=True,
         blank=True
     )
 
@@ -870,12 +749,8 @@ class Garantia(models.Model):
         default=Estatus.DEPOSITADA
     )
 
-    # Verificación de regreso
-    eir_recibido = models.BooleanField(
-        'EIR recibido',
-        default=False,
-        help_text='Se verificó el regreso del contenedor'
-    )
+    # EIR para devolución
+    eir_recibido = models.BooleanField('EIR recibido', default=False)
     eir_documento = models.ForeignKey(
         Documento,
         on_delete=models.SET_NULL,
@@ -901,18 +776,13 @@ class Garantia(models.Model):
         ordering = ['-fecha_deposito']
 
     def __str__(self):
-        return f"Garantía {self.contenedor.numero} - ${self.monto:,.2f} {self.divisa}"
-
-    def save(self, *args, **kwargs):
-        # Generar comentarios con formato: Fecha + comentarios
-        if self.fecha_deposito and not self.comentarios.startswith(str(self.fecha_deposito)):
-            self.comentarios = f"{self.fecha_deposito} {self.comentarios}".strip()
-        super().save(*args, **kwargs)
+        return f"Garantía {self.contenedor.numero} - ${self.monto:,.2f}"
 
 
 class Prestamo(models.Model):
     """
-    Capacidad para préstamos en caso de que el cliente no haya dado anticipo.
+    Préstamos a clientes que no dan anticipo.
+    Por ejemplo: 'CLIENTE NO DIO ANTICIPO'.
     """
 
     class Estatus(models.TextChoices):
@@ -932,14 +802,14 @@ class Prestamo(models.Model):
     )
     contenedor = models.ForeignKey(
         Contenedor,
-        on_delete=models.SET_NULL,
+        on_delete=models.CASCADE,
         null=True,
         blank=True,
         related_name='prestamos',
-        verbose_name='Contenedor relacionado'
+        verbose_name='Contenedor'
     )
 
-    # Datos del préstamo
+    # Monto
     monto = models.DecimalField(
         'Monto',
         max_digits=12,
@@ -1103,15 +973,23 @@ class Ticket(models.Model):
         verbose_name='Empresa'
     )
     fecha_alta = models.DateField('Fecha de alta', default=date.today)
+    
+    # Concepto ahora es OPCIONAL
     concepto = models.ForeignKey(
         'catalogos.Concepto',
         on_delete=models.PROTECT,
         related_name='tickets',
-        verbose_name='Concepto'
+        verbose_name='Concepto',
+        null=True,
+        blank=True
     )
+    
     prefijo = models.CharField('Prefijo', max_length=10)
     consecutivo = models.PositiveIntegerField('Consecutivo')
-    contenedor = models.CharField('Contenedor', max_length=20)
+    
+    # Contenedor ahora es OPCIONAL (para revalidaciones que solo usan BL)
+    contenedor = models.CharField('Contenedor', max_length=20, blank=True, default='')
+    
     comentarios = models.CharField('Comentarios', max_length=100, blank=True)
     bl_master = models.CharField('BL Master', max_length=50, blank=True)
     pedimento = models.CharField('Pedimento', max_length=30, blank=True)
@@ -1160,8 +1038,11 @@ class Ticket(models.Model):
         return f"{self.comentarios} - ${self.importe:,.2f}"
 
     def save(self, *args, **kwargs):
-        if self.concepto and self.prefijo and self.contenedor:
-            self.comentarios = f"{self.concepto.nombre} {self.prefijo} {self.consecutivo} {self.contenedor}"
+        # Generar comentarios: usa BL si no hay contenedor (revalidaciones)
+        identificador = self.contenedor if self.contenedor else self.bl_master
+        if self.prefijo and identificador:
+            concepto_nombre = self.concepto.nombre if self.concepto else ''
+            self.comentarios = f"{concepto_nombre} {self.prefijo} {self.consecutivo} {identificador}".strip()
         super().save(*args, **kwargs)
 
     @property

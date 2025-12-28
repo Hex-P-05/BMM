@@ -174,10 +174,11 @@ class OperacionRevalidacionListSerializer(serializers.ModelSerializer):
             'id', 'contenedor', 'contenedor_numero',
             'ejecutivo', 'ejecutivo_nombre', 'empresa', 'empresa_nombre',
             'fecha', 'bl', 'concepto', 'concepto_nombre',
-            'cliente_prefijo', 'consecutivo', 'referencia',
+            'prefijo', 'consecutivo', 'referencia', 'comentarios',
             'naviera_cuenta', 'naviera_cuenta_info',
             'importe', 'divisa', 'divisa_display', 'tipo_cambio', 'importe_mxn',
-            'estatus', 'estatus_display', 'fecha_pago_tesoreria',
+            'estatus', 'estatus_display',
+            'fecha_pago_solicitado', 'fecha_pago_tesoreria',
             'observaciones', 'observaciones_tesoreria',
             'fecha_creacion', 'fecha_actualizacion'
         ]
@@ -190,93 +191,49 @@ class OperacionRevalidacionCreateSerializer(serializers.ModelSerializer):
         model = OperacionRevalidacion
         fields = [
             'contenedor', 'empresa', 'fecha', 'bl', 'concepto',
-            'cliente_prefijo', 'naviera_cuenta',
-            'importe', 'divisa', 'tipo_cambio',
-            'observaciones', 'observaciones_tesoreria'
+            'prefijo', 'naviera_cuenta',
+            'importe', 'divisa', 'tipo_cambio', 'observaciones'
         ]
 
     def create(self, validated_data):
-        cliente_prefijo = validated_data.get('cliente_prefijo', '').upper()
-        validated_data['cliente_prefijo'] = cliente_prefijo
-        # Para revalidaciones, el consecutivo es por prefijo de cliente
-        from .models import OperacionRevalidacion
-        ultimo = OperacionRevalidacion.objects.filter(
-            cliente_prefijo=cliente_prefijo
-        ).order_by('-consecutivo').first()
-        validated_data['consecutivo'] = (ultimo.consecutivo + 1) if ultimo else 1
+        prefijo = validated_data.get('prefijo', '').upper()
+        validated_data['prefijo'] = prefijo
+        validated_data['consecutivo'] = OperacionRevalidacion.obtener_siguiente_consecutivo(prefijo)
         return super().create(validated_data)
 
 
 # ============ CLASIFICACION ============
 
 class ClasificacionSerializer(serializers.ModelSerializer):
-    """Clasificación - da de alta datos iniciales, requiere visto bueno"""
     contenedor_numero = serializers.CharField(source='contenedor.numero', read_only=True)
-    ejecutivo_nombre = serializers.CharField(source='ejecutivo.nombre', read_only=True)
-    agente_nombre = serializers.CharField(source='agente_aduanal.nombre', read_only=True)
-    comercializadora_nombre = serializers.CharField(
-        source='comercializadora.nombre', read_only=True
-    )
-    visto_bueno_por_nombre = serializers.CharField(
-        source='visto_bueno_por.nombre', read_only=True
-    )
-    estatus_display = serializers.CharField(source='get_estatus_display', read_only=True)
+    clasificado_por_nombre = serializers.CharField(source='clasificado_por.nombre', read_only=True)
+    aprobado_por_nombre = serializers.CharField(source='aprobado_por.nombre', read_only=True)
 
     class Meta:
         model = Clasificacion
         fields = [
             'id', 'contenedor', 'contenedor_numero',
-            'ejecutivo', 'ejecutivo_nombre',
-            'agente_aduanal', 'agente_nombre',
-            'comercializadora', 'comercializadora_nombre',
-            'prefijo', 'consecutivo', 'factura', 'bl', 'eta',
-            'estatus', 'estatus_display',
-            'visto_bueno', 'visto_bueno_por', 'visto_bueno_por_nombre',
-            'visto_bueno_fecha', 'comentarios_rechazo',
-            'fecha_creacion', 'fecha_actualizacion'
+            'clasificado_por', 'clasificado_por_nombre',
+            'descripcion_mercancia', 'fraccion_arancelaria',
+            'requiere_visto_bueno', 'visto_bueno_otorgado',
+            'aprobado_por', 'aprobado_por_nombre', 'fecha_aprobacion',
+            'observaciones', 'fecha_creacion'
         ]
-        read_only_fields = [
-            'id', 'visto_bueno', 'visto_bueno_por', 'visto_bueno_fecha',
-            'fecha_creacion', 'fecha_actualizacion'
-        ]
-
-
-class ClasificacionCreateSerializer(serializers.ModelSerializer):
-    """Crear clasificación"""
-
-    class Meta:
-        model = Clasificacion
-        fields = [
-            'contenedor', 'agente_aduanal', 'comercializadora',
-            'prefijo', 'factura', 'bl', 'eta'
-        ]
-
-    def create(self, validated_data):
-        prefijo = validated_data.get('prefijo', '').upper()
-        validated_data['prefijo'] = prefijo
-        # Consecutivo por prefijo
-        ultimo = Clasificacion.objects.filter(prefijo=prefijo).order_by('-consecutivo').first()
-        validated_data['consecutivo'] = (ultimo.consecutivo + 1) if ultimo else 1
-        return super().create(validated_data)
-
-
-class VistoBuenoSerializer(serializers.Serializer):
-    """Serializer para dar visto bueno"""
-    aprobar = serializers.BooleanField()
-    comentarios = serializers.CharField(required=False, allow_blank=True)
+        read_only_fields = ['id', 'fecha_creacion']
 
 
 # ============ DOCUMENTO ============
 
 class DocumentoSerializer(serializers.ModelSerializer):
+    contenedor_numero = serializers.CharField(source='contenedor.numero', read_only=True)
     tipo_display = serializers.CharField(source='get_tipo_display', read_only=True)
     subido_por_nombre = serializers.CharField(source='subido_por.nombre', read_only=True)
 
     class Meta:
         model = Documento
         fields = [
-            'id', 'clasificacion', 'contenedor',
-            'tipo', 'tipo_display', 'archivo', 'nombre_archivo', 'descripcion',
+            'id', 'contenedor', 'contenedor_numero',
+            'tipo', 'tipo_display', 'numero', 'archivo', 'notas',
             'subido_por', 'subido_por_nombre', 'fecha_subida'
         ]
         read_only_fields = ['id', 'fecha_subida']
@@ -286,22 +243,15 @@ class DocumentoSerializer(serializers.ModelSerializer):
 
 class DemoraSerializer(serializers.ModelSerializer):
     contenedor_numero = serializers.CharField(source='contenedor.numero', read_only=True)
-    naviera_nombre = serializers.CharField(source='naviera.nombre', read_only=True)
-    estatus_display = serializers.CharField(source='get_estatus_display', read_only=True)
-    divisa_display = serializers.CharField(source='get_divisa_display', read_only=True)
 
     class Meta:
         model = Demora
         fields = [
             'id', 'contenedor', 'contenedor_numero',
-            'naviera', 'naviera_nombre',
-            'fecha_inicio_demora', 'fecha_corte',
-            'dias_demora', 'costo_diario', 'costo_total',
-            'divisa', 'divisa_display',
-            'estatus', 'estatus_display', 'observaciones',
-            'fecha_creacion', 'fecha_actualizacion'
+            'fecha_inicio', 'fecha_fin', 'dias', 'tarifa_diaria',
+            'costo_calculado', 'pagada', 'fecha_pago', 'observaciones'
         ]
-        read_only_fields = ['id', 'fecha_creacion', 'fecha_actualizacion']
+        read_only_fields = ['id', 'dias', 'costo_calculado']
 
 
 # ============ GARANTIA ============
@@ -377,7 +327,7 @@ class TicketListSerializer(serializers.ModelSerializer):
     """Serializer para listado de tickets (datos mínimos) - LEGACY"""
     ejecutivo_nombre = serializers.CharField(source='ejecutivo.nombre', read_only=True)
     empresa_nombre = serializers.CharField(source='empresa.nombre', read_only=True)
-    concepto_nombre = serializers.CharField(source='concepto.nombre', read_only=True)
+    concepto_nombre = serializers.CharField(source='concepto.nombre', read_only=True, allow_null=True)
     proveedor_nombre = serializers.CharField(source='proveedor.nombre', read_only=True)
     proveedor_banco = serializers.CharField(source='proveedor.banco', read_only=True)
     proveedor_cuenta = serializers.CharField(source='proveedor.cuenta', read_only=True)
@@ -431,7 +381,12 @@ class TicketDetailSerializer(TicketListSerializer):
 
 
 class TicketCreateSerializer(serializers.ModelSerializer):
-    """Serializer para crear tickets - LEGACY"""
+    """Serializer para crear tickets - LEGACY (concepto ahora es opcional)"""
+    concepto = serializers.PrimaryKeyRelatedField(
+        queryset=None,  # Se setea en __init__
+        required=False,
+        allow_null=True
+    )
 
     class Meta:
         model = Ticket
@@ -441,11 +396,17 @@ class TicketCreateSerializer(serializers.ModelSerializer):
             'importe', 'divisa', 'eta', 'dias_libres', 'observaciones'
         ]
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        from apps.catalogos.models import Concepto
+        self.fields['concepto'].queryset = Concepto.objects.all()
+
     def create(self, validated_data):
         prefijo = validated_data.get('prefijo', '').upper()
         validated_data['prefijo'] = prefijo
         validated_data['consecutivo'] = Ticket.obtener_siguiente_consecutivo(prefijo)
         validated_data['contenedor'] = validated_data.get('contenedor', '').upper()
+        validated_data['bl_master'] = validated_data.get('bl_master', '').upper()
         return super().create(validated_data)
 
 

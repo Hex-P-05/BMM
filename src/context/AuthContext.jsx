@@ -18,6 +18,7 @@ export const AuthProvider = ({ children }) => {
         try {
           const response = await api.get('/usuarios/me/');
           setUser(response.data);
+          console.log('Usuario data:', response.data);  // <-- Agregar esto
           setIsLoggedIn(true);
         } catch (error) {
           // Token inválido, limpiar
@@ -71,27 +72,80 @@ export const AuthProvider = ({ children }) => {
     setIsLoggedIn(false);
   };
 
-  // Propiedades derivadas del rol
-  // Solo hay 3 roles: admin, revalidaciones, pagos
+  // =====================
+  // ROLES (5 roles)
+  // =====================
   const role = user?.rol || null;
   const userName = user?.nombre || '';
+  
   const isAdmin = role === 'admin';
   const isRevalidaciones = role === 'revalidaciones';
+  const isLogistica = role === 'logistica';
   const isPagos = role === 'pagos';
+  const isClasificacion = role === 'clasificacion';
 
-  // Permisos:
-  // - Alta contenedores: admin, revalidaciones
-  // - Editar todo en sábana: solo admin
-  // - Editar solo fechas/ETA/días libres: revalidaciones
-  // - Pagar: admin, pagos
-  // - Cerrar en sábana: admin, pagos
-  // - Cotizador y Cierre de cuenta: todos
+  // =====================
+  // PUERTO ASIGNADO
+  // =====================
+  // Admin y Pagos no tienen puerto (ven todo)
+  // Revalidaciones, Logística y Clasificación tienen puerto asignado
+  const puertoAsignado = user?.puerto_asignado || null;
+  const puertoId = puertoAsignado?.id || user?.puerto_asignado_id || null;
+  const puertoNombre = puertoAsignado?.nombre || null;
+  const puertoCodigo = puertoAsignado?.codigo || null;
   
-  const canCreateTickets = isAdmin || isRevalidaciones;
-  const canEditAll = isAdmin;
-  const canEditDatesOnly = isRevalidaciones;
+  // ¿Usuario tiene puerto asignado? (para filtrar operaciones)
+  const tienePuerto = !!puertoId;
+  const esGlobal = isAdmin || isPagos; // Estos ven todo, sin filtro de puerto
+
+  // =====================
+  // PERMISOS
+  // =====================
+  
+  // Crear contenedores: Admin y Clasificación
+  const canCreateContainers = isAdmin || isClasificacion;
+  
+  // Ver sábana de logística: Admin, Logística, Pagos
+  const canViewLogistica = isAdmin || isLogistica || isPagos;
+  
+  // Ver sábana de revalidaciones: Admin, Revalidaciones
+  const canViewRevalidaciones = isAdmin || isRevalidaciones;
+  
+  // Crear operaciones de logística: Admin, Logística
+  const canCreateOpsLogistica = isAdmin || isLogistica;
+  
+  // Crear operaciones de revalidación: Admin, Revalidaciones
+  const canCreateOpsRevalidacion = isAdmin || isRevalidaciones;
+  
+  // Registrar pagos: Admin, Pagos
   const canRegisterPayments = isAdmin || isPagos;
+  
+  // Pagar demoras: Admin, Revalidaciones (solo ellos)
+  const canPayDemoras = isAdmin || isRevalidaciones;
+  
+  // Pagar almacenajes: Admin, Logística, Pagos
+  const canPayAlmacenajes = isAdmin || isLogistica || isPagos;
+  
+  // Cerrar operaciones: Admin, Pagos
   const canCloseOperations = isAdmin || isPagos;
+  
+  // Cotizaciones: Todos
+  const canCreateQuotes = true;
+  
+  // Gestionar catálogos: Solo Admin
+  const canManageCatalogs = isAdmin;
+  
+  // Ver bitácora: Solo Admin
+  const canViewAuditLog = isAdmin;
+
+  // Editar en sábana
+  const canEditAll = isAdmin;
+  const canEditDatesOnly = isRevalidaciones || isLogistica;
+
+  // =====================
+  // LEGACY (compatibilidad con código anterior)
+  // =====================
+  const canCreateTickets = canCreateContainers;
 
   const value = {
     user,
@@ -99,19 +153,44 @@ export const AuthProvider = ({ children }) => {
     loading,
     login,
     logout,
+    
     // Datos del usuario
     role,
     userName,
+    
+    // Puerto asignado
+    puertoAsignado,
+    puertoId,
+    puertoNombre,
+    puertoCodigo,
+    tienePuerto,
+    esGlobal,
+    
     // Roles
     isAdmin,
     isRevalidaciones,
+    isLogistica,
     isPagos,
+    isClasificacion,
+    
     // Permisos
-    canCreateTickets,
+    canCreateContainers,
+    canViewLogistica,
+    canViewRevalidaciones,
+    canCreateOpsLogistica,
+    canCreateOpsRevalidacion,
+    canRegisterPayments,
+    canPayDemoras,
+    canPayAlmacenajes,
+    canCloseOperations,
+    canCreateQuotes,
+    canManageCatalogs,
+    canViewAuditLog,
     canEditAll,
     canEditDatesOnly,
-    canRegisterPayments,
-    canCloseOperations,
+    
+    // Legacy
+    canCreateTickets,
   };
 
   return (
