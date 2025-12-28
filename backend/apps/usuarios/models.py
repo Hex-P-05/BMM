@@ -221,9 +221,56 @@ class Usuario(AbstractUser):
         Retorna qué sábanas puede ver el usuario.
         """
         if self.es_admin:
-            return ['logistica', 'revalidacion']
+            return ['logistica', 'revalidacion', 'clasificacion']
         if self.es_revalidaciones:
             return ['revalidacion']
         if self.es_logistica or self.es_pagos:
             return ['logistica']
+        if self.es_clasificacion:
+            return ['clasificacion']
         return []
+
+    # ========== Propiedades LEGACY para compatibilidad ==========
+
+    @property
+    def puede_crear_tickets(self):
+        """LEGACY: Alias para puede_crear_contenedores"""
+        return self.puede_crear_contenedores
+
+    @property
+    def es_ejecutivo(self):
+        """
+        LEGACY: Un ejecutivo es alguien que trabaja en las sábanas operativas.
+        Revalidaciones, Logística o Clasificación (no Admin ni Pagos).
+        """
+        return self.rol in [self.Rol.REVALIDACIONES, self.Rol.LOGISTICA, self.Rol.CLASIFICACION]
+
+    # ========== Propiedades de visibilidad por rol ==========
+
+    @property
+    def puede_ver_sabana_clasificacion(self):
+        """Solo Clasificación y Admin pueden ver sábana de clasificación"""
+        return self.rol in [self.Rol.ADMIN, self.Rol.CLASIFICACION]
+
+    def puede_ver_operacion_por_puerto(self, operacion_puerto_id):
+        """
+        Verifica si el usuario puede ver una operación según su puerto asignado.
+        Admin y Pagos ven todos los puertos.
+        """
+        if self.es_admin or self.es_pagos:
+            return True
+        if not self.puerto_asignado_id:
+            return True  # Sin puerto asignado, ve todo
+        return self.puerto_asignado_id == operacion_puerto_id
+
+    def filtrar_por_puerto(self, queryset, campo_puerto='contenedor__puerto'):
+        """
+        Filtra un queryset según el puerto asignado del usuario.
+        Admin y Pagos ven todos los puertos.
+        """
+        if self.es_admin or self.es_pagos:
+            return queryset
+        if not self.puerto_asignado_id:
+            return queryset
+        filtro = {campo_puerto: self.puerto_asignado_id}
+        return queryset.filter(**filtro)
