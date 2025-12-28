@@ -10,23 +10,56 @@ class Command(BaseCommand):
         self.stdout.write('Creando datos iniciales...\n')
         
         # =====================
+        # PUERTOS (crear primero para asignar a usuarios)
+        # =====================
+        puertos_data = [
+            {'nombre': 'MANZANILLO', 'codigo': 'MZO'},
+            {'nombre': 'LAZARO CARDENAS', 'codigo': 'LZC'},
+            {'nombre': 'VERACRUZ', 'codigo': 'VER'},
+            {'nombre': 'ALTAMIRA', 'codigo': 'ATM'},
+        ]
+
+        puertos_creados = {}
+        for data in puertos_data:
+            puerto, created = Puerto.objects.get_or_create(
+                nombre=data['nombre'],
+                defaults={'codigo': data['codigo']}
+            )
+            puertos_creados[data['codigo']] = puerto
+            if created:
+                self.stdout.write(f'  ✓ Puerto creado: {data["nombre"]}')
+
+        # =====================
         # USUARIOS DE PRUEBA
+        # Roles válidos: admin, revalidaciones, logistica, pagos, clasificacion
         # =====================
         usuarios_data = [
-            {'email': 'admin@aduanasoft.com', 'nombre': 'Administrador', 'rol': 'admin', 'password': 'admin123'},
-            {'email': 'joan@aduanasoft.com', 'nombre': 'JOAN', 'rol': 'ejecutivo', 'password': 'ops123'},
-            {'email': 'marisol@aduanasoft.com', 'nombre': 'MARISOL', 'rol': 'ejecutivo', 'password': 'ops123'},
-            {'email': 'vanessa@aduanasoft.com', 'nombre': 'VANESSA', 'rol': 'ejecutivo', 'password': 'ops123'},
-            {'email': 'mareyci@aduanasoft.com', 'nombre': 'MAREYCI', 'rol': 'ejecutivo', 'password': 'ops123'},
-            {'email': 'pagos@aduanasoft.com', 'nombre': 'Tesorería', 'rol': 'pagos', 'password': 'pagos123'},
+            # Admin (sin puerto - ve todo)
+            {'email': 'admin@aduanasoft.com', 'nombre': 'Administrador', 'rol': 'admin', 'password': 'admin123', 'puerto': None},
+
+            # Revalidaciones (trabaja con navieras, usa BL)
+            {'email': 'joan@aduanasoft.com', 'nombre': 'JOAN', 'rol': 'revalidaciones', 'password': 'ops123', 'puerto': 'MZO'},
+            {'email': 'marisol@aduanasoft.com', 'nombre': 'MARISOL', 'rol': 'revalidaciones', 'password': 'ops123', 'puerto': 'LZC'},
+
+            # Logística (trabaja con terminales, usa # contenedor)
+            {'email': 'vanessa@aduanasoft.com', 'nombre': 'VANESSA', 'rol': 'logistica', 'password': 'ops123', 'puerto': 'MZO'},
+            {'email': 'mareyci@aduanasoft.com', 'nombre': 'MAREYCI', 'rol': 'logistica', 'password': 'ops123', 'puerto': 'LZC'},
+
+            # Pagos (sin puerto - ve todo)
+            {'email': 'pagos@aduanasoft.com', 'nombre': 'Tesorería', 'rol': 'pagos', 'password': 'pagos123', 'puerto': None},
+
+            # Clasificación (da de alta contenedores)
+            {'email': 'clasif@aduanasoft.com', 'nombre': 'CLASIFICACION', 'rol': 'clasificacion', 'password': 'clasif123', 'puerto': 'MZO'},
         ]
-        
+
         for data in usuarios_data:
+            puerto = puertos_creados.get(data.get('puerto')) if data.get('puerto') else None
             user, created = Usuario.objects.get_or_create(
                 email=data['email'],
                 defaults={
                     'nombre': data['nombre'],
                     'rol': data['rol'],
+                    'puerto_asignado': puerto,
                     'is_staff': data['rol'] == 'admin',
                     'is_superuser': data['rol'] == 'admin',
                 }
@@ -34,7 +67,8 @@ class Command(BaseCommand):
             if created:
                 user.set_password(data['password'])
                 user.save()
-                self.stdout.write(f'  ✓ Usuario creado: {data["email"]}')
+                puerto_info = f" (Puerto: {data['puerto']})" if data['puerto'] else " (Global)"
+                self.stdout.write(f'  ✓ Usuario creado: {data["email"]} [{data["rol"]}]{puerto_info}')
             else:
                 self.stdout.write(f'  - Usuario ya existe: {data["email"]}')
         
@@ -156,23 +190,8 @@ class Command(BaseCommand):
                 self.stdout.write(f'  ✓ Naviera creada: {nombre}')
         
         # =====================
-        # PUERTOS Y TERMINALES
+        # TERMINALES
         # =====================
-        puertos_data = [
-            {'nombre': 'MANZANILLO', 'codigo': 'MZO'},
-            {'nombre': 'LAZARO CARDENAS', 'codigo': 'LZC'},
-            {'nombre': 'VERACRUZ', 'codigo': 'VER'},
-            {'nombre': 'ALTAMIRA', 'codigo': 'ATM'},
-        ]
-        
-        for data in puertos_data:
-            puerto, created = Puerto.objects.get_or_create(
-                nombre=data['nombre'],
-                defaults={'codigo': data['codigo']}
-            )
-            if created:
-                self.stdout.write(f'  ✓ Puerto creado: {data["nombre"]}')
-        
         # Terminales de Manzanillo
         manzanillo = Puerto.objects.get(nombre='MANZANILLO')
         terminales_mzo = ['SSA MEXICO', 'CONTECON', 'TIMSA', 'OCUPA']
@@ -186,7 +205,10 @@ class Command(BaseCommand):
         
         self.stdout.write(self.style.SUCCESS('\n¡Datos iniciales creados exitosamente!'))
         self.stdout.write('\nUsuarios de prueba:')
-        self.stdout.write('  Admin:        admin@aduanasoft.com / admin123')
-        self.stdout.write('  Ejecutivo:    joan@aduanasoft.com / ops123')
-        self.stdout.write('  Ejecutivo:    marisol@aduanasoft.com / ops123')
-        self.stdout.write('  Pagos:        pagos@aduanasoft.com / pagos123')
+        self.stdout.write('  Admin:           admin@aduanasoft.com / admin123  (Global)')
+        self.stdout.write('  Revalidaciones:  joan@aduanasoft.com / ops123     (MZO)')
+        self.stdout.write('  Revalidaciones:  marisol@aduanasoft.com / ops123  (LZC)')
+        self.stdout.write('  Logística:       vanessa@aduanasoft.com / ops123  (MZO)')
+        self.stdout.write('  Logística:       mareyci@aduanasoft.com / ops123  (LZC)')
+        self.stdout.write('  Pagos:           pagos@aduanasoft.com / pagos123  (Global)')
+        self.stdout.write('  Clasificación:   clasif@aduanasoft.com / clasif123 (MZO)')

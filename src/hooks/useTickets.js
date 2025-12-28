@@ -1,4 +1,6 @@
 // src/hooks/useTickets.js
+// NOTA: Este hook mantiene el endpoint legacy /operaciones/tickets/
+// Para nuevas funcionalidades usar useContenedores.js
 import { useState, useEffect, useCallback } from 'react';
 import api from '../api/axios';
 
@@ -8,22 +10,22 @@ export const useTickets = () => {
   const [error, setError] = useState(null);
   const [dashboard, setDashboard] = useState(null);
 
-  // Fetch de tickets
+  // Fetch de contenedores (tickets legacy)
   const fetchTickets = useCallback(async (filters = {}) => {
     setLoading(true);
     setError(null);
-    
+
     try {
       const params = new URLSearchParams(filters).toString();
       const url = params ? `/operaciones/tickets/?${params}` : '/operaciones/tickets/';
       const response = await api.get(url);
-      
+
       // Django REST Framework pagina los resultados
       const data = response.data.results || response.data;
       setTickets(data);
-      
+
     } catch (err) {
-      console.error('Error fetching tickets:', err);
+      console.error('Error fetching contenedores:', err);
       setError('Error al cargar los contenedores');
     } finally {
       setLoading(false);
@@ -40,32 +42,32 @@ export const useTickets = () => {
     }
   }, []);
 
-  // Crear ticket
+  // Crear contenedor
   const createTicket = async (ticketData) => {
     try {
       const response = await api.post('/operaciones/tickets/', ticketData);
       setTickets(prev => [response.data, ...prev]);
       return { success: true, data: response.data };
     } catch (err) {
-      console.error('Error creating ticket:', err);
-      return { 
-        success: false, 
-        error: err.response?.data || 'Error al crear el contenedor' 
+      console.error('Error creating contenedor:', err);
+      return {
+        success: false,
+        error: err.response?.data || 'Error al crear el contenedor'
       };
     }
   };
 
-  // Editar ticket
+  // Editar contenedor
   const updateTicket = async (id, ticketData) => {
     try {
       const response = await api.patch(`/operaciones/tickets/${id}/`, ticketData);
       setTickets(prev => prev.map(t => t.id === id ? response.data : t));
       return { success: true, data: response.data };
     } catch (err) {
-      console.error('Error updating ticket:', err);
-      return { 
-        success: false, 
-        error: err.response?.data || 'Error al actualizar el contenedor' 
+      console.error('Error updating contenedor:', err);
+      return {
+        success: false,
+        error: err.response?.data || 'Error al actualizar el contenedor'
       };
     }
   };
@@ -78,9 +80,9 @@ export const useTickets = () => {
       return { success: true, data: response.data };
     } catch (err) {
       console.error('Error updating ETA:', err);
-      return { 
-        success: false, 
-        error: err.response?.data?.error || 'Error al actualizar ETA' 
+      return {
+        success: false,
+        error: err.response?.data?.error || 'Error al actualizar ETA'
       };
     }
   };
@@ -103,15 +105,20 @@ export const useTickets = () => {
   }, [fetchTickets, fetchDashboard]);
 
   return {
+    // Alias: contenedores = tickets (para transición gradual)
     tickets,
+    contenedores: tickets,
     loading,
     error,
     dashboard,
     // Métodos
     fetchTickets,
+    fetchContenedores: fetchTickets,
     fetchDashboard,
     createTicket,
+    createContenedor: createTicket,
     updateTicket,
+    updateContenedor: updateTicket,
     updateEta,
     getNextConsecutivo,
     // Refresh

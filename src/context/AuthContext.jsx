@@ -106,10 +106,16 @@ export const AuthProvider = ({ children }) => {
   const canCreateContainers = isAdmin || isClasificacion;
   
   // Ver sábana de logística: Admin, Logística, Pagos
+  // Revalidaciones y Clasificación NO PUEDEN VER
   const canViewLogistica = isAdmin || isLogistica || isPagos;
-  
+
   // Ver sábana de revalidaciones: Admin, Revalidaciones
+  // Logística, Pagos y Clasificación NO PUEDEN VER
   const canViewRevalidaciones = isAdmin || isRevalidaciones;
+
+  // Ver sábana de clasificación: Admin, Clasificación
+  // Otros roles NO PUEDEN VER
+  const canViewClasificacion = isAdmin || isClasificacion;
   
   // Crear operaciones de logística: Admin, Logística
   const canCreateOpsLogistica = isAdmin || isLogistica;
@@ -177,6 +183,7 @@ export const AuthProvider = ({ children }) => {
     canCreateContainers,
     canViewLogistica,
     canViewRevalidaciones,
+    canViewClasificacion,
     canCreateOpsLogistica,
     canCreateOpsRevalidacion,
     canRegisterPayments,
@@ -188,7 +195,7 @@ export const AuthProvider = ({ children }) => {
     canViewAuditLog,
     canEditAll,
     canEditDatesOnly,
-    
+
     // Legacy
     canCreateTickets,
   };
