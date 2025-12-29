@@ -17,7 +17,7 @@ import { useCatalogos } from './hooks/useCatalogos';
 // Vistas
 import LoginView from './views/LoginView';
 import DashboardView from './views/DashboardView';
-import ListView from './views/ListView';
+import SabanaView from './views/SabanaView';
 import CaptureForm from './views/CaptureForm';
 import AccountClosure from './views/AccountClosure';
 import QuoteGenerator from './views/QuoteGenerator';
@@ -40,12 +40,13 @@ function AppContent() {
     puertoCodigo,
     puertoNombre,
     esGlobal,
+    isAdmin,
+    isPagos,
     // Permisos
     canCreateContainers,
-    canViewLogistica,
-    canViewRevalidaciones,
     isRevalidaciones,
     isLogistica,
+    isClasificacion,
   } = useAuth();
   
   // Hooks de datos
@@ -55,7 +56,6 @@ function AppContent() {
     dashboard,
     createTicket, 
     updateTicket,
-    updateEta,
     getNextConsecutivo,
     refresh: refreshTickets 
   } = useTickets();
@@ -78,7 +78,7 @@ function AppContent() {
   const [closeModalOpen, setCloseModalOpen] = useState(false);
   const [itemToClose, setItemToClose] = useState(null);
 
-  // Loading screen mientras verifica autenticación
+  // Loading screen
   if (authLoading) {
     return (
       <div className="min-h-screen bg-slate-900 flex items-center justify-center">
@@ -90,13 +90,11 @@ function AppContent() {
     );
   }
 
-  // Login screen
   if (!isLoggedIn) {
     return <LoginView />;
   }
 
   // === HANDLERS ===
-
   const handleSave = async (newItem) => {
     const result = await createTicket(newItem);
     if (result.success) {
@@ -122,12 +120,10 @@ function AppContent() {
   const handlePayAll = async (ticketId) => {
     const ticket = tickets.find(t => t.id === ticketId);
     if (!ticket) return;
-
     const result = await registrarPago(ticketId, {
       monto: ticket.importe,
       fecha_pago: new Date().toISOString().split('T')[0]
     });
-
     if (result.success) {
       refreshTickets();
     } else {
@@ -135,15 +131,9 @@ function AppContent() {
     }
   };
 
-  const initiatePayment = (id) => {
-    const item = tickets.find(t => t.id === id);
-    if (item) setPaymentConfirmation({ isOpen: true, item });
-  };
-
   const executePayment = async () => {
     const { item } = paymentConfirmation;
     if (!item) return;
-
     await handlePayAll(item.id);
     setPaymentConfirmation({ isOpen: false, item: null });
   };
@@ -155,23 +145,22 @@ function AppContent() {
 
   const confirmClose = async () => {
     if (!itemToClose) return;
-
     const result = await cerrarOperacion(itemToClose.id, {
       monto_final: itemToClose.importe,
       desglose: {}
     });
-
     if (result.success) {
       refreshTickets();
     } else {
-      alert('Error al cerrar operación: ' + result.error);
+      alert('Error al cerrar operacion: ' + result.error);
     }
-
     setCloseModalOpen(false);
     setItemToClose(null);
   };
 
-  // === NAV ITEM COMPONENT ===
+  const canViewSabana = isAdmin || isPagos || isRevalidaciones || isLogistica || isClasificacion;
+  const canCapture = canCreateContainers || isRevalidaciones || isLogistica;
+
   const NavItem = ({ id, icon: Icon, label, visible = true }) => {
     if (!visible) return null;
     return (
@@ -192,10 +181,8 @@ function AppContent() {
     );
   };
 
-  // === RENDER ===
   return (
     <div className="flex h-screen bg-slate-100 font-sans text-slate-800 relative">
-      {/* Modales */}
       <PaymentModal 
         isOpen={paymentConfirmation.isOpen} 
         item={paymentConfirmation.item} 
@@ -216,7 +203,6 @@ function AppContent() {
         item={itemToClose} 
       />
 
-      {/* Sidebar */}
       <aside className={`${isSidebarCollapsed ? 'w-20' : 'w-64'} bg-slate-900 text-white flex-shrink-0 hidden md:flex flex-col transition-all duration-300 ease-in-out relative`}>
         <button 
           onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)} 
@@ -225,7 +211,6 @@ function AppContent() {
           {isSidebarCollapsed ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
         </button>
         
-        {/* Logo */}
         <div className={`p-6 border-b border-slate-800 flex items-center ${isSidebarCollapsed ? 'justify-center' : 'space-x-2'}`}>
           <div className="w-8 h-8 bg-blue-500 rounded-lg flex items-center justify-center flex-shrink-0">
             <Ship size={20} className="text-white" />
@@ -233,21 +218,19 @@ function AppContent() {
           {!isSidebarCollapsed && (
             <div className="overflow-hidden">
               <span className="text-lg font-bold tracking-tight whitespace-nowrap">AduanaSoft</span>
-              <p className="text-xs text-slate-500 mt-0.5 whitespace-nowrap">v2.4 Beta</p>
+              <p className="text-xs text-slate-500 mt-0.5 whitespace-nowrap">v2.5 Beta</p>
             </div>
           )}
         </div>
 
-        {/* Navigation */}
         <nav className="flex-1 p-4 overflow-y-auto overflow-x-hidden">
-          <NavItem id="dashboard" icon={LayoutDashboard} label="Visión general" />
-          <NavItem id="list" icon={TableIcon} label="Sábana operativa" />
-          <NavItem id="capture" icon={Plus} label="Alta de pago" visible={canCreateContainers || isRevalidaciones || isLogistica} />
-          <NavItem id="closure" icon={ClipboardCheck} label="Cierre de cuenta" />
+          <NavItem id="dashboard" icon={LayoutDashboard} label="Vision general" />
+          <NavItem id="list" icon={TableIcon} label="Sabana operativa" visible={canViewSabana} />
+          <NavItem id="capture" icon={Plus} label="Alta de pago" visible={canCapture} />
+          <NavItem id="closure" icon={ClipboardCheck} label="Cierre de cuenta" visible={isAdmin || isPagos} />
           <NavItem id="quotes" icon={Calculator} label="Cotizador" />
         </nav>
 
-        {/* User info */}
         <div className="p-4 border-t border-slate-800">
           <div className={`flex items-center ${isSidebarCollapsed ? 'justify-center' : 'space-x-3'} mb-4`}>
             <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-blue-500 to-purple-500 flex items-center justify-center text-xs font-bold flex-shrink-0">
@@ -270,18 +253,16 @@ function AppContent() {
             className={`w-full flex items-center ${isSidebarCollapsed ? 'justify-center px-0' : 'justify-center px-4'} py-2 bg-slate-800 hover:bg-red-900/30 text-slate-400 hover:text-red-400 rounded-lg transition-colors text-xs font-bold`}
           >
             <LogOut size={14} className={`${isSidebarCollapsed ? '' : 'mr-2'}`} /> 
-            {!isSidebarCollapsed && "Cerrar sesión"}
+            {!isSidebarCollapsed && "Cerrar sesion"}
           </button>
         </div>
       </aside>
 
-      {/* Main content */}
       <main className="flex-1 flex flex-col overflow-hidden transition-all duration-300">
-        {/* Header */}
         <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-6 shadow-sm z-10">
           <div className="text-xl font-bold text-slate-800 flex items-center gap-2">
-            {activeTab === 'dashboard' && 'Visión general'}
-            {activeTab === 'list' && 'Gestión y pagos'}
+            {activeTab === 'dashboard' && 'Vision general'}
+            {activeTab === 'list' && 'Sabana operativa'}
             {activeTab === 'capture' && 'Alta de pago'}
             {activeTab === 'closure' && 'Cierre de cuenta'}
             {activeTab === 'quotes' && 'Cotizador'}
@@ -300,12 +281,11 @@ function AppContent() {
           )}
         </header>
         
-        {/* Content */}
         <div className="flex-1 overflow-auto p-4 md:p-8">
           {activeTab === 'dashboard' && (
             <DashboardView data={tickets} dashboard={dashboard} />
           )}
-          {activeTab === 'capture' && (canCreateContainers || isRevalidaciones || isLogistica) && (
+          {activeTab === 'capture' && canCapture && (
             <CaptureForm 
               onSave={handleSave} 
               onCancel={() => setActiveTab('dashboard')} 
@@ -316,17 +296,18 @@ function AppContent() {
               getNextConsecutivo={getNextConsecutivo}
             />
           )}
-          {activeTab === 'list' && (
-            <ListView 
+          {activeTab === 'list' && canViewSabana && (
+            <SabanaView 
               data={tickets} 
               onPayAll={handlePayAll}
               onCloseOperation={handleCloseOperation} 
-              role={role} 
               onEdit={handleEditClick}
               loading={ticketsLoading}
             />
           )}
-          {activeTab === 'closure' && <AccountClosure data={tickets} />}
+          {activeTab === 'closure' && (isAdmin || isPagos) && (
+            <AccountClosure data={tickets} />
+          )}
           {activeTab === 'quotes' && <QuoteGenerator role={role} />}
         </div>
       </main>
@@ -334,7 +315,6 @@ function AppContent() {
   );
 }
 
-// Wrapper con AuthProvider
 export default function App() {
   return <AppContent />;
 }

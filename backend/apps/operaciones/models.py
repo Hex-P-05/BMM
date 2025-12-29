@@ -130,12 +130,10 @@ class Contenedor(models.Model):
         return f"{self.numero} - {self.cliente.prefijo}"
 
     def save(self, *args, **kwargs):
-    # Generar comentarios: usa BL si no hay contenedor (revalidaciones)
         identificador = self.contenedor if self.contenedor else self.bl_master
         if self.prefijo and identificador:
-            # Verificar si concepto existe antes de acceder a su nombre
             concepto_nombre = ''
-            if self.concepto_id:  # Usar concepto_id en lugar de self.concepto
+            if self.concepto_id:  # <-- ESTO ES LO IMPORTANTE
                 concepto_nombre = self.concepto.nombre
             self.comentarios = f"{concepto_nombre} {self.prefijo} {self.consecutivo} {identificador}".strip()
         super().save(*args, **kwargs)
@@ -1165,8 +1163,12 @@ class Ticket(models.Model):
         return f"{self.comentarios} - ${self.importe:,.2f}"
 
     def save(self, *args, **kwargs):
-        if self.concepto and self.prefijo and self.contenedor:
-            self.comentarios = f"{self.concepto.nombre} {self.prefijo} {self.consecutivo} {self.contenedor}"
+        identificador = self.contenedor if self.contenedor else self.bl_master
+        if self.prefijo and identificador:
+            concepto_nombre = ''
+            if self.concepto_id:
+                concepto_nombre = self.concepto.nombre
+            self.comentarios = f"{concepto_nombre} {self.prefijo} {self.consecutivo} {identificador}".strip()
         super().save(*args, **kwargs)
 
     @property
