@@ -234,8 +234,19 @@ class Usuario(AbstractUser):
 
     @property
     def puede_crear_tickets(self):
-        """LEGACY: Alias para puede_crear_contenedores"""
-        return self.puede_crear_contenedores
+        """
+        LEGACY: Permite crear tickets (pagos) a:
+        - Admin: siempre
+        - Revalidaciones: pueden dar de alta pagos de revalidación
+        - Logística: pueden dar de alta pagos de logística
+        - Clasificación: pueden dar de alta contenedores
+        """
+        return self.rol in [
+            self.Rol.ADMIN,
+            self.Rol.REVALIDACIONES,
+            self.Rol.LOGISTICA,
+            self.Rol.CLASIFICACION
+        ]
 
     @property
     def es_ejecutivo(self):
