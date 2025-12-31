@@ -1,379 +1,399 @@
 // src/views/ListView.jsx
-import React, { useState } from 'react';
-import { ChevronUp, ChevronDown, Edit, Lock, FileText, Search } from 'lucide-react';
+import React, { useState, useMemo } from 'react';
+import { ChevronUp, ChevronDown, Edit, Lock, FileText, Search, DollarSign } from 'lucide-react';
 import StatusBadge from '../components/StatusBadge';
 import { formatDate } from '../utils/helpers';
 import { generatePDF } from '../utils/pdfGenerator';
 
-const ListView = ({ data = [], onPayItem, onPayAll, onCloseOperation, role, onEdit }) => {
+const ListView = ({ data = [], onPayItem, onPayAll, onCloseOperation, role, onEdit, loading }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [expandedRow, setExpandedRow] = useState(null);
   const [viewMode, setViewMode] = useState('full');
   const [selectedIds, setSelectedIds] = useState([]);
 
-  const toggleRow = (id) => setExpandedRow(expandedRow === id ? null : id);
-  
-  // Filtro con validación para evitar crashes
-  const filteredData = data.filter(item => {
-    if (!searchTerm) return true;
-    const term = searchTerm.toLowerCase();
-    return (
-      (item.bl_master?.toLowerCase() || '').includes(term) ||
-      (item.bl?.toLowerCase() || '').includes(term) ||
-      (item.comentarios?.toLowerCase() || '').includes(term) ||
-      (item.contenedor?.toLowerCase() || '').includes(term)
-    );
-  });
-
-  const isSimpleView = viewMode === 'simple';
-  
-  // Permisos por rol:
-  // - admin: todo
-  // - pagos: pagar, cerrar
-  // - revalidaciones: editar solo fechas/ETA/días libres (se maneja en EditModal)
+  // Permisos por rol
   const canPay = role === 'admin' || role === 'pagos';
   const canEditAll = role === 'admin';
-  const canEditDatesOnly = role === 'revalidaciones';
+  const canEditDatesOnly = role === 'revalidaciones' || role === 'logistica';
   const canEdit = canEditAll || canEditDatesOnly;
   const canClose = role === 'admin' || role === 'pagos';
-  
-  // Compatibilidad: backend usa 'estatus', frontend viejo usa 'status'
-  const closedItems = filteredData.filter(item => 
-    (item.estatus === 'cerrado') || (item.status === 'closed')
-  );
+  const canSeeAllConceptos = role === 'admin' || role === 'pagos';
 
-  const handleSelectAll = (e) => {
-    if (e.target.checked) {
-      const allClosedIds = closedItems.map(i => i.id);
-      setSelectedIds(allClosedIds);
-    } else {
-      setSelectedIds([]);
-    }
-  };
-
-  const handleSelectRow = (id) => {
-    if (selectedIds.includes(id)) {
-      setSelectedIds(selectedIds.filter(i => i !== id));
-    } else {
-      setSelectedIds([...selectedIds, id]);
-    }
-  };
-
-  const handleBulkDownload = () => {
-    const itemsToPrint = data.filter(item => selectedIds.includes(item.id));
-    if (itemsToPrint.length > 0) {
-      generatePDF(itemsToPrint, `Comprobantes_Masivos_${new Date().toLocaleDateString()}.pdf`);
-      setSelectedIds([]);
-    }
-  };
-
-  // Helper para obtener valores con compatibilidad backend/frontend
-  const getValue = (item, backendKey, frontendKey, defaultValue = '') => {
-    return item[backendKey] ?? item[frontendKey] ?? defaultValue;
-  };
-
-  const getImporte = (item) => {
-    const value = item.importe ?? item.amount ?? 0;
-    return parseFloat(value) || 0;
-  };
-
-  const isClosed = (item) => {
-    return item.estatus === 'cerrado' || item.status === 'closed';
-  };
-
-  const isPaid = (item) => {
-    return item.estatus === 'pagado' || item.payment === 'paid';
-  };
-
-  // Obtener nombre de empresa (puede venir como objeto o string)
-  const getEmpresaNombre = (item) => {
-    // Primero intentar campo directo del backend
-    if (item.empresa_nombre) return item.empresa_nombre;
-    // Si viene como objeto
-    if (typeof item.empresa === 'object' && item.empresa !== null) {
-      return item.empresa.nombre || '';
-    }
-    // Si es string, devolverlo
-    if (typeof item.empresa === 'string') return item.empresa;
-    return '';
-  };
-
-  // Obtener nombre de proveedor (puede venir como objeto o string)
-  const getProveedorNombre = (item) => {
-    if (item.proveedor_nombre) return item.proveedor_nombre;
-    if (typeof item.proveedor === 'object' && item.proveedor !== null) {
-      return item.proveedor.nombre || '';
-    }
-    if (typeof item.proveedor === 'string') return item.proveedor;
-    return '';
-  };
-
-  // Obtener datos bancarios del proveedor
-  const getProveedorBanco = (item) => {
-    if (item.proveedor_banco) return item.proveedor_banco;
-    if (typeof item.proveedor === 'object' && item.proveedor !== null) {
-      return item.proveedor.banco || '';
-    }
-    return item.banco || '';
-  };
-
-  const getProveedorCuenta = (item) => {
-    if (item.proveedor_cuenta) return item.proveedor_cuenta;
-    if (typeof item.proveedor === 'object' && item.proveedor !== null) {
-      return item.proveedor.cuenta || '';
-    }
-    return item.cuenta || '';
-  };
-
-  const getProveedorClabe = (item) => {
-    if (item.proveedor_clabe) return item.proveedor_clabe;
-    if (typeof item.proveedor === 'object' && item.proveedor !== null) {
-      return item.proveedor.clabe || '';
-    }
-    return item.clabe || '';
-  };
-
-  // Obtener ejecutivo (primer nombre solamente)
-  const getEjecutivoNombre = (item) => {
-    let nombreCompleto = '';
+  // Agrupar tickets por identificador (bl_master para revalidaciones, contenedor para logística)
+  const groupedData = useMemo(() => {
+    const groups = {};
     
-    // Primero intentar campo directo del backend
-    if (item.ejecutivo_nombre) {
-      nombreCompleto = item.ejecutivo_nombre;
-    } else if (typeof item.ejecutivo === 'object' && item.ejecutivo !== null) {
-      nombreCompleto = item.ejecutivo.nombre || item.ejecutivo.email || '';
-    } else if (typeof item.ejecutivo === 'string') {
-      nombreCompleto = item.ejecutivo;
-    }
+    data.forEach(ticket => {
+      // Determinar el identificador según tipo_operacion
+      const isLogistica = ticket.tipo_operacion === 'logistica';
+      const identifier = isLogistica 
+        ? (ticket.contenedor || ticket.bl_master || `ticket-${ticket.id}`)
+        : (ticket.bl_master || ticket.contenedor || `ticket-${ticket.id}`);
+      
+      if (!groups[identifier]) {
+        groups[identifier] = {
+          identifier,
+          isLogistica,
+          tickets: [],
+          empresa: ticket.empresa_nombre || '',
+          empresa_id: ticket.empresa,
+          prefijo: ticket.prefijo,
+          bl_master: ticket.bl_master,
+          contenedor: ticket.contenedor,
+          pedimento: ticket.pedimento,
+          eta: ticket.eta,
+          dias_libres: ticket.dias_libres,
+          ejecutivo: ticket.ejecutivo_nombre || '',
+          puerto: ticket.puerto_codigo || '',
+          totalImporte: 0,
+          // Para el semáforo, usar el peor caso
+          semaforo: 'verde',
+          estatus: 'pendiente'
+        };
+      }
+      
+      groups[identifier].tickets.push(ticket);
+      groups[identifier].totalImporte += parseFloat(ticket.importe) || 0;
+      
+      // Actualizar semáforo al peor caso
+      const semaforoPriority = { 'vencido': 4, 'rojo': 3, 'amarillo': 2, 'verde': 1 };
+      if (semaforoPriority[ticket.semaforo] > semaforoPriority[groups[identifier].semaforo]) {
+        groups[identifier].semaforo = ticket.semaforo;
+      }
+      
+      // Si alguno está pagado o cerrado, actualizar
+      if (ticket.estatus === 'cerrado') groups[identifier].estatus = 'cerrado';
+      else if (ticket.estatus === 'pagado' && groups[identifier].estatus !== 'cerrado') {
+        groups[identifier].estatus = 'pagado';
+      }
+    });
     
-    // Extraer solo el primer nombre
-    if (nombreCompleto) {
-      const primerNombre = nombreCompleto.split(' ')[0];
-      return primerNombre.toUpperCase();
-    }
-    
-    return '';
+    return Object.values(groups);
+  }, [data]);
+
+  // Filtro de búsqueda
+  const filteredGroups = useMemo(() => {
+    if (!searchTerm) return groupedData;
+    const term = searchTerm.toLowerCase();
+    return groupedData.filter(group => 
+      group.identifier.toLowerCase().includes(term) ||
+      group.bl_master?.toLowerCase().includes(term) ||
+      group.contenedor?.toLowerCase().includes(term) ||
+      group.empresa?.toLowerCase().includes(term) ||
+      group.tickets.some(t => t.observaciones?.toLowerCase().includes(term))
+    );
+  }, [groupedData, searchTerm]);
+
+  const toggleRow = (id) => setExpandedRow(expandedRow === id ? null : id);
+  const isSimpleView = viewMode === 'simple';
+
+  const isClosed = (group) => group.estatus === 'cerrado';
+  const isPaid = (group) => group.estatus === 'pagado';
+
+  // Filtrar conceptos visibles según rol
+  const getVisibleTickets = (tickets) => {
+    if (canSeeAllConceptos) return tickets;
+    // Otros roles solo ven sus propios tickets
+    return tickets.filter(t => {
+      if (role === 'revalidaciones') return t.tipo_operacion === 'revalidaciones';
+      if (role === 'logistica') return t.tipo_operacion === 'logistica';
+      if (role === 'clasificacion') return t.tipo_operacion === 'clasificacion';
+      return true;
+    });
   };
+
+  // Obtener color del semáforo
+  const getSemaforoColor = (semaforo) => {
+    switch (semaforo) {
+      case 'verde': return 'bg-green-500';
+      case 'amarillo': return 'bg-yellow-500';
+      case 'rojo': return 'bg-red-500';
+      case 'vencido': return 'bg-purple-600';
+      default: return 'bg-slate-400';
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-12 text-center">
+        <div className="animate-spin w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full mx-auto mb-4"></div>
+        <p className="text-slate-500">Cargando datos...</p>
+      </div>
+    );
+  }
 
   return (
-    <div className="space-y-4 animate-fade-in h-full flex flex-col">
-      <div className="flex flex-col md:flex-row justify-between items-center bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex-shrink-0 gap-4">
+    <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+      {/* Header */}
+      <div className="p-4 border-b border-slate-200 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div className="flex items-center gap-4">
-          <h2 className="text-xl font-bold text-slate-800">Sábana operativa</h2>
-          {(role === 'admin' || role === 'pagos') && (
-            <div className="flex items-center bg-slate-100 p-1 rounded-lg border border-slate-200">
-              <button 
-                onClick={() => setViewMode('full')} 
-                className={`px-3 py-1.5 text-xs font-bold rounded transition-colors ${viewMode === 'full' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-400'}`}
-              >
-                Completa
-              </button>
-              <button 
-                onClick={() => setViewMode('simple')} 
-                className={`px-3 py-1.5 text-xs font-bold rounded transition-colors ${viewMode === 'simple' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-400'}`}
-              >
-                Simple
-              </button>
-            </div>
-          )}
-        </div>
-        <div className="flex items-center gap-4">
-          <div className="relative">
-            <Search className="absolute left-3 top-2.5 text-slate-400" size={16} />
-            <input 
-              type="text" 
-              placeholder="Buscar por BL, contenedor, comentarios..." 
-              className="pl-9 pr-4 py-2 border border-slate-300 rounded-lg text-sm w-72 outline-none focus:ring-2 focus:ring-blue-500" 
-              value={searchTerm} 
-              onChange={(e) => setSearchTerm(e.target.value)} 
-            />
-          </div>
-          {selectedIds.length > 0 && (
-            <button 
-              onClick={handleBulkDownload} 
-              className="px-4 py-2 bg-red-600 text-white rounded-lg text-xs font-bold shadow hover:bg-red-700 flex items-center gap-2"
+          <h3 className="text-lg font-bold text-slate-800">Sábana operativa</h3>
+          <div className="flex bg-slate-100 rounded-lg p-1">
+            <button
+              onClick={() => setViewMode('full')}
+              className={`px-3 py-1 text-xs font-medium rounded ${viewMode === 'full' ? 'bg-white shadow text-blue-600' : 'text-slate-500'}`}
             >
-              <FileText size={14} /> Descargar {selectedIds.length} PDF(s)
+              Completa
             </button>
-          )}
+            <button
+              onClick={() => setViewMode('simple')}
+              className={`px-3 py-1 text-xs font-medium rounded ${viewMode === 'simple' ? 'bg-white shadow text-blue-600' : 'text-slate-500'}`}
+            >
+              Simple
+            </button>
+          </div>
+        </div>
+        <div className="relative">
+          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+          <input
+            type="text"
+            placeholder="Buscar por BL, contenedor, comentario..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-9 pr-4 py-2 border border-slate-200 rounded-lg text-sm w-full md:w-80 focus:ring-2 focus:ring-blue-500 outline-none"
+          />
         </div>
       </div>
 
-      <div className="flex-1 overflow-hidden bg-white rounded-xl border border-slate-200 shadow-sm">
-        <div className="h-full overflow-auto">
-          <table className="w-full text-sm">
-            <thead className="sticky top-0 z-10 bg-slate-50 border-b border-slate-200">
-              <tr className="text-left text-xs uppercase tracking-wide text-slate-500">
-                <th className="p-4 w-12 bg-slate-50 border-r">
-                  <input 
-                    type="checkbox" 
-                    className="w-4 h-4 rounded accent-blue-600" 
-                    onChange={handleSelectAll} 
-                    checked={closedItems.length > 0 && selectedIds.length === closedItems.length} 
-                    disabled={closedItems.length === 0} 
-                  />
-                </th>
-                <th className="p-4 w-12 bg-slate-50 border-r"></th>
-                {!isSimpleView && <th className="p-4 w-16 text-center bg-slate-50 border-r">Ej</th>}
-                <th className="p-4 min-w-[200px] bg-slate-50 border-r">Empresa</th>
-                <th className="p-4 min-w-[250px] bg-slate-50">Comentarios</th>
-                {!isSimpleView && <th className="p-4 min-w-[100px] bg-slate-50 text-center">Fecha</th>}
-                <th className="p-4 min-w-[120px] bg-slate-50 font-bold text-slate-700">Contenedor</th>
-                <th className="p-4 min-w-[120px] bg-slate-50">Pedimento</th>
-                {!isSimpleView && <th className="p-4 min-w-[100px] bg-slate-50">Factura</th>}
-                <th className="p-4 min-w-[150px] bg-slate-50 text-blue-800">Proveedor</th>
-                <th className="p-4 min-w-[100px] bg-slate-50 text-slate-400">Banco</th>
-                <th className="p-4 min-w-[120px] bg-slate-50 text-slate-400">Cuenta</th>
-                <th className="p-4 min-w-[150px] bg-slate-50 text-slate-400">CLABE</th>
-                <th className="p-4 min-w-[120px] bg-slate-50 text-center">ETA</th>
-                <th className="p-4 min-w-[150px] text-right bg-slate-50">Total</th>
-                <th className="p-4 text-center bg-slate-50 min-w-[100px]">Comprobante</th>
-                {!isSimpleView && canEdit && <th className="p-4 text-center bg-slate-50">Acciones</th>}
-              </tr>
-            </thead>
-            <tbody className="text-sm">
-              {filteredData.map((item) => {
-                const itemIsClosed = isClosed(item);
-                const itemIsPaid = isPaid(item);
-                
-                return (
-                  <React.Fragment key={item.id}>
-                    <tr className={`hover:bg-slate-50 border-b border-slate-100 transition-colors ${expandedRow === item.id ? 'bg-blue-50/30' : ''}`}>
-                      <td className="p-4 text-center bg-white border-r border-slate-100">
-                        <input 
-                          type="checkbox" 
-                          checked={selectedIds.includes(item.id)} 
-                          onChange={() => handleSelectRow(item.id)} 
-                          disabled={!itemIsClosed} 
-                          className={`w-4 h-4 rounded ${itemIsClosed ? 'cursor-pointer accent-blue-600' : 'cursor-not-allowed bg-slate-100'}`} 
-                        />
+      {/* Table */}
+      <div className="overflow-x-auto">
+        <table className="w-full">
+          <thead>
+            <tr className="text-xs font-bold text-slate-500 uppercase tracking-wider border-b border-slate-200">
+              <th className="p-4 w-12 bg-slate-50"></th>
+              <th className="p-4 w-12 bg-slate-50"></th>
+              {!isSimpleView && <th className="p-4 bg-slate-50 text-left">EJ</th>}
+              <th className="p-4 bg-slate-50 text-left">Empresa</th>
+              <th className="p-4 bg-slate-50 text-left min-w-[200px]">Identificador</th>
+              {!isSimpleView && <th className="p-4 bg-slate-50 text-center">Fecha</th>}
+              <th className="p-4 bg-slate-50 text-left">BL / Contenedor</th>
+              <th className="p-4 bg-slate-50 text-left">Pedimento</th>
+              <th className="p-4 bg-slate-50 text-center">ETA</th>
+              <th className="p-4 bg-slate-50 text-center">Conceptos</th>
+              <th className="p-4 bg-slate-50 text-right min-w-[120px]">Total</th>
+              <th className="p-4 bg-slate-50 text-center">Estado</th>
+              {!isSimpleView && canEdit && <th className="p-4 bg-slate-50 text-center">Acciones</th>}
+            </tr>
+          </thead>
+          <tbody className="text-sm">
+            {filteredGroups.map((group) => {
+              const groupIsClosed = isClosed(group);
+              const groupIsPaid = isPaid(group);
+              const visibleTickets = getVisibleTickets(group.tickets);
+              
+              return (
+                <React.Fragment key={group.identifier}>
+                  {/* Fila principal del grupo */}
+                  <tr className={`hover:bg-slate-50 border-b border-slate-100 transition-colors ${expandedRow === group.identifier ? 'bg-blue-50/30' : ''}`}>
+                    <td className="p-4 text-center">
+                      <div className={`w-3 h-3 rounded-full ${getSemaforoColor(group.semaforo)}`} title={group.semaforo}></div>
+                    </td>
+                    <td className="p-4 text-center cursor-pointer" onClick={() => toggleRow(group.identifier)}>
+                      {expandedRow === group.identifier 
+                        ? <ChevronUp size={18} className="text-blue-500"/> 
+                        : <ChevronDown size={18} className="text-slate-400"/>
+                      }
+                    </td>
+                    {!isSimpleView && (
+                      <td className="p-4 font-bold text-slate-400 text-xs">
+                        {group.ejecutivo?.split(' ')[0]?.toUpperCase() || '-'}
                       </td>
-                      <td className="p-4 text-center cursor-pointer bg-white border-r border-slate-100" onClick={() => toggleRow(item.id)}>
-                        {expandedRow === item.id ? <ChevronUp size={18} className="text-blue-500"/> : <ChevronDown size={18} className="text-slate-400"/>}
+                    )}
+                    <td className="p-4 font-bold text-slate-700">{group.empresa}</td>
+                    <td className="p-4">
+                      <span className="inline-block px-2 py-1 bg-yellow-50 border border-yellow-200 rounded text-xs font-mono font-bold text-slate-700 shadow-sm">
+                        {group.prefijo} {group.tickets[0]?.consecutivo || ''} {group.identifier}
+                      </span>
+                    </td>
+                    {!isSimpleView && (
+                      <td className="p-4 text-center text-xs text-slate-500">
+                        {formatDate(group.tickets[0]?.fecha_alta)}
                       </td>
-                      {!isSimpleView && (
-                        <td className="p-4 text-center bg-white border-r font-bold text-slate-400">
-                          {getEjecutivoNombre(item)}
-                        </td>
+                    )}
+                    <td className="p-4 font-mono text-xs">
+                      <div>{group.bl_master || '-'}</div>
+                      {group.contenedor && group.contenedor !== group.bl_master && (
+                        <div className="text-slate-400">{group.contenedor}</div>
                       )}
-                      <td className="p-4 font-bold text-slate-700 truncate">{getEmpresaNombre(item)}</td>
-                      <td className="p-4">
-                        <span className="inline-block px-2 py-1 bg-yellow-50 border border-yellow-200 rounded text-xs font-mono font-bold text-slate-700 shadow-sm whitespace-nowrap">
-                          {item.comentarios || '-'}
-                        </span>
-                      </td>
-                      {!isSimpleView && (
-                        <td className="p-4 text-center text-xs">
-                          {formatDate(item.fecha_alta || item.fechaAlta)}
-                        </td>
+                    </td>
+                    <td className="p-4 text-xs">{group.pedimento || '-'}</td>
+                    <td className="p-4 text-center text-xs">
+                      {formatDate(group.eta)}
+                      {group.dias_libres && (
+                        <div className="text-slate-400">{group.dias_libres}d libres</div>
                       )}
-                      <td className="p-4 font-mono font-bold">{item.contenedor || '-'}</td>
-                      <td className="p-4 text-xs">{item.pedimento || '-'}</td>
-                      {!isSimpleView && <td className="p-4 text-xs">{item.factura || '-'}</td>}
-                      <td className="p-4 text-xs font-bold text-blue-700">{getProveedorNombre(item)}</td>
-                      <td className="p-4 text-[10px] text-slate-500">{getProveedorBanco(item)}</td>
-                      <td className="p-4 text-[10px] text-slate-500 font-mono">{getProveedorCuenta(item)}</td>
-                      <td className="p-4 text-[10px] text-slate-500 font-mono">{getProveedorClabe(item)}</td>
-                      <td className="p-4 text-center">
-                        <StatusBadge item={item} />
-                        <div className="text-[10px] mt-1 text-slate-400">{formatDate(item.eta)}</div>
-                      </td>
-                      <td className="p-4 text-right font-bold text-slate-800">
-                        ${getImporte(item).toLocaleString()}
-                      </td>
+                    </td>
+                    <td className="p-4 text-center">
+                      <span className="inline-flex items-center justify-center w-6 h-6 bg-blue-100 text-blue-700 rounded-full text-xs font-bold">
+                        {visibleTickets.length}
+                      </span>
+                    </td>
+                    <td className="p-4 text-right font-bold text-slate-800">
+                      ${group.totalImporte.toLocaleString('es-MX', { minimumFractionDigits: 2 })}
+                    </td>
+                    <td className="p-4 text-center">
+                      <span className={`px-2 py-1 rounded-full text-xs font-bold ${
+                        groupIsClosed ? 'bg-slate-200 text-slate-600' :
+                        groupIsPaid ? 'bg-green-100 text-green-700' :
+                        'bg-amber-100 text-amber-700'
+                      }`}>
+                        {groupIsClosed ? 'Cerrado' : groupIsPaid ? 'Pagado' : 'Pendiente'}
+                      </span>
+                    </td>
+                    {!isSimpleView && canEdit && (
                       <td className="p-4 text-center">
                         <button 
-                          disabled={!itemIsClosed} 
-                          onClick={() => generatePDF([item], `Comprobante_${item.bl_master || item.bl || item.contenedor}.pdf`)} 
-                          className={`p-2 rounded transition-colors ${itemIsClosed ? 'text-red-600 hover:bg-red-50 hover:shadow-sm' : 'text-slate-300 cursor-not-allowed'}`} 
-                          title={itemIsClosed ? "Descargar PDF" : "Operación no cerrada"}
+                          onClick={() => onEdit(group.tickets[0])} 
+                          className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded"
+                          title="Editar"
                         >
-                          <FileText size={18} />
+                          <Edit size={16}/>
                         </button>
                       </td>
-                      {!isSimpleView && canEdit && (
-                        <td className="p-4 text-center">
-                          <button onClick={() => onEdit(item)} className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded">
-                            <Edit size={16}/>
-                          </button>
-                        </td>
-                      )}
-                    </tr>
-                    {expandedRow === item.id && (
-                      <tr className="bg-slate-50">
-                        <td colSpan={isSimpleView ? "13" : "17"} className="p-0 border-b border-slate-200 shadow-inner">
-                          <div className="p-6">
-                            <h4 className="text-xs font-bold text-slate-500 uppercase mb-3 border-b pb-2">Desglose de costos</h4>
-                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
-                              {[
-                                {l:'Demoras', k:'costo_demoras', kOld:'costDemoras'}, 
-                                {l:'Almacenaje', k:'costo_almacenaje', kOld:'costAlmacenaje'},
-                                {l:'Operativos', k:'costo_operativos', kOld:'costOperativos'}, 
-                                {l:'Portuarios', k:'costo_gastos_portuarios', kOld:'costPortuarios'},
-                                {l:'Apoyo', k:'costo_apoyo', kOld:'costApoyo'}, 
-                                {l:'Impuestos', k:'costo_impuestos', kOld:'costImpuestos'},
-                                {l:'Liberación', k:'costo_liberacion', kOld:'costLiberacion'}, 
-                                {l:'Transporte', k:'costo_transporte', kOld:'costTransporte'}
-                              ].map((c) => {
-                                const costValue = parseFloat(item[c.k] ?? item[c.kOld] ?? 0) || 0;
-                                return (
-                                  <div key={c.k} className="flex justify-between items-center p-2 bg-white border rounded shadow-sm">
-                                    <span className="text-xs text-slate-500 font-bold uppercase">{c.l}</span>
-                                    <span className="font-mono font-bold text-slate-800">${costValue.toLocaleString()}</span>
-                                    {canPay && (costValue > 0) && (
-                                      <button 
-                                        onClick={() => onPayItem && onPayItem(item.id, c.k)} 
-                                        disabled={item.paidFlags?.[c.k] || itemIsPaid} 
-                                        className={`ml-2 p-1 rounded text-[10px] font-bold uppercase ${item.paidFlags?.[c.k] || itemIsPaid ? 'bg-green-100 text-green-700' : 'bg-blue-600 text-white'}`}
-                                      >
-                                        {item.paidFlags?.[c.k] || itemIsPaid ? 'Pagado' : 'Pagar'}
-                                      </button>
-                                    )}
-                                  </div>
-                                );
-                              })}
-                            </div>
-                            <div className="flex justify-end gap-3">
-                              {canPay && !itemIsPaid && (
-                                <button 
-                                  onClick={() => onPayAll && onPayAll(item.id)} 
-                                  className="px-4 py-2 bg-emerald-600 text-white font-bold rounded shadow hover:bg-emerald-700 text-xs"
-                                >
-                                  Saldar total
-                                </button>
-                              )}
-                              {itemIsClosed ? (
-                                <span className="px-4 py-2 bg-slate-100 text-slate-400 font-bold rounded shadow-inner text-xs flex items-center border border-slate-200 cursor-not-allowed">
-                                  <Lock size={12} className="mr-2"/> Operación cerrada
-                                </span>
-                              ) : canClose && (
-                                <button 
-                                  onClick={() => onCloseOperation && onCloseOperation(item)} 
-                                  className="px-4 py-2 bg-slate-800 text-white font-bold rounded shadow hover:bg-slate-900 text-xs flex items-center"
-                                >
-                                  <Lock size={12} className="mr-2"/> Cerrar operación
-                                </button>
-                              )}
-                            </div>
-                          </div>
-                        </td>
-                      </tr>
                     )}
-                  </React.Fragment>
-                );
-              })}
-            </tbody>
-          </table>
-          
-          {/* Empty state */}
-          {filteredData.length === 0 && (
-            <div className="flex flex-col items-center justify-center py-12 text-slate-400">
-              <Search size={48} className="mb-4 opacity-50" />
-              <p className="text-lg font-medium">No hay contenedores para mostrar</p>
-              <p className="text-sm">Crea un nuevo contenedor desde "Alta de contenedores"</p>
-            </div>
-          )}
-        </div>
+                  </tr>
+
+                  {/* Fila expandida con desglose */}
+                  {expandedRow === group.identifier && (
+                    <tr className="bg-slate-50">
+                      <td colSpan={isSimpleView ? 11 : 13} className="p-0 border-b-2 border-slate-200">
+                        <div className="p-6">
+                          <h4 className="text-xs font-bold text-slate-500 uppercase mb-4 flex items-center gap-2">
+                            <DollarSign size={14} />
+                            Desglose de pagos ({visibleTickets.length} conceptos)
+                          </h4>
+                          
+                          {/* Tabla de conceptos */}
+                          <div className="bg-white rounded-lg border border-slate-200 overflow-hidden mb-4">
+                            <table className="w-full text-xs">
+                              <thead>
+                                <tr className="bg-slate-100 text-slate-600 uppercase">
+                                  <th className="p-3 text-left font-bold">Concepto / Referencia</th>
+                                  <th className="p-3 text-left font-bold">Proveedor</th>
+                                  <th className="p-3 text-left font-bold">Banco</th>
+                                  <th className="p-3 text-left font-bold">Cuenta</th>
+                                  <th className="p-3 text-left font-bold">CLABE</th>
+                                  <th className="p-3 text-right font-bold">Importe</th>
+                                  <th className="p-3 text-center font-bold">Estado</th>
+                                  {canPay && <th className="p-3 text-center font-bold">Acción</th>}
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {visibleTickets.map((ticket, idx) => (
+                                  <tr key={ticket.id} className={`border-t border-slate-100 ${idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'}`}>
+                                    <td className="p-3">
+                                      <div className="font-bold text-slate-700">{ticket.observaciones?.split(' - ')[0] || ticket.observaciones || 'Sin concepto'}</div>
+                                      <div className="text-slate-400 font-mono">{ticket.observaciones || ticket.comentarios}</div>
+                                    </td>
+                                    <td className="p-3 font-medium text-blue-700">
+                                      {ticket.proveedor_nombre || '-'}
+                                    </td>
+                                    <td className="p-3 text-slate-500">
+                                      {ticket.proveedor_banco || '-'}
+                                    </td>
+                                    <td className="p-3 font-mono text-slate-500">
+                                      {ticket.proveedor_cuenta || '-'}
+                                    </td>
+                                    <td className="p-3 font-mono text-slate-500">
+                                      {ticket.proveedor_clabe || '-'}
+                                    </td>
+                                    <td className="p-3 text-right font-bold text-slate-800">
+                                      ${parseFloat(ticket.importe || 0).toLocaleString('es-MX', { minimumFractionDigits: 2 })}
+                                      <span className="text-slate-400 ml-1">{ticket.divisa}</span>
+                                    </td>
+                                    <td className="p-3 text-center">
+                                      <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                                        ticket.estatus === 'cerrado' ? 'bg-slate-200 text-slate-600' :
+                                        ticket.estatus === 'pagado' ? 'bg-green-100 text-green-700' :
+                                        'bg-amber-100 text-amber-700'
+                                      }`}>
+                                        {ticket.estatus === 'cerrado' ? 'Cerrado' : 
+                                         ticket.estatus === 'pagado' ? 'Pagado' : 'Pendiente'}
+                                      </span>
+                                    </td>
+                                    {canPay && (
+                                      <td className="p-3 text-center">
+                                        {ticket.estatus === 'pendiente' && (
+                                          <button
+                                            onClick={() => onPayAll && onPayAll(ticket.id)}
+                                            className="px-2 py-1 bg-emerald-600 text-white rounded text-[10px] font-bold hover:bg-emerald-700"
+                                          >
+                                            Pagar
+                                          </button>
+                                        )}
+                                      </td>
+                                    )}
+                                  </tr>
+                                ))}
+                              </tbody>
+                              <tfoot>
+                                <tr className="bg-slate-100 font-bold">
+                                  <td colSpan={5} className="p-3 text-right text-slate-600">TOTAL:</td>
+                                  <td className="p-3 text-right text-slate-800">
+                                    ${visibleTickets.reduce((sum, t) => sum + (parseFloat(t.importe) || 0), 0).toLocaleString('es-MX', { minimumFractionDigits: 2 })}
+                                  </td>
+                                  <td></td>
+                                  {canPay && <td></td>}
+                                </tr>
+                              </tfoot>
+                            </table>
+                          </div>
+
+                          {/* Acciones del grupo */}
+                          <div className="flex justify-end gap-3">
+                            {canPay && !groupIsPaid && !groupIsClosed && visibleTickets.some(t => t.estatus === 'pendiente') && (
+                              <button 
+                                onClick={() => {
+                                  // Pagar todos los tickets pendientes del grupo
+                                  visibleTickets.filter(t => t.estatus === 'pendiente').forEach(t => {
+                                    onPayAll && onPayAll(t.id);
+                                  });
+                                }}
+                                className="px-4 py-2 bg-emerald-600 text-white font-bold rounded shadow hover:bg-emerald-700 text-xs"
+                              >
+                                Saldar todos ({visibleTickets.filter(t => t.estatus === 'pendiente').length})
+                              </button>
+                            )}
+                            {groupIsClosed ? (
+                              <span className="px-4 py-2 bg-slate-100 text-slate-400 font-bold rounded shadow-inner text-xs flex items-center border border-slate-200">
+                                <Lock size={12} className="mr-2"/> Operación cerrada
+                              </span>
+                            ) : canClose && (
+                              <button 
+                                onClick={() => {
+                                  console.log('Cerrando grupo:', group);
+                                  console.log('Tickets del grupo:', group.tickets);
+                                  onCloseOperation && onCloseOperation(group.tickets[0], group.tickets);
+                                }}              className="px-4 py-2 bg-slate-800 text-white font-bold rounded shadow hover:bg-slate-900 text-xs flex items-center"
+                              >
+                                <Lock size={12} className="mr-2"/> Cerrar operación
+                              </button>
+                            )}
+                            <button 
+                              onClick={() => generatePDF(group.tickets, `Desglose_${group.identifier}.pdf`)} 
+                              className="px-4 py-2 bg-red-600 text-white font-bold rounded shadow hover:bg-red-700 text-xs flex items-center"
+                            >
+                              <FileText size={12} className="mr-2"/> Descargar PDF
+                            </button>
+                          </div>
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                </React.Fragment>
+              );
+            })}
+          </tbody>
+        </table>
+
+        {/* Empty state */}
+        {filteredGroups.length === 0 && (
+          <div className="flex flex-col items-center justify-center py-12 text-slate-400">
+            <Search size={48} className="mb-4 opacity-50" />
+            <p className="text-lg font-medium">No hay contenedores para mostrar</p>
+            <p className="text-sm">Crea un nuevo contenedor desde "Alta de pago"</p>
+          </div>
+        )}
       </div>
     </div>
   );

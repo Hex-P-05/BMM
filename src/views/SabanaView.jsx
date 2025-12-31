@@ -1,16 +1,14 @@
 // src/views/SabanaView.jsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import ListView from './ListView';
-import { Ship, Truck, FileCheck, Filter, MapPin } from 'lucide-react';
+import { Ship, Truck, FileCheck, Filter, MapPin, RefreshCw } from 'lucide-react';
+import api from '../api/axios';
 
 const SabanaView = ({ 
-  data = [], 
   onPayAll, 
   onCloseOperation, 
   onEdit, 
-  loading,
-  puertos = []
 }) => {
   const {
     role,
@@ -20,80 +18,94 @@ const SabanaView = ({
     isLogistica,
     isClasificacion,
     esGlobal,
-    puertoId,
     puertoCodigo,
   } = useAuth();
 
-  // Tab activa (para Admin/Pagos que pueden ver todas)
-  const [activeTab, setActiveTab] = useState('revalidaciones');
-  
-  // Filtro de puerto (para Admin/Pagos)
-  const [filteredPuerto, setFilteredPuerto] = useState('todos');
-
-  // Determinar qué sábana mostrar según el rol
-  useEffect(() => {
-    if (isRevalidaciones) {
-      setActiveTab('revalidaciones');
-    } else if (isLogistica) {
-      setActiveTab('logistica');
-    } else if (isClasificacion) {
-      setActiveTab('clasificacion');
-    }
-    // Admin y Pagos mantienen su selección
-  }, [isRevalidaciones, isLogistica, isClasificacion]);
-
-  // Filtrar datos por sábana/tipo
-  const getFilteredData = () => {
-    let filtered = [...data];
-
-    // Si NO es global, filtrar por puerto del usuario
-    if (!esGlobal && puertoId) {
-      filtered = filtered.filter(item => {
-        const itemPuertoId = item.puerto_id || item.puerto?.id;
-        return itemPuertoId === puertoId;
-      });
-    }
-
-    // Si ES global y tiene filtro de puerto seleccionado
-    if (esGlobal && filteredPuerto !== 'todos') {
-      filtered = filtered.filter(item => {
-        const itemPuertoCodigo = item.puerto_codigo || item.puerto?.codigo;
-        return itemPuertoCodigo === filteredPuerto;
-      });
-    }
-
-    // TODO: Cuando tengamos endpoints separados, filtrar por tipo de sábana
-    // Por ahora mostramos todos los tickets
-    
-    return filtered;
+  // Determinar tab inicial según rol
+  const getInitialTab = () => {
+    if (isLogistica) return 'logistica';
+    if (isClasificacion) return 'clasificacion';
+    return 'revalidaciones';
   };
 
-  const filteredData = getFilteredData();
+  const [data, setData] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState(getInitialTab);
+  const [filteredPuerto, setFilteredPuerto] = useState('todos');
+  
+  // Ref para evitar doble fetch
+  const fetchingRef = useRef(false);
 
-  // Tabs disponibles para Admin/Pagos
+  // Fetch de tickets
+  const fetchTickets = async (tab, puerto) => {
+    if (fetchingRef.current) return;
+    fetchingRef.current = true;
+    
+    setLoading(true);
+    try {
+      const params = new URLSearchParams();
+      
+      // Solo filtrar por tipo si NO es "todos"
+      if (tab !== 'todos') {
+        params.append('tipo_operacion', tab);
+      }
+      
+      if (esGlobal && puerto !== 'todos') {
+        params.append('puerto', puerto);
+      }
+      
+      console.log('Fetching:', `/api/operaciones/tickets/?${params.toString()}`);
+      const response = await api.get(`/operaciones/tickets/?${params.toString()}`);
+      const tickets = response.data.results || response.data;
+      setData(tickets);
+    } catch (err) {
+      console.error('Error fetching tickets:', err);
+      setData([]);
+    } finally {
+      setLoading(false);
+      fetchingRef.current = false;
+    }
+  };
+
+  // Fetch inicial
+  useEffect(() => {
+    const tab = getInitialTab();
+    console.log('Fetch inicial con tab:', tab);
+    fetchTickets(tab, 'todos');
+  }, []); // Solo al montar
+
+  // Cuando cambia el tab manualmente
+  const handleTabChange = (newTab) => {
+    setActiveTab(newTab);
+    fetchTickets(newTab, filteredPuerto);
+  };
+
+  // Cuando cambia el filtro de puerto
+  const handlePuertoChange = (newPuerto) => {
+    setFilteredPuerto(newPuerto);
+    fetchTickets(activeTab, newPuerto);
+  };
+
   const tabs = [
+    { id: 'todos', label: 'Todos', icon: Filter, color: 'slate' },  // <-- Agregar este
     { id: 'revalidaciones', label: 'Revalidaciones', icon: Ship, color: 'blue' },
-    { id: 'logistica', label: 'Logística', icon: Truck, color: 'cyan' },
-    { id: 'clasificacion', label: 'Clasificación', icon: FileCheck, color: 'pink' },
+    { id: 'logistica', label: 'Logistica', icon: Truck, color: 'cyan' },
+    { id: 'clasificacion', label: 'Clasificacion', icon: FileCheck, color: 'pink' },
   ];
 
-  // Opciones de puerto para filtro
   const puertoOptions = [
     { value: 'todos', label: 'Todos los puertos' },
     { value: 'MZN', label: 'Manzanillo' },
-    { value: 'LZC', label: 'Lázaro Cárdenas' },
+    { value: 'LZC', label: 'Lazaro Cardenas' },
   ];
 
-  // ¿Puede ver múltiples sábanas?
   const canSwitchSabanas = isAdmin || isPagos;
 
   return (
     <div className="space-y-4">
-      {/* Header con tabs y filtros */}
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           
-          {/* Tabs de sábana (solo Admin/Pagos) */}
           {canSwitchSabanas ? (
             <div className="flex gap-2">
               {tabs.map(tab => {
@@ -102,17 +114,18 @@ const SabanaView = ({
                 return (
                   <button
                     key={tab.id}
-                    onClick={() => setActiveTab(tab.id)}
+                    onClick={() => handleTabChange(tab.id)}
                     className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-sm transition-all ${
                       isActive
-                        ? `bg-${tab.color}-600 text-white shadow-md`
+                        ? 'text-white shadow-md'
                         : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                     }`}
                     style={isActive ? { 
-                      backgroundColor: tab.color === 'blue' ? '#2563eb' : 
-                                       tab.color === 'cyan' ? '#0891b2' : 
-                                       '#db2777'
-                    } : {}}
+                        backgroundColor: tab.color === 'slate' ? '#475569' :
+                                        tab.color === 'blue' ? '#2563eb' : 
+                                        tab.color === 'cyan' ? '#0891b2' : 
+                                        '#db2777'
+                      } : {}}
                   >
                     <Icon size={18} />
                     {tab.label}
@@ -121,7 +134,6 @@ const SabanaView = ({
               })}
             </div>
           ) : (
-            // Título para usuarios con rol específico
             <div className="flex items-center gap-3">
               <div className={`p-2 rounded-lg ${
                 isRevalidaciones ? 'bg-blue-100 text-blue-600' :
@@ -134,7 +146,7 @@ const SabanaView = ({
               </div>
               <div>
                 <h2 className="text-lg font-bold text-slate-800">
-                  Sábana de {isRevalidaciones ? 'Revalidaciones' : isLogistica ? 'Logística' : 'Clasificación'}
+                  Sabana de {isRevalidaciones ? 'Revalidaciones' : isLogistica ? 'Logistica' : 'Clasificacion'}
                 </h2>
                 <p className="text-sm text-slate-500">
                   Puerto: {puertoCodigo || 'No asignado'}
@@ -143,26 +155,33 @@ const SabanaView = ({
             </div>
           )}
 
-          {/* Filtro de puerto (solo Admin/Pagos) */}
           {canSwitchSabanas && (
-            <div className="flex items-center gap-2">
-              <MapPin size={18} className="text-slate-400" />
-              <select
-                value={filteredPuerto}
-                onChange={(e) => setFilteredPuerto(e.target.value)}
-                className="px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-blue-500 outline-none"
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2">
+                <MapPin size={18} className="text-slate-400" />
+                <select
+                  value={filteredPuerto}
+                  onChange={(e) => handlePuertoChange(e.target.value)}
+                  className="px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-blue-500 outline-none"
+                >
+                  {puertoOptions.map(opt => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <button
+                onClick={() => fetchTickets(activeTab, filteredPuerto)}
+                className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                title="Actualizar"
               >
-                {puertoOptions.map(opt => (
-                  <option key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </option>
-                ))}
-              </select>
+                <RefreshCw size={18} className={loading ? 'animate-spin' : ''} />
+              </button>
             </div>
           )}
         </div>
 
-        {/* Info de sábana activa para Admin/Pagos */}
         {canSwitchSabanas && (
           <div className="mt-4 pt-4 border-t border-slate-100">
             <div className="flex items-center gap-2 text-sm text-slate-500">
@@ -177,7 +196,7 @@ const SabanaView = ({
                   </strong></>
                 )}
                 <span className="ml-2 px-2 py-0.5 bg-slate-100 rounded-full text-xs">
-                  {filteredData.length} registros
+                  {data.length} registros
                 </span>
               </span>
             </div>
@@ -185,10 +204,12 @@ const SabanaView = ({
         )}
       </div>
 
-      {/* Lista de datos */}
       <ListView
-        data={filteredData}
-        onPayAll={onPayAll}
+        data={data}
+        onPayAll={async (ticketId) => {
+          await onPayAll(ticketId);
+          fetchTickets(activeTab, filteredPuerto);  // Refrescar después de pagar
+        }}
         onCloseOperation={onCloseOperation}
         role={role}
         onEdit={onEdit}

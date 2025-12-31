@@ -326,13 +326,13 @@ class SaldoTesoreriaSerializer(serializers.ModelSerializer):
 
 class TicketListSerializer(serializers.ModelSerializer):
     """Serializer para listado de tickets (datos mínimos) - LEGACY"""
-    ejecutivo_nombre = serializers.CharField(source='ejecutivo.nombre', read_only=True)
-    empresa_nombre = serializers.CharField(source='empresa.nombre', read_only=True)
-    concepto_nombre = serializers.CharField(source='concepto.nombre', read_only=True, allow_null=True)
-    proveedor_nombre = serializers.CharField(source='proveedor.nombre', read_only=True)
-    proveedor_banco = serializers.CharField(source='proveedor.banco', read_only=True)
-    proveedor_cuenta = serializers.CharField(source='proveedor.cuenta', read_only=True)
-    proveedor_clabe = serializers.CharField(source='proveedor.clabe', read_only=True)
+    ejecutivo_nombre = serializers.CharField(source='ejecutivo.nombre', read_only=True, default='')
+    empresa_nombre = serializers.CharField(source='empresa.nombre', read_only=True, default='')
+    concepto_nombre = serializers.SerializerMethodField()
+    proveedor_nombre = serializers.SerializerMethodField()
+    proveedor_banco = serializers.SerializerMethodField()
+    proveedor_cuenta = serializers.SerializerMethodField()
+    proveedor_clabe = serializers.SerializerMethodField()
     semaforo = serializers.CharField(read_only=True)
     dias_restantes = serializers.IntegerField(read_only=True)
     estatus_display = serializers.CharField(source='get_estatus_display', read_only=True)
@@ -354,6 +354,21 @@ class TicketListSerializer(serializers.ModelSerializer):
             'contador_ediciones', 'observaciones',
             'fecha_creacion', 'fecha_actualizacion'
         ]
+
+    def get_concepto_nombre(self, obj):
+        return obj.concepto.nombre if obj.concepto else None
+    
+    def get_proveedor_nombre(self, obj):
+        return obj.proveedor.nombre if obj.proveedor else None
+    
+    def get_proveedor_banco(self, obj):
+        return obj.proveedor.banco if obj.proveedor else None
+    
+    def get_proveedor_cuenta(self, obj):
+        return obj.proveedor.cuenta if obj.proveedor else None
+    
+    def get_proveedor_clabe(self, obj):
+        return obj.proveedor.clabe if obj.proveedor else None
 
 
 class TicketDetailSerializer(TicketListSerializer):
@@ -395,7 +410,8 @@ class TicketCreateSerializer(serializers.ModelSerializer):
         fields = [
             'empresa', 'fecha_alta', 'concepto', 'prefijo', 'contenedor',
             'bl_master', 'pedimento', 'factura', 'proveedor',
-            'importe', 'divisa', 'eta', 'dias_libres', 'observaciones'
+            'importe', 'divisa', 'eta', 'dias_libres', 'observaciones',
+            'tipo_operacion', 'puerto'  # <-- Agregar estos
         ]
 
     def create(self, validated_data):
@@ -408,14 +424,15 @@ class TicketCreateSerializer(serializers.ModelSerializer):
 
 
 class TicketUpdateSerializer(serializers.ModelSerializer):
+    
     """Serializer para actualizar tickets - LEGACY"""
-
     class Meta:
         model = Ticket
         fields = [
             'empresa', 'fecha_alta', 'concepto', 'prefijo', 'contenedor',
             'bl_master', 'pedimento', 'factura', 'proveedor',
-            'importe', 'divisa', 'eta', 'dias_libres', 'observaciones'
+            'importe', 'divisa', 'eta', 'dias_libres', 'observaciones',
+            'estatus', 'fecha_pago'  # <-- Agregar estos
         ]
 
     def validate(self, attrs):

@@ -1,4 +1,5 @@
 from rest_framework import serializers
+from django.contrib.contenttypes.models import ContentType
 from .models import (
     Pago, PagoLogistica, PagoRevalidacion,
     CierreOperacion, CierreLegacy
@@ -26,15 +27,74 @@ class PagoSerializer(serializers.ModelSerializer):
 
 class PagoCreateSerializer(serializers.ModelSerializer):
     """Serializer para crear pagos genéricos"""
+    # Campo opcional para enviar ticket directamente
+    ticket = serializers.IntegerField(write_only=True, required=False)
 
     class Meta:
         model = Pago
         fields = [
-            'content_type', 'object_id',
+            'content_type', 'object_id', 'ticket',
             'monto', 'fecha_pago',
             'concepto_pago', 'referencia', 'comprobante',
             'observaciones'
         ]
+        extra_kwargs = {
+            'content_type': {'required': False},
+            'object_id': {'required': False},
+        }
+
+    def validate(self, attrs):
+        # Si viene 'ticket', convertir a content_type y object_id
+        ticket_id = attrs.pop('ticket', None)
+        
+        if ticket_id:
+            from apps.operaciones.models import Ticket  # Este import está bien aquí
+            
+            try:
+                ticket = Ticket.objects.get(pk=ticket_id)
+                if ticket.estatus in ['pagado', 'cerrado']:
+                    raise serializers.ValidationError(
+                        'Este ticket ya está pagado o cerrado'
+                    )
+                attrs['content_type'] = ContentType.objects.get_for_model(Ticket)
+                attrs['object_id'] = ticket_id
+            except Ticket.DoesNotExist:
+                raise serializers.ValidationError(
+                    {'ticket': 'El ticket especificado no existe'}
+                )
+    
+    # ... resto del código
+        
+        # Validar que tengamos content_type y object_id
+        content_type = attrs.get('content_type')
+        object_id = attrs.get('object_id')
+        
+        if not content_type or not object_id:
+            raise serializers.ValidationError(
+                'Debe especificar ticket o (content_type y object_id)'
+            )
+        
+        # Validar que la operación exista
+        if content_type and object_id:
+            model_class = content_type.model_class()
+            if model_class:
+                try:
+                    obj = model_class.objects.get(pk=object_id)
+                    if hasattr(obj, 'estatus') and obj.estatus in ['pagado', 'cerrado']:
+                        raise serializers.ValidationError(
+                            'Esta operación ya está pagada o cerrada'
+                        )
+                except model_class.DoesNotExist:
+                    raise serializers.ValidationError(
+                        'La operación especificada no existe'
+                    )
+        
+        return attrs
+    
+    def create(self, validated_data):
+        # Remover 'ticket' antes de crear el objeto
+        validated_data.pop('ticket', None)
+        return super().create(validated_data)
 
     def validate(self, attrs):
         # Validar que la operación exista

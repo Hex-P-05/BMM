@@ -200,7 +200,7 @@ const DashboardView = ({ data = [], dashboard, loading, onRefresh }) => {
       {/* Tickets recientes */}
       {data.length > 0 && (
         <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
-          <h3 className="text-lg font-bold text-slate-800 mb-4">Últimos Contenedores</h3>
+          <h3 className="text-lg font-bold text-slate-800 mb-4">Últimos contenedores</h3>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>

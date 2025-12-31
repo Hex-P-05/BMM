@@ -1151,6 +1151,30 @@ class Ticket(models.Model):
     observaciones = models.TextField('Observaciones', blank=True)
     fecha_creacion = models.DateTimeField('Fecha de creación', auto_now_add=True)
     fecha_actualizacion = models.DateTimeField('Última actualización', auto_now=True)
+    # NUEVOS: Campos para filtrado por sábana y puerto
+    
+    TIPO_OPERACION_CHOICES = [
+        ('revalidaciones', 'Revalidaciones'),
+        ('logistica', 'Logística'),
+        ('clasificacion', 'Clasificación'),
+    ]
+    
+    tipo_operacion = models.CharField(
+        'Tipo de operación',
+        max_length=20,
+        choices=TIPO_OPERACION_CHOICES,
+        default='revalidaciones',
+        help_text='Determina en qué sábana aparece el ticket'
+    )
+    
+    puerto = models.ForeignKey(
+        'catalogos.Puerto',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='tickets',
+        verbose_name='Puerto'
+    )
 
     class Meta:
         db_table = 'tickets'

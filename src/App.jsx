@@ -77,6 +77,8 @@ function AppContent() {
   const [editingItem, setEditingItem] = useState(null);
   const [closeModalOpen, setCloseModalOpen] = useState(false);
   const [itemToClose, setItemToClose] = useState(null);
+  const [ticketsToClose, setTicketsToClose] = useState([]);  // <-- Agregar esta línea
+
 
   // Loading screen
   if (authLoading) {
@@ -118,13 +120,11 @@ function AppContent() {
   };
 
   const handlePayAll = async (ticketId) => {
-    const ticket = tickets.find(t => t.id === ticketId);
-    if (!ticket) return;
-    const result = await registrarPago(ticketId, {
-      monto: ticket.importe,
-      fecha_pago: new Date().toISOString().split('T')[0]
-    });
+    console.log('handlePayAll llamado con ticketId:', ticketId);
+    const result = await registrarPago(ticketId, {});
+    console.log('Resultado del pago:', result);
     if (result.success) {
+      console.log('Pago exitoso, refrescando...');
       refreshTickets();
     } else {
       alert('Error al registrar pago: ' + result.error);
@@ -138,10 +138,14 @@ function AppContent() {
     setPaymentConfirmation({ isOpen: false, item: null });
   };
 
-  const handleCloseOperation = (item) => {
+  const handleCloseOperation = (item, groupTickets = []) => {
+    console.log('handleCloseOperation llamado');
+    console.log('item:', item);
+    console.log('groupTickets:', groupTickets);
     setItemToClose(item);
+    setTicketsToClose(groupTickets.length > 0 ? groupTickets : [item]);
     setCloseModalOpen(true);
-  };
+};
 
   const confirmClose = async () => {
     if (!itemToClose) return;
@@ -199,8 +203,21 @@ function AppContent() {
       />
       <CloseModal 
         isOpen={closeModalOpen} 
-        onClose={confirmClose} 
-        item={itemToClose} 
+        onClose={() => {
+          setCloseModalOpen(false);
+          setItemToClose(null);
+          setTicketsToClose([]);
+        }}
+        onConfirm={async (ticketId) => {
+          const result = await cerrarOperacion(ticketId);
+          if (result.success) {
+            refreshTickets();
+          }
+          return result;
+        }}
+        item={itemToClose}
+        tickets={ticketsToClose}
+        loading={pagosLoading}
       />
 
       <aside className={`${isSidebarCollapsed ? 'w-20' : 'w-64'} bg-slate-900 text-white flex-shrink-0 hidden md:flex flex-col transition-all duration-300 ease-in-out relative`}>

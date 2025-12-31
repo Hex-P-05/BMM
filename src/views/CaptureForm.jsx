@@ -27,14 +27,44 @@ const CONCEPTOS_REVALIDACIONES = [
 
 // Conceptos disponibles para Logística (para futuro)
 const CONCEPTOS_LOGISTICA = [
+  { id: 'impuestos', nombre: 'IMPUESTOS' },
+  { id: 'honorarios_aa', nombre: 'HONORARIOS AA' },
   { id: 'maniobras', nombre: 'MANIOBRAS' },
-  { id: 'almacenaje', nombre: 'ALMACENAJE' },
-  { id: 'acarreo', nombre: 'ACARREO' },
-  // ... se agregará después
+  { id: 'almacenajes', nombre: 'ALMACENAJES' },
+  { id: 'cierre_cuenta', nombre: 'CIERRE DE CUENTA' },
+  { id: 'constancia', nombre: 'CONSTANCIA' },
+  { id: 'complemento_impuestos', nombre: 'COMPLEMENTO IMPUESTOS' },
+  { id: 'uva', nombre: 'UVA' },
+  { id: 'g1', nombre: 'G1' },
+  { id: 'anticipo', nombre: 'ANTICIPO' },
+  { id: 'previo', nombre: 'PREVIO' },
+  { id: 'profepa', nombre: 'PROFEPA' },
+  { id: 'flete', nombre: 'FLETE' },
+  { id: 'maniobra_carga', nombre: 'MANIOBRA DE CARGA' },
+  { id: 'maniobra_descarga', nombre: 'MANIOBRA DE DESCARGA' },
+  { id: 'consulta', nombre: 'CONSULTA' },
+  { id: 'estadia', nombre: 'ESTADIA' },
+  { id: 'burrero', nombre: 'BURRERO' },
+  { id: 'estadias_patio', nombre: 'ESTADIAS EN PATIO' },
+  { id: 'reexpedicion', nombre: 'REEXPEDICION' },
+  { id: 'flete_falso', nombre: 'FLETE EN FALSO' },
+  { id: 'estadias_jaula', nombre: 'ESTADIAS EN JAULA' },
+  { id: 'limpieza', nombre: 'LIMPIEZA' },
+  { id: 'reconocimiento', nombre: 'RECONOCIMIENTO' },
+  { id: 'vacio', nombre: 'VACIO' },
+  { id: 'sobrepeso', nombre: 'SOBREPESO' },
+  { id: 'tiempo_extra_descarga', nombre: 'TIEMPO EXTRA DESCARGA' },
+  { id: 'apoyo_ferreo', nombre: 'APOYO FERREO' },
+  { id: 'rectificacion', nombre: 'RECTIFICACION' },
+  { id: 'servicios', nombre: 'SERVICIOS' },
+  { id: 'certificados', nombre: 'CERTIFICADOS' },
+  { id: 'honorarios_comer', nombre: 'HONORARIOS COMER' },
+  { id: 'no_previo', nombre: 'NO PREVIO' },
+  { id: 'pama', nombre: 'PAMA' },
 ];
 
 const CaptureForm = ({ onSave, onCancel, role, userName }) => {
-  const { isRevalidaciones, isLogistica, isAdmin, canCreateContainers } = useAuth();
+  const { isRevalidaciones, isLogistica, isClasificacion, isAdmin, canCreateContainers, puertoId } = useAuth();
   
   // Acceso denegado si no puede crear
   if (!canCreateContainers && !isRevalidaciones && !isLogistica && !isAdmin) {
@@ -220,8 +250,26 @@ const CaptureForm = ({ onSave, onCancel, role, userName }) => {
   // Enviar formulario - crea un registro por cada concepto seleccionado
   const handleSubmit = async (e) => {
     e.preventDefault();
+    console.log('handleSubmit iniciado');
+    console.log('isLogistica:', isLogistica, 'puertoId:', puertoId);
+    console.log('conceptosSeleccionados:', conceptosSeleccionados);
+    console.log('conceptosActivos:', conceptosActivos);
     setSubmitting(true);
     setError('');
+
+    if (conceptosActivos === 0) {
+      console.log('ERROR: No hay conceptos seleccionados');
+      setError('Debes seleccionar al menos un concepto');
+      setSubmitting(false);
+      return;
+    }
+
+    console.log('Pasó validación, iniciando loop...');
+    
+
+
+
+
 
     if (conceptosActivos === 0) {
       setError('Debes seleccionar al menos un concepto');
@@ -235,7 +283,9 @@ const CaptureForm = ({ onSave, onCancel, role, userName }) => {
       let errorMessages = [];
 
       for (const [conceptoId, concepto] of Object.entries(conceptosSeleccionados)) {
+        console.log('Procesando concepto:', conceptoId, concepto);
         const ticketData = {
+        
           empresa: parseInt(formData.empresa),
           fecha_alta: formData.fecha_alta,
           prefijo: formData.prefijo.toUpperCase(),
@@ -248,10 +298,15 @@ const CaptureForm = ({ onSave, onCancel, role, userName }) => {
           importe: parseFloat(concepto.monto) || 0,
           // El comentario generado incluye el concepto
           observaciones: concepto.comentario + (formData.observaciones ? `\n${formData.observaciones}` : ''),
+          tipo_operacion: isRevalidaciones ? 'revalidaciones' : 
+                          isLogistica ? 'logistica' : 
+                          isClasificacion ? 'clasificacion' : 'revalidaciones',
+          puerto: puertoId || null
         };
-
+        console.log('ticketData a enviar:', ticketData);
         try {
           await onSave(ticketData);
+          console.log('Ticket guardado exitosamente');
           successCount++;
         } catch (err) {
           errorMessages.push(`${concepto.nombre}: ${err.message || 'Error'}`);

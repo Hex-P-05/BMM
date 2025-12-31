@@ -368,16 +368,77 @@ class TicketViewSet(viewsets.ModelViewSet):
     Usar ContenedorViewSet, OperacionLogisticaViewSet y OperacionRevalidacionViewSet
     para nuevas funcionalidades.
     """
+    pagination_class = None
     queryset = Ticket.objects.select_related(
         'ejecutivo', 'empresa', 'concepto', 'proveedor'
     ).all()
     permission_classes = [IsAuthenticated]
-    filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
-    filterset_fields = ['estatus', 'empresa', 'concepto', 'ejecutivo', 'divisa']
-    search_fields = ['contenedor', 'bl_master', 'comentarios', 'pedimento']
-    ordering_fields = ['fecha_alta', 'eta', 'importe', 'fecha_creacion']
-    ordering = ['-fecha_alta']
+    #filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
+    #filterset_fields = ['estatus', 'empresa', 'concepto', 'ejecutivo', 'divisa']
+    #search_fields = ['contenedor', 'bl_master', 'comentarios', 'pedimento']
+    #ordering_fields = ['fecha_alta', 'eta', 'importe', 'fecha_creacion']
+    #ordering = ['-fecha_alta']
+    
+    def get_queryset(self):
+        return Ticket.objects.all()
+    
+    def list(self, request, *args, **kwargs):
+        from apps.operaciones.models import Ticket
+        from rest_framework import serializers
+        
+        class SimpleTicketSerializer(serializers.ModelSerializer):
+            empresa_nombre = serializers.CharField(source='empresa.nombre', read_only=True, default='')
+            ejecutivo_nombre = serializers.CharField(source='ejecutivo.nombre', read_only=True, default='')
+            puerto_codigo = serializers.CharField(source='puerto.codigo', read_only=True, default='')
+            semaforo = serializers.CharField(read_only=True)
+            dias_restantes = serializers.IntegerField(read_only=True)
+            estatus_display = serializers.CharField(source='get_estatus_display', read_only=True)
+            
+            class Meta:
+                model = Ticket
+                fields = [
+                    'id', 'comentarios', 'importe', 'estatus', 'estatus_display', 'bl_master',
+                    'contenedor', 'prefijo', 'consecutivo', 'fecha_alta',
+                    'empresa', 'empresa_nombre', 'ejecutivo', 'ejecutivo_nombre',
+                    'eta', 'dias_libres', 'divisa', 'pedimento', 'factura',
+                    'semaforo', 'dias_restantes', 'observaciones',
+                    'fecha_creacion', 'fecha_actualizacion', 'contador_ediciones',
+                    'concepto', 'proveedor', 'fecha_pago',
+                    'tipo_operacion', 'puerto', 'puerto_codigo'
+                ]
+        
+        user = request.user
+        tickets = Ticket.objects.select_related('ejecutivo', 'empresa', 'puerto').all()
+        
+        # Filtrar por tipo_operacion (query param)
+        tipo = request.query_params.get('tipo_operacion')
+        if tipo:
+            tickets = tickets.filter(tipo_operacion=tipo)
+        
+        # Filtrar por puerto (query param)
+        puerto_codigo = request.query_params.get('puerto')
+        if puerto_codigo and puerto_codigo != 'todos':
+            tickets = tickets.filter(puerto__codigo=puerto_codigo)
+        
+        # Si el usuario tiene puerto asignado y no es admin/pagos, filtrar por su puerto
+        if not user.es_admin and not user.es_pagos and user.puerto_asignado:
+            tickets = tickets.filter(puerto=user.puerto_asignado)
+        
+        serializer = SimpleTicketSerializer(tickets, many=True)
+        return Response(serializer.data)
+    
+    def retrieve(self, request, *args, **kwargs):
+        instance = self.get_object()
+        serializer = TicketDetailSerializer(instance)
+        return Response(serializer.data)
 
+    def partial_update(self, request, *args, **kwargs):
+        instance = self.get_object()
+        serializer = TicketUpdateSerializer(instance, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data)
+            
     def get_serializer_class(self):
         if self.action == 'create':
             return TicketCreateSerializer
@@ -386,31 +447,33 @@ class TicketViewSet(viewsets.ModelViewSet):
         if self.action == 'retrieve':
             return TicketDetailSerializer
         return TicketListSerializer
+    
+    
 
-    def get_queryset(self):
-        user = self.request.user
-        queryset = super().get_queryset()
-
-        # Filtros adicionales por query params
-        semaforo = self.request.query_params.get('semaforo')
-        if semaforo:
-            hoy = date.today()
-            if semaforo == 'verde':
-                queryset = queryset.filter(eta__gt=hoy + timedelta(days=21))
-            elif semaforo == 'amarillo':
-                queryset = queryset.filter(
-                    eta__lte=hoy + timedelta(days=21),
-                    eta__gte=hoy + timedelta(days=10)
-                )
-            elif semaforo == 'rojo':
-                queryset = queryset.filter(
-                    eta__lt=hoy + timedelta(days=10),
-                    eta__gte=hoy
-                )
-            elif semaforo == 'vencido':
-                queryset = queryset.filter(eta__lt=hoy)
-
-        return queryset
+    #def get_queryset(self):
+    #    user = self.request.user
+    #    queryset = super().get_queryset()
+#
+    #    # Filtros adicionales por query params
+    #    semaforo = self.request.query_params.get('semaforo')
+    #    if semaforo:
+    #        hoy = date.today()
+    #        if semaforo == 'verde':
+    #            queryset = queryset.filter(eta__gt=hoy + timedelta(days=21))
+    #        elif semaforo == 'amarillo':
+    #            queryset = queryset.filter(
+    #                eta__lte=hoy + timedelta(days=21),
+    #                eta__gte=hoy + timedelta(days=10)
+    #            )
+    #        elif semaforo == 'rojo':
+    #            queryset = queryset.filter(
+    #                eta__lt=hoy + timedelta(days=10),
+    #                eta__gte=hoy
+    #            )
+    #        elif semaforo == 'vencido':
+    #            queryset = queryset.filter(eta__lt=hoy)
+    #    print(f"DEBUG get_queryset: {queryset.count()} tickets")
+    #    return queryset
 
     def perform_create(self, serializer):
         user = self.request.user
