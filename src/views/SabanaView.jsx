@@ -204,13 +204,34 @@ const SabanaView = ({
         )}
       </div>
 
-      <ListView
+<ListView
         data={data}
         onPayAll={async (ticketId) => {
+          // 1. Mandamos el pago al backend
           await onPayAll(ticketId);
-          fetchTickets(activeTab, filteredPuerto);  // Refrescar después de pagar
+          
+          // 2. ACTUALIZACIÓN OPTIMISTA (Sin recargar, sin salto de scroll)
+          setData(prevData => prevData.map(ticket => 
+            ticket.id === ticketId 
+              ? { ...ticket, estatus: 'pagado' } // Pintamos verde al instante
+              : ticket
+          ));
         }}
-        onCloseOperation={onCloseOperation}
+        onCloseOperation={async (ticketPrincipal, ticketsDelGrupo) => {
+          // 1. Llamada al backend (usando la función que viene de props)
+          await onCloseOperation(ticketPrincipal);
+
+          // 2. Actualización visual inmediata (Optimista)
+          if (ticketsDelGrupo && ticketsDelGrupo.length > 0) {
+            const idsCerrados = ticketsDelGrupo.map(t => t.id);
+            
+            setData(prevData => prevData.map(ticket => 
+              idsCerrados.includes(ticket.id) 
+                ? { ...ticket, estatus: 'cerrado' } 
+                : ticket
+            ));
+          }
+        }}
         role={role}
         onEdit={onEdit}
         loading={loading}

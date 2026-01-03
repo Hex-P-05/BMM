@@ -1,6 +1,6 @@
 // src/views/CaptureForm.jsx
 import React, { useState, useEffect } from 'react';
-import { FileText, Lock, Loader2, AlertCircle, Check, X } from 'lucide-react';
+import { FileText, Lock, Loader2, AlertCircle, Check, X, Search } from 'lucide-react';
 import { useCatalogos } from '../hooks/useCatalogos';
 import { useAuth } from '../context/AuthContext';
 import api from '../api/axios';
@@ -157,20 +157,86 @@ const CaptureForm = ({ onSave, onCancel, role, userName }) => {
     }
   };
 
+  // --- NUEVA FUNCIÓN: Buscar datos previos del contenedor ---
+  const buscarDatosContenedor = async () => {
+    // Solo aplica si hay un contenedor escrito y NO estamos en modo edición (opcional)
+    if (!formData.contenedor || formData.contenedor.length < 4) return;
+
+    try {
+      // Usamos el endpoint de tickets filtrando por contenedor
+      // Nota: Ordenamos por fecha de creación descendente para traer el más reciente
+      const response = await api.get(`/operaciones/tickets/?contenedor=${formData.contenedor.toUpperCase()}&ordering=-fecha_creacion&limit=1`);
+      
+      const resultados = response.data.results || response.data;
+      
+      if (resultados && resultados.length > 0) {
+        const previo = resultados[0];
+        console.log("Datos heredados:", previo);
+
+        // Actualizamos el formulario con los datos encontrados
+        setFormData(prev => ({
+          ...prev,
+          empresa: previo.empresa || prev.empresa, // Mantiene el actual si no trae empresa
+          bl_master: previo.bl_master || prev.bl_master,
+          pedimento: previo.pedimento || prev.pedimento,
+          eta: previo.eta || prev.eta,
+          dias_libres: previo.dias_libres || prev.dias_libres,
+          naviera: previo.naviera || prev.naviera, // Si tu backend legacy guarda naviera
+          prefijo: previo.prefijo || prev.prefijo, // Opcional: ¿Quieres heredar el prefijo también?
+        }));
+
+        // Feedback visual (opcional)
+        // alert("¡Datos encontrados y cargados!"); 
+      }
+    } catch (err) {
+      console.error("No se encontraron datos previos para este contenedor", err);
+    }
+  };
+
+// --- NUEVA FUNCIÓN: Buscar datos previos por BL Master (Revalidaciones) ---
+  const buscarDatosBL = async () => {
+    // Solo aplica si hay texto y tiene longitud decente
+    if (!formData.bl_master || formData.bl_master.length < 4) return;
+
+    try {
+      // Buscamos tickets previos con este mismo BL
+      const response = await api.get(`/operaciones/tickets/?bl_master=${formData.bl_master.toUpperCase()}&ordering=-fecha_creacion&limit=1`);
+      
+      const resultados = response.data.results || response.data;
+      
+      if (resultados && resultados.length > 0) {
+        const previo = resultados[0];
+        console.log("Datos heredados por BL:", previo);
+
+        setFormData(prev => ({
+          ...prev,
+          empresa: previo.empresa || prev.empresa,
+          // Si el registro viejo tenía contenedor, lo traemos (aunque Revalidaciones a veces no lo usa, es útil tenerlo)
+          contenedor: previo.contenedor || prev.contenedor, 
+          pedimento: previo.pedimento || prev.pedimento,
+          eta: previo.eta || prev.eta,
+          dias_libres: previo.dias_libres || prev.dias_libres,
+          naviera: previo.naviera || prev.naviera,
+          prefijo: previo.prefijo || prev.prefijo,
+        }));
+      }
+    } catch (err) {
+      console.error("No se encontraron datos previos para este BL", err);
+    }
+  };
   // Generar comentario para un concepto (Revalidaciones usa BL, no contenedor)
+ // Generar comentario con el orden: PREFIJO CONS - CONCEPTO - ID
   const generarComentario = (conceptoNombre) => {
     const cleanPrefijo = formData.prefijo ? formData.prefijo.toUpperCase() : '---';
     const consecutivo = consecutivoEditable || '001';
-    const cleanBL = formData.bl_master ? formData.bl_master.toUpperCase() : '---';
     
-    // Para Revalidaciones: CONCEPTO - PREFIJO CONSECUTIVO - BL
-    if (isRevalidaciones) {
-      return `${conceptoNombre} - ${cleanPrefijo} ${consecutivo} - ${cleanBL}`;
-    }
-    
-    // Para Logística: CONCEPTO - PREFIJO CONSECUTIVO - CONTENEDOR
-    const cleanContenedor = formData.contenedor ? formData.contenedor.toUpperCase() : '---';
-    return `${conceptoNombre} - ${cleanPrefijo} ${consecutivo} - ${cleanContenedor}`;
+    // Identificador según rol
+    const identificador = isLogistica 
+      ? (formData.contenedor ? formData.contenedor.toUpperCase() : '---')
+      : (formData.bl_master ? formData.bl_master.toUpperCase() : '---');
+      
+    // Retornamos en el orden solicitado
+    return `${cleanPrefijo} ${consecutivo} - ${conceptoNombre} - ${identificador}`;
   };
 
   // Toggle concepto seleccionado
@@ -362,7 +428,7 @@ const CaptureForm = ({ onSave, onCancel, role, userName }) => {
         {/* Header */}
         <div className="p-6 border-b border-slate-100 bg-slate-50">
           <h2 className="text-xl font-bold text-slate-800 flex items-center">
-            <FileText className="mr-2 text-blue-600" /> Alta de Pago
+            <FileText className="mr-2 text-blue-600" /> Alta de pago
             <span className="ml-3 text-sm font-normal text-slate-500">
               ({isRevalidaciones ? 'Revalidaciones' : isLogistica ? 'Logística' : 'Admin'})
             </span>
@@ -382,6 +448,10 @@ const CaptureForm = ({ onSave, onCancel, role, userName }) => {
           {/* Sección: Datos del contenedor */}
           <div className="bg-slate-50 p-5 rounded-xl border border-slate-200">
             <h3 className="text-xs font-bold text-slate-600 uppercase mb-4">Datos del contenedor</h3>
+            
+            {/* Debugging temporal: Si esto muestra "false", entonces no te está detectando como logística */}
+            {/* <p className="text-xs text-red-500">Logistica: {isLogistica ? 'SI' : 'NO'}</p> */}
+
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <div>
                 <label className="text-xs font-bold text-slate-600 mb-1 block">Empresa *</label>
@@ -410,31 +480,47 @@ const CaptureForm = ({ onSave, onCancel, role, userName }) => {
                   className="w-full p-2 border rounded text-sm uppercase outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
+
+              
               {/* Contenedor solo para Logística */}
               {!isRevalidaciones && (
-                <div>
+                <div className="relative"> {/* Agregué relative para posicionar íconos si quisieras */}
                   <label className="text-xs font-bold text-slate-600 mb-1 block"># Contenedor *</label>
                   <input
                     name="contenedor"
                     value={formData.contenedor}
                     onChange={handleChange}
+                    onBlur={buscarDatosContenedor} // <--- AQUÍ ESTÁ LA MAGIA
                     required
                     placeholder="ABCD1234567"
-                    className="w-full p-2 border rounded text-sm uppercase outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full p-2 border rounded text-sm uppercase outline-none focus:ring-2 focus:ring-blue-500 transition-colors focus:bg-blue-50"
                   />
+                  {/* Icono de búsqueda visual (opcional) */}
+                  <div className="absolute right-3 top-8 text-slate-300 pointer-events-none">
+                    <Search size={14} />
+                  </div>
                 </div>
               )}
-              <div>
-                <label className="text-xs font-bold text-slate-600 mb-1 block">BL Master *</label>
-                <input
-                  name="bl_master"
-                  value={formData.bl_master}
-                  onChange={handleChange}
-                  required
-                  placeholder="BL123456"
-                  className="w-full p-2 border rounded text-sm uppercase outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
+
+              {/* Lógica: Si NO es Logística, mostramos BL Master (Revalidaciones y Admin lo ven) */}
+              {!isLogistica && (
+                <div className="relative">
+                  <label className="text-xs font-bold text-slate-600 mb-1 block">BL Master *</label>
+                  <input
+                    name="bl_master"
+                    value={formData.bl_master}
+                    onChange={handleChange}
+                    onBlur={buscarDatosBL} // <--- AQUÍ CONECTAMOS LA BÚSQUEDA
+                    required={!isLogistica}
+                    placeholder="BL123456"
+                    className="w-full p-2 border rounded text-sm uppercase outline-none focus:ring-2 focus:ring-blue-500 transition-colors focus:bg-blue-50"
+                  />
+                   {/* Icono de búsqueda visual (opcional) */}
+                  <div className="absolute right-3 top-8 text-slate-300 pointer-events-none">
+                    <Search size={14} />
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
@@ -484,27 +570,80 @@ const CaptureForm = ({ onSave, onCancel, role, userName }) => {
               </div>
             </div>
 
-            {/* Preview del consecutivo */}
-            <div className="mt-4 p-3 bg-slate-800 rounded-lg flex justify-between items-center">
-              <div>
-                <span className="text-[10px] text-slate-400 uppercase block">Referencia base</span>
-                <span className="font-mono text-sm font-bold text-yellow-400 tracking-wide">
-                  {formData.prefijo || '---'} {consecutivoEditable} | {isRevalidaciones ? (formData.bl_master || '---') : (formData.contenedor || '---')}
-                </span>
-              </div>
-              <div className="text-right">
-                <span className="text-[10px] text-slate-400 uppercase block">Consecutivo</span>
-                <input
-                  type="text"
-                  value={consecutivoEditable}
-                  onChange={handleConsecutivoChange}
-                  className="w-16 bg-slate-700 text-white text-lg font-bold text-center rounded border border-slate-600 focus:border-yellow-400 outline-none"
-                  maxLength={5}
-                />
+           {/* Preview de Referencia Base (ORDEN CORREGIDO: PREFIJO + CONS + CONCEPTO + ID) */}
+            <div className="mt-4 p-4 bg-slate-800 rounded-lg shadow-inner border border-slate-700">
+              
+              <div className="flex flex-col md:flex-row justify-between items-center gap-4">
+                
+                {/* LADO IZQUIERDO: VISUALIZACIÓN DE LA REFERENCIA */}
+                <div className="flex-1 overflow-hidden w-full">
+                  <span className="text-[10px] text-slate-400 uppercase tracking-wider mb-1 block flex items-center gap-2">
+                    Referencia Base
+                    {/* Un pequeño tip visual si hay múltiples seleccionados */}
+                    {conceptosActivos > 1 && (
+                      <span className="bg-blue-600 text-white text-[9px] px-1.5 rounded-full">
+                        Multi-conceptos
+                      </span>
+                    )}
+                  </span>
+                  
+                  <div className="font-mono text-sm md:text-lg font-bold text-yellow-400 tracking-wide flex flex-wrap items-center gap-x-2">
+                    
+                    {/* 1. PREFIJO */}
+                    <span className="text-yellow-400">{formData.prefijo || '---'}</span>
+                    
+                    {/* 2. CONSECUTIVO */}
+                    <span className="text-yellow-200">{consecutivoEditable}</span>
+                    
+                    <span className="text-slate-600 font-light">|</span>
+
+                    {/* 3. CONCEPTO (Dinámico y sin crash) */}
+                    <span className="text-white bg-slate-700/50 px-2 py-0.5 rounded text-xs md:text-sm uppercase truncate max-w-[200px] border border-slate-600">
+                      {(() => {
+                        const keys = Object.keys(conceptosSeleccionados);
+                        
+                        if (keys.length === 0) return "CONCEPTO";
+                        
+                        if (keys.length === 1) {
+                           // Obtenemos el nombre del primer concepto seleccionado
+                           return conceptosSeleccionados[keys[0]].nombre; 
+                        }
+                        
+                        // Si son varios
+                        return `VARIOS (${keys.length})`;
+                      })()}
+                    </span>
+
+                    <span className="text-slate-600 font-light">|</span>
+
+                    {/* 4. IDENTIFICADOR (BL o Contenedor según rol) */}
+                    <span className="text-blue-300">
+                      {isLogistica ? (formData.contenedor || '---') : (formData.bl_master || '---')}
+                    </span>
+                    
+                  </div>
+                  
+                  {/* Subtítulo explicativo pequeño */}
+                  <p className="text-[10px] text-slate-500 mt-1 font-mono">
+                    Formato: Prefijo + Consecutivo + Concepto + Identificador
+                  </p>
+                </div>
+
+                {/* LADO DERECHO: EDICIÓN MANUAL DEL CONSECUTIVO */}
+                <div className="flex items-center gap-3 bg-slate-900 p-2 rounded border border-slate-600 shadow-sm">
+                  <span className="text-[10px] text-slate-400 uppercase font-bold tracking-wider">Consecutivo</span>
+                  <input
+                    type="text"
+                    value={consecutivoEditable}
+                    onChange={handleConsecutivoChange}
+                    className="w-16 bg-transparent text-white text-xl font-bold text-center outline-none focus:text-yellow-400 border-b-2 border-slate-600 focus:border-yellow-400 transition-all font-mono"
+                    maxLength={5}
+                  />
+                </div>
+
               </div>
             </div>
           </div>
-
           {/* Sección: Selección de conceptos */}
           <div className="bg-blue-50 p-5 rounded-xl border border-blue-200">
             <div className="flex justify-between items-center mb-4">

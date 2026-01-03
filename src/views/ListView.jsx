@@ -155,13 +155,13 @@ const ListView = ({ data = [], onPayItem, onPayAll, onCloseOperation, role, onEd
         </div>
       </div>
 
-      {/* Table */}
       <div className="overflow-x-auto">
         <table className="w-full">
           <thead>
             <tr className="text-xs font-bold text-slate-500 uppercase tracking-wider border-b border-slate-200">
+              {/* Solo dejamos una columna para la flecha de expandir */}
               <th className="p-4 w-12 bg-slate-50"></th>
-              <th className="p-4 w-12 bg-slate-50"></th>
+              
               {!isSimpleView && <th className="p-4 bg-slate-50 text-left">EJ</th>}
               <th className="p-4 bg-slate-50 text-left">Empresa</th>
               <th className="p-4 bg-slate-50 text-left min-w-[200px]">Identificador</th>
@@ -185,52 +185,86 @@ const ListView = ({ data = [], onPayItem, onPayAll, onCloseOperation, role, onEd
                 <React.Fragment key={group.identifier}>
                   {/* Fila principal del grupo */}
                   <tr className={`hover:bg-slate-50 border-b border-slate-100 transition-colors ${expandedRow === group.identifier ? 'bg-blue-50/30' : ''}`}>
-                    <td className="p-4 text-center">
-                      <div className={`w-3 h-3 rounded-full ${getSemaforoColor(group.semaforo)}`} title={group.semaforo}></div>
-                    </td>
+                    
+                    {/* --- ELIMINADO EL TD DEL SEMÁFORO QUE ESTABA AQUÍ --- */}
+
+                    {/* Columna 1: Flecha (ahora es la primera) */}
                     <td className="p-4 text-center cursor-pointer" onClick={() => toggleRow(group.identifier)}>
                       {expandedRow === group.identifier 
                         ? <ChevronUp size={18} className="text-blue-500"/> 
                         : <ChevronDown size={18} className="text-slate-400"/>
                       }
                     </td>
+
+                    {/* Columna: EJ (Oculta en simple) */}
                     {!isSimpleView && (
                       <td className="p-4 font-bold text-slate-400 text-xs">
                         {group.ejecutivo?.split(' ')[0]?.toUpperCase() || '-'}
                       </td>
                     )}
+
+                    {/* Columna: Empresa */}
                     <td className="p-4 font-bold text-slate-700">{group.empresa}</td>
+
+                    {/* Columna: Identificador */}
                     <td className="p-4">
                       <span className="inline-block px-2 py-1 bg-yellow-50 border border-yellow-200 rounded text-xs font-mono font-bold text-slate-700 shadow-sm">
                         {group.prefijo} {group.tickets[0]?.consecutivo || ''} {group.identifier}
                       </span>
                     </td>
+
+                    {/* Columna: Fecha Alta (Oculta en simple) */}
                     {!isSimpleView && (
                       <td className="p-4 text-center text-xs text-slate-500">
                         {formatDate(group.tickets[0]?.fecha_alta)}
                       </td>
                     )}
+
+                    {/* Columna: BL / Contenedor */}
                     <td className="p-4 font-mono text-xs">
                       <div>{group.bl_master || '-'}</div>
                       {group.contenedor && group.contenedor !== group.bl_master && (
                         <div className="text-slate-400">{group.contenedor}</div>
                       )}
                     </td>
+
+                    {/* Columna: Pedimento */}
                     <td className="p-4 text-xs">{group.pedimento || '-'}</td>
+
+                    {/* --- COLUMNA ETA MODIFICADA (SEMÁFORO INTEGRADO) --- */}
                     <td className="p-4 text-center text-xs">
-                      {formatDate(group.eta)}
-                      {group.dias_libres && (
-                        <div className="text-slate-400">{group.dias_libres}d libres</div>
-                      )}
+                      <div className="flex flex-col items-center justify-center gap-1">
+                        <div className="flex items-center gap-2 bg-slate-50 px-2 py-1 rounded border border-slate-100">
+                          {/* El puntito del semáforo ahora vive aquí */}
+                          <div 
+                            className={`w-2.5 h-2.5 rounded-full shadow-sm ${getSemaforoColor(group.semaforo)}`} 
+                            title={`Estatus: ${group.semaforo}`}
+                          ></div>
+                          <span className="font-bold text-slate-700">{formatDate(group.eta)}</span>
+                        </div>
+                        
+                        {group.dias_libres && (
+                          <span className="text-[10px] text-slate-400 font-medium tracking-wide">
+                            {group.dias_libres}d libres
+                          </span>
+                        )}
+                      </div>
                     </td>
+                    {/* --------------------------------------------------- */}
+
+                    {/* Columna: Conteo Conceptos */}
                     <td className="p-4 text-center">
                       <span className="inline-flex items-center justify-center w-6 h-6 bg-blue-100 text-blue-700 rounded-full text-xs font-bold">
                         {visibleTickets.length}
                       </span>
                     </td>
+
+                    {/* Columna: Total */}
                     <td className="p-4 text-right font-bold text-slate-800">
                       ${group.totalImporte.toLocaleString('es-MX', { minimumFractionDigits: 2 })}
                     </td>
+
+                    {/* Columna: Estado */}
                     <td className="p-4 text-center">
                       <span className={`px-2 py-1 rounded-full text-xs font-bold ${
                         groupIsClosed ? 'bg-slate-200 text-slate-600' :
@@ -240,6 +274,8 @@ const ListView = ({ data = [], onPayItem, onPayAll, onCloseOperation, role, onEd
                         {groupIsClosed ? 'Cerrado' : groupIsPaid ? 'Pagado' : 'Pendiente'}
                       </span>
                     </td>
+
+                    {/* Columna: Acciones */}
                     {!isSimpleView && canEdit && (
                       <td className="p-4 text-center">
                         <button 
@@ -256,7 +292,7 @@ const ListView = ({ data = [], onPayItem, onPayAll, onCloseOperation, role, onEd
                   {/* Fila expandida con desglose */}
                   {expandedRow === group.identifier && (
                     <tr className="bg-slate-50">
-                      <td colSpan={isSimpleView ? 11 : 13} className="p-0 border-b-2 border-slate-200">
+                      <td colSpan={isSimpleView ? 10 : 12} className="p-0 border-b-2 border-slate-200">
                         <div className="p-6">
                           <h4 className="text-xs font-bold text-slate-500 uppercase mb-4 flex items-center gap-2">
                             <DollarSign size={14} />

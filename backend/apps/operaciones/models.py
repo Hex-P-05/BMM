@@ -1,7 +1,7 @@
 from django.db import models
 from django.conf import settings
 from django.core.validators import MinValueValidator
-from datetime import date
+from datetime import date, timedelta
 from decimal import Decimal
 
 
@@ -164,23 +164,29 @@ class Contenedor(models.Model):
     @property
     def semaforo(self):
         """
-        Motor de alertas:
-        - Verde: > 21 días restantes
-        - Amarillo: 10-21 días restantes
-        - Rojo: < 10 días restantes
-        - Vencido: En demora
+        Calcula el semáforo considerando los días libres a partir del ETA.
+        Fecha Límite = ETA + Días Libres
         """
         if not self.eta:
-            return 'verde'
+            return 'verde'  # Si no hay fecha, asumimos que está bien o es indefinido
 
-        dias = (self.eta - date.today()).days
-        if dias < 0:
-            return 'vencido'
-        elif dias < 10:
-            return 'rojo'
-        elif dias <= 21:
-            return 'amarillo'
-        return 'verde'
+        # 1. Calculamos la fecha límite real
+        # Usamos timedelta para sumar los días libres a la fecha de llegada
+        fecha_limite = self.eta + timedelta(days=self.dias_libres)
+        
+        # 2. Vemos cuántos días faltan para esa fecha límite
+        # Si hoy es 10 y el límite es 15, faltan 5 días.
+        dias_restantes = (fecha_limite - date.today()).days
+
+        # 3. Aplicamos las reglas del negocio
+        if dias_restantes < 0:
+            return 'vencido'  # Ya se pasó del límite (Morado)
+        elif dias_restantes <= 2: 
+            return 'rojo'     # Le quedan 0, 1 o 2 días (Crítico)
+        elif dias_restantes <= 5:
+            return 'amarillo' # Le quedan entre 3 y 5 días (Preventivo)
+        else:
+            return 'verde'    # Tiene 6 o más días (A tiempo)
 
 
 class Pedimento(models.Model):
@@ -1204,18 +1210,30 @@ class Ticket(models.Model):
 
     @property
     def semaforo(self):
+        """
+        Calcula el semáforo considerando los días libres a partir del ETA.
+        Fecha Límite = ETA + Días Libres
+        """
         if not self.eta:
-            return 'verde'
-        dias = self.dias_restantes
-        if dias is None:
-            return 'verde'
-        elif dias < 0:
-            return 'vencido'
-        elif dias < 10:
-            return 'rojo'
-        elif dias <= 21:
-            return 'amarillo'
-        return 'verde'
+            return 'verde'  # Si no hay fecha, asumimos que está bien o es indefinido
+
+        # 1. Calculamos la fecha límite real
+        # Usamos timedelta para sumar los días libres a la fecha de llegada
+        fecha_limite = self.eta + timedelta(days=self.dias_libres)
+        
+        # 2. Vemos cuántos días faltan para esa fecha límite
+        # Si hoy es 10 y el límite es 15, faltan 5 días.
+        dias_restantes = (fecha_limite - date.today()).days
+
+        # 3. Aplicamos las reglas del negocio
+        if dias_restantes < 0:
+            return 'vencido'  # Ya se pasó del límite (Morado)
+        elif dias_restantes <= 2: 
+            return 'rojo'     # Le quedan 0, 1 o 2 días (Crítico)
+        elif dias_restantes <= 5:
+            return 'amarillo' # Le quedan entre 3 y 5 días (Preventivo)
+        else:
+            return 'verde'    # Tiene 6 o más días (A tiempo)
 
     @property
     def puede_ser_editado_por_ejecutivo(self):

@@ -3,7 +3,8 @@ import React, { useState } from 'react';
 import { 
   LayoutDashboard, Table as TableIcon, Plus, 
   ClipboardCheck, Calculator, ChevronRight, 
-  ChevronLeft, Ship, User, LogOut, Loader2
+  ChevronLeft, Ship, User, LogOut, Loader2,
+  Package
 } from 'lucide-react';
 
 // Context
@@ -19,6 +20,7 @@ import LoginView from './views/LoginView';
 import DashboardView from './views/DashboardView';
 import SabanaView from './views/SabanaView';
 import CaptureForm from './views/CaptureForm';
+import OperationSetup from './views/OperationSetup'; // <--- AGREGA ESTA LÍNEA
 import AccountClosure from './views/AccountClosure';
 import QuoteGenerator from './views/QuoteGenerator';
 
@@ -144,6 +146,7 @@ function AppContent() {
     console.log('groupTickets:', groupTickets);
     setItemToClose(item);
     setTicketsToClose(groupTickets.length > 0 ? groupTickets : [item]);
+    console.log('ticketsToClose será:', groupTickets.length > 0 ? groupTickets : [item]);
     setCloseModalOpen(true);
 };
 
@@ -163,8 +166,7 @@ function AppContent() {
   };
 
   const canViewSabana = isAdmin || isPagos || isRevalidaciones || isLogistica || isClasificacion;
-  const canCapture = canCreateContainers || isRevalidaciones || isLogistica;
-
+  const canCapture = isAdmin || isRevalidaciones || isLogistica;
   const NavItem = ({ id, icon: Icon, label, visible = true }) => {
     if (!visible) return null;
     return (
@@ -241,8 +243,16 @@ function AppContent() {
         </div>
 
         <nav className="flex-1 p-4 overflow-y-auto overflow-x-hidden">
-          <NavItem id="dashboard" icon={LayoutDashboard} label="Vision general" />
-          <NavItem id="list" icon={TableIcon} label="Sabana operativa" visible={canViewSabana} />
+          <NavItem id="dashboard" icon={LayoutDashboard} label="Visión general" />
+          <NavItem id="list" icon={TableIcon} label="Sábana operativa" visible={canViewSabana} />
+          {/* --- NUEVO BOTÓN PARA CLASIFICACIÓN --- */}
+          <NavItem 
+            id="setup" 
+            icon={Package} // El ícono de cajita ya lo tienes importado arriba
+            label="Alta operación" 
+            visible={isClasificacion || isAdmin} // Solo Admin o Clasificación lo ven
+          />
+          {/* -------------------------------------- */}
           <NavItem id="capture" icon={Plus} label="Alta de pago" visible={canCapture} />
           <NavItem id="closure" icon={ClipboardCheck} label="Cierre de cuenta" visible={isAdmin || isPagos} />
           <NavItem id="quotes" icon={Calculator} label="Cotizador" />
@@ -278,10 +288,13 @@ function AppContent() {
       <main className="flex-1 flex flex-col overflow-hidden transition-all duration-300">
         <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-6 shadow-sm z-10">
           <div className="text-xl font-bold text-slate-800 flex items-center gap-2">
-            {activeTab === 'dashboard' && 'Vision general'}
-            {activeTab === 'list' && 'Sabana operativa'}
+            {activeTab === 'dashboard' && 'Visión general'}
+            {activeTab === 'list' && 'Sábana operativa'}
             {activeTab === 'capture' && 'Alta de pago'}
             {activeTab === 'closure' && 'Cierre de cuenta'}
+            {/* --- TÍTULO NUEVO --- */}
+            {activeTab === 'setup' && 'Alta de operación (Clasificación)'}
+            {/* -------------------- */}
             {activeTab === 'quotes' && 'Cotizador'}
             <span className="hidden md:inline-flex ml-4 transform scale-90 origin-left gap-2">
               <RoleBadge role={role} />
@@ -302,6 +315,11 @@ function AppContent() {
           {activeTab === 'dashboard' && (
             <DashboardView data={tickets} dashboard={dashboard} />
           )}
+        {/* --- VISTA DE CLASIFICACIÓN --- */}
+          {activeTab === 'setup' && (isClasificacion || isAdmin) && (
+             <OperationSetup />
+          )}
+          {/* ------------------------------ */}
           {activeTab === 'capture' && canCapture && (
             <CaptureForm 
               onSave={handleSave} 

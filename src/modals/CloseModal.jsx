@@ -26,21 +26,25 @@ const CloseModal = ({ isOpen, onClose, onConfirm, item, tickets = [], loading = 
   const identifier = item.bl_master || item.contenedor || 'Operación';
 
   const handleConfirmClose = async () => {
+    console.log('handleConfirmClose iniciado');
     setIsClosing(true);
     try {
       // Cerrar todos los tickets del grupo
       for (const ticket of ticketList) {
+        console.log('Cerrando ticket:', ticket.id);
         if (onConfirm) {
-          await onConfirm(ticket.id);
+          const result = await onConfirm(ticket.id);
+          console.log('Resultado:', result);
         }
       }
+      console.log('Todos los tickets cerrados, llamando onClose');
       onClose();
     } catch (err) {
       console.error('Error cerrando operación:', err);
     } finally {
       setIsClosing(false);
     }
-  };
+};
 
   const handleCloseAndDownload = async () => {
     // Primero cerrar
