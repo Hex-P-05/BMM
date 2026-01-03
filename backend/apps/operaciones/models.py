@@ -130,12 +130,9 @@ class Contenedor(models.Model):
         return f"{self.numero} - {self.cliente.prefijo}"
 
     def save(self, *args, **kwargs):
-        identificador = self.contenedor if self.contenedor else self.bl_master
-        if self.prefijo and identificador:
-            concepto_nombre = ''
-            if self.concepto_id:  # <-- ESTO ES LO IMPORTANTE
-                concepto_nombre = self.concepto.nombre
-            self.comentarios = f"{concepto_nombre} {self.prefijo} {self.consecutivo} {identificador}".strip()
+        # Bloquear puerto una vez que se haya guardado por primera vez
+        if self.pk and not self.puerto_bloqueado:
+            self.puerto_bloqueado = True
         super().save(*args, **kwargs)
 
     @property
@@ -522,6 +519,12 @@ class OperacionRevalidacion(models.Model):
         if self.divisa == self.Divisa.USD and self.tipo_cambio:
             return self.importe * self.tipo_cambio
         return self.importe
+
+    @classmethod
+    def obtener_siguiente_consecutivo(cls, cliente_prefijo):
+        """Obtener el siguiente consecutivo para un prefijo de cliente dado"""
+        ultimo = cls.objects.filter(cliente_prefijo=cliente_prefijo).order_by('-consecutivo').first()
+        return (ultimo.consecutivo + 1) if ultimo else 1
 
 
 class Clasificacion(models.Model):

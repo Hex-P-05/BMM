@@ -47,8 +47,8 @@ const OperationSetup = () => {
       if (formData.prefijo && formData.prefijo.length >= 2) {
         try {
           const response = await api.get(`/operaciones/tickets/siguiente_consecutivo/?prefijo=${formData.prefijo.toUpperCase()}`);
-          // Asumiendo que el back devuelve { consecutivo: 123 }
-          const nextVal = response.data.consecutivo || 1;
+          // El backend devuelve { siguiente_consecutivo: 123 }
+          const nextVal = response.data.siguiente_consecutivo || 1;
           setConsecutivoEditable(String(nextVal).padStart(3, '0'));
         } catch (error) {
           console.error("Error al obtener consecutivo", error);

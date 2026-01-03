@@ -348,13 +348,18 @@ const CaptureForm = ({ onSave, onCancel, role, userName }) => {
       let successCount = 0;
       let errorMessages = [];
 
+      // CORRECCIÓN: Convertir el consecutivo a número UNA SOLA VEZ antes del loop
+      // Esto asegura que todos los conceptos del mismo contenedor usen el MISMO consecutivo
+      const consecutivoNumerico = parseInt(consecutivoEditable) || 1;
+
       for (const [conceptoId, concepto] of Object.entries(conceptosSeleccionados)) {
         console.log('Procesando concepto:', conceptoId, concepto);
         const ticketData = {
-        
           empresa: parseInt(formData.empresa),
           fecha_alta: formData.fecha_alta,
           prefijo: formData.prefijo.toUpperCase(),
+          // CORRECCIÓN: Enviar el consecutivo explícitamente para evitar que se incremente por cada concepto
+          consecutivo: consecutivoNumerico,
           contenedor: formData.contenedor?.toUpperCase() || '',
           bl_master: formData.bl_master.toUpperCase(),
           pedimento: formData.pedimento?.toUpperCase() || '',
@@ -364,8 +369,8 @@ const CaptureForm = ({ onSave, onCancel, role, userName }) => {
           importe: parseFloat(concepto.monto) || 0,
           // El comentario generado incluye el concepto
           observaciones: concepto.comentario + (formData.observaciones ? `\n${formData.observaciones}` : ''),
-          tipo_operacion: isRevalidaciones ? 'revalidaciones' : 
-                          isLogistica ? 'logistica' : 
+          tipo_operacion: isRevalidaciones ? 'revalidaciones' :
+                          isLogistica ? 'logistica' :
                           isClasificacion ? 'clasificacion' : 'revalidaciones',
           puerto: puertoId || null
         };

@@ -175,11 +175,11 @@ class OperacionRevalidacionListSerializer(serializers.ModelSerializer):
             'id', 'contenedor', 'contenedor_numero',
             'ejecutivo', 'ejecutivo_nombre', 'empresa', 'empresa_nombre',
             'fecha', 'bl', 'concepto', 'concepto_nombre',
-            'prefijo', 'consecutivo', 'referencia', 'comentarios',
+            'cliente_prefijo', 'consecutivo', 'referencia',
             'naviera_cuenta', 'naviera_cuenta_info',
             'importe', 'divisa', 'divisa_display', 'tipo_cambio', 'importe_mxn',
             'estatus', 'estatus_display',
-            'fecha_pago_solicitado', 'fecha_pago_tesoreria',
+            'fecha_pago_tesoreria',
             'observaciones', 'observaciones_tesoreria',
             'fecha_creacion', 'fecha_actualizacion'
         ]
@@ -192,14 +192,14 @@ class OperacionRevalidacionCreateSerializer(serializers.ModelSerializer):
         model = OperacionRevalidacion
         fields = [
             'contenedor', 'empresa', 'fecha', 'bl', 'concepto',
-            'prefijo', 'naviera_cuenta',
+            'cliente_prefijo', 'naviera_cuenta',
             'importe', 'divisa', 'tipo_cambio', 'observaciones'
         ]
 
     def create(self, validated_data):
-        prefijo = validated_data.get('prefijo', '').upper()
-        validated_data['prefijo'] = prefijo
-        validated_data['consecutivo'] = OperacionRevalidacion.obtener_siguiente_consecutivo(prefijo)
+        cliente_prefijo = validated_data.get('cliente_prefijo', '').upper()
+        validated_data['cliente_prefijo'] = cliente_prefijo
+        validated_data['consecutivo'] = OperacionRevalidacion.obtener_siguiente_consecutivo(cliente_prefijo)
         return super().create(validated_data)
 
 
@@ -404,6 +404,8 @@ class TicketCreateSerializer(serializers.ModelSerializer):
         allow_null=True
     )
     contenedor = serializers.CharField(required=False, allow_blank=True, default='')
+    # Permitir enviar consecutivo explícito para evitar incremento por cada concepto
+    consecutivo = serializers.IntegerField(required=False, allow_null=True)
 
     class Meta:
         model = Ticket
@@ -411,13 +413,17 @@ class TicketCreateSerializer(serializers.ModelSerializer):
             'empresa', 'fecha_alta', 'concepto', 'prefijo', 'contenedor',
             'bl_master', 'pedimento', 'factura', 'proveedor',
             'importe', 'divisa', 'eta', 'dias_libres', 'observaciones',
-            'tipo_operacion', 'puerto'  # <-- Agregar estos
+            'tipo_operacion', 'puerto', 'consecutivo'
         ]
 
     def create(self, validated_data):
         prefijo = validated_data.get('prefijo', '').upper()
         validated_data['prefijo'] = prefijo
-        validated_data['consecutivo'] = Ticket.obtener_siguiente_consecutivo(prefijo)
+
+        # Si viene consecutivo explícito, usarlo; si no, calcularlo
+        if validated_data.get('consecutivo') is None:
+            validated_data['consecutivo'] = Ticket.obtener_siguiente_consecutivo(prefijo)
+
         validated_data['contenedor'] = validated_data.get('contenedor', '').upper()
         validated_data['bl_master'] = validated_data.get('bl_master', '').upper()
         return super().create(validated_data)
