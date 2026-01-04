@@ -420,6 +420,23 @@ class TicketViewSet(viewsets.ModelViewSet):
         if puerto_codigo and puerto_codigo != 'todos':
             tickets = tickets.filter(puerto__codigo=puerto_codigo)
         
+        # 1. Filtro por BL Master (Vital para la herencia)
+        bl_master = request.query_params.get('bl_master')
+        if bl_master:
+            tickets = tickets.filter(bl_master__iexact=bl_master)
+
+        # 2. Filtro por Contenedor (Vital para la herencia)
+        contenedor = request.query_params.get('contenedor')
+        if contenedor:
+            tickets = tickets.filter(contenedor__iexact=contenedor)
+
+        # 3. Ordenamiento (Para que 'ordering=-fecha_creacion' funcione)
+        ordering = request.query_params.get('ordering')
+        if ordering == '-fecha_creacion':
+            tickets = tickets.order_by('-fecha_creacion')
+        elif ordering:
+            tickets = tickets.order_by(ordering)
+
         # Si el usuario tiene puerto asignado y no es admin/pagos, filtrar por su puerto
         if not user.es_admin and not user.es_pagos and user.puerto_asignado:
             tickets = tickets.filter(puerto=user.puerto_asignado)

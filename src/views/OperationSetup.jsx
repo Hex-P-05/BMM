@@ -97,14 +97,19 @@ const OperationSetup = () => {
         consecutivo: parseInt(consecutivoEditable),
         tipo_operacion: 'clasificacion', 
         fecha_alta: new Date().toISOString().split('T')[0],
-        
-        // --- AGREGA ESTO PARA QUE EL BACKEND NO LLORE ---
         importe: 0,
         divisa: 'MXN',
-        // Como clasificación no tiene concepto de pago, mandamos null si el serializer lo permite, 
-        // o si te pide concepto obligatorio, tendrás que crear uno dummy en BD que se llame "ALTA OPERACION".
-        // Por tu serializer (allow_null=True), esto debería pasar bien:
-        concepto: null 
+        
+        // --- CAMBIO 1: EL CONCEPTO ES OBLIGATORIO ---
+        // Pon aquí el ID real de un concepto que exista en tu BD (ej. 1, 5, 10...)
+        // Idealmente crea uno en el Admin que se llame "ALTA OPERACION" y usa ese ID.
+        concepto: 1, 
+        // --------------------------------------------
+
+        // --- CAMBIO 2: NAVIERA SE GUARDA COMO PROVEEDOR ---
+        // El modelo Ticket no tiene 'naviera', tiene 'proveedor'. Hacemos el mapeo:
+        proveedor: formData.naviera ? parseInt(formData.naviera) : null,
+        // --------------------------------------------------
       };
 
       await api.post('/operaciones/tickets/', payload);

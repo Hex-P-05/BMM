@@ -20,24 +20,39 @@ const ListView = ({ data = [], onPayItem, onPayAll, onCloseOperation, role, onEd
   const canSeeAllConceptos = role === 'admin' || role === 'pagos';
 
   // Agrupar tickets por identificador (bl_master para revalidaciones, contenedor para logística)
+  // CORRECCIÓN: Ahora agrupamos también por CONSECUTIVO para respetar la lógica del cliente
   const groupedData = useMemo(() => {
     const groups = {};
     
     data.forEach(ticket => {
-      // Determinar el identificador según tipo_operacion
+      // Determinar el identificador principal
       const isLogistica = ticket.tipo_operacion === 'logistica';
-      const identifier = isLogistica 
-        ? (ticket.contenedor || ticket.bl_master || `ticket-${ticket.id}`)
-        : (ticket.bl_master || ticket.contenedor || `ticket-${ticket.id}`);
       
-      if (!groups[identifier]) {
-        groups[identifier] = {
-          identifier,
+      // Lógica de agrupación:
+      // 1. Usamos el Contenedor (Logística) o BL (Revalidación) como eje principal.
+      // 2. Si el cliente quiere ver "XAO 1" separado de "XAO 2", agregamos el consecutivo a la llave.
+      
+      const baseId = isLogistica 
+        ? (ticket.contenedor || ticket.bl_master || 'SIN-ID')
+        : (ticket.bl_master || ticket.contenedor || 'SIN-ID');
+      
+      // IMPORTANTE: Agrupamos por ID + CONSECUTIVO para que XAO 1 no se mezcle con XAO 2
+      // Si prefieres ver todo el contenedor junto, quita `ticket.consecutivo` de aquí.
+      const uniqueGroupKey = `${baseId}-${ticket.prefijo}-${ticket.consecutivo}`;
+
+      if (!groups[uniqueGroupKey]) {
+        groups[uniqueGroupKey] = {
+          uniqueKey: uniqueGroupKey, // Llave técnica para React
+          identifier: baseId,         // Lo que mostramos visualmente (HOLA123)
+          consecutivo: ticket.consecutivo, // Para mostrar "XAO 1"
+          prefijo: ticket.prefijo,
+          
           isLogistica,
           tickets: [],
+          
+          // Datos "Cabecera" (Tomamos del primer ticket, asumiendo que son iguales en el grupo)
           empresa: ticket.empresa_nombre || '',
           empresa_id: ticket.empresa,
-          prefijo: ticket.prefijo,
           bl_master: ticket.bl_master,
           contenedor: ticket.contenedor,
           pedimento: ticket.pedimento,
@@ -45,32 +60,56 @@ const ListView = ({ data = [], onPayItem, onPayAll, onCloseOperation, role, onEd
           dias_libres: ticket.dias_libres,
           ejecutivo: ticket.ejecutivo_nombre || '',
           puerto: ticket.puerto_codigo || '',
+          
+          // Acumuladores
           totalImporte: 0,
-          // Para el semáforo, usar el peor caso
+          
+          // Para el semáforo, usar el peor caso del grupo
           semaforo: 'verde',
           estatus: 'pendiente'
         };
       }
       
-      groups[identifier].tickets.push(ticket);
-      groups[identifier].totalImporte += parseFloat(ticket.importe) || 0;
+      // Agregamos el ticket al grupo
+      groups[uniqueGroupKey].tickets.push(ticket);
+      
+      // Sumamos el importe
+      groups[uniqueGroupKey].totalImporte += parseFloat(ticket.importe) || 0;
       
       // Actualizar semáforo al peor caso
       const semaforoPriority = { 'vencido': 4, 'rojo': 3, 'amarillo': 2, 'verde': 1 };
-      if (semaforoPriority[ticket.semaforo] > semaforoPriority[groups[identifier].semaforo]) {
-        groups[identifier].semaforo = ticket.semaforo;
+      if (semaforoPriority[ticket.semaforo] > semaforoPriority[groups[uniqueGroupKey].semaforo]) {
+        groups[uniqueGroupKey].semaforo = ticket.semaforo;
       }
       
-      // Si alguno está pagado o cerrado, actualizar
-      if (ticket.estatus === 'cerrado') groups[identifier].estatus = 'cerrado';
-      else if (ticket.estatus === 'pagado' && groups[identifier].estatus !== 'cerrado') {
-        groups[identifier].estatus = 'pagado';
+      // Lógica de estatus del grupo:
+      // Si todos están pagados -> Pagado
+      // Si uno está pendiente -> Pendiente
+      // Si está cerrado -> Cerrado
+      const currentStatus = groups[uniqueGroupKey].estatus;
+      if (ticket.estatus === 'cerrado') {
+          groups[uniqueGroupKey].estatus = 'cerrado';
+      } else if (ticket.estatus === 'pendiente' && currentStatus !== 'cerrado') {
+          groups[uniqueGroupKey].estatus = 'pendiente';
+      } else if (ticket.estatus === 'pagado' && currentStatus === 'pagado') {
+          // Se mantiene pagado si todos van pagados
       }
+      
     });
     
+    // Segunda pasada para definir estatus final de grupos mixtos (algunos pagados, otros no)
+    Object.values(groups).forEach(g => {
+        if (g.tickets.some(t => t.estatus === 'pendiente') && g.estatus !== 'cerrado') {
+            g.estatus = 'pendiente';
+        } else if (g.tickets.every(t => t.estatus === 'pagado') && g.estatus !== 'cerrado') {
+            g.estatus = 'pagado';
+        }
+    });
+
     return Object.values(groups);
   }, [data]);
 
+  
   // Filtro de búsqueda
   const filteredGroups = useMemo(() => {
     if (!searchTerm) return groupedData;

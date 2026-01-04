@@ -359,7 +359,7 @@ class OperacionLogistica(models.Model):
         verbose_name = 'Operación de logística'
         verbose_name_plural = 'Operaciones de logística'
         ordering = ['-fecha', '-id']
-        unique_together = ['prefijo', 'consecutivo']
+        # unique_together = ['prefijo', 'consecutivo']
 
     def __str__(self):
         return f"{self.comentarios} - ${self.importe:,.2f}"
@@ -1190,7 +1190,7 @@ class Ticket(models.Model):
         verbose_name = 'Ticket (Legacy)'
         verbose_name_plural = 'Tickets (Legacy)'
         ordering = ['-fecha_alta', '-id']
-        unique_together = ['prefijo', 'consecutivo']
+        #  unique_together = ['prefijo', 'consecutivo']
 
     def __str__(self):
         return f"{self.comentarios} - ${self.importe:,.2f}"
