@@ -6,6 +6,8 @@ import { Ship, Truck, FileCheck, Filter, MapPin, RefreshCw } from 'lucide-react'
 import api from '../api/axios';
 
 const SabanaView = ({ 
+  // No usamos la prop 'data' de App para evitar conflictos, 
+  // cargamos todo aquí para controlar las pestañas.
   onPayAll, 
   onCloseOperation, 
   onEdit, 
@@ -25,7 +27,7 @@ const SabanaView = ({
   const getInitialTab = () => {
     if (isLogistica) return 'logistica';
     if (isClasificacion) return 'clasificacion';
-    return 'revalidaciones';
+    return 'revalidaciones'; // Por defecto siempre cae aquí
   };
 
   const [data, setData] = useState([]);
@@ -33,15 +35,16 @@ const SabanaView = ({
   const [activeTab, setActiveTab] = useState(getInitialTab);
   const [filteredPuerto, setFilteredPuerto] = useState('todos');
   
-  // Ref para evitar doble fetch
+  // Ref para evitar doble fetch solo en el mismo tab
   const fetchingRef = useRef(false);
 
-  // Fetch de tickets
-  const fetchTickets = async (tab, puerto) => {
-    if (fetchingRef.current) return;
-    fetchingRef.current = true;
+  const fetchTickets = async (tab, puerto, force = false) => {
+    // Si ya está buscando y no es forzado, salimos
+    if (fetchingRef.current && !force) return;
     
+    fetchingRef.current = true;
     setLoading(true);
+    
     try {
       const params = new URLSearchParams();
       
@@ -67,27 +70,40 @@ const SabanaView = ({
     }
   };
 
-  // Fetch inicial
+  // 1. EFECTO MAESTRO: Detecta cuando el rol termina de cargar
+  // Si entras como Logística, primero carga Revalidaciones (default).
+  // Este efecto detecta el cambio a Logística y corrige el rumbo automáticamente.
   useEffect(() => {
-    const tab = getInitialTab();
-    console.log('Fetch inicial con tab:', tab);
-    fetchTickets(tab, 'todos');
-  }, []); // Solo al montar
+    const correctTab = getInitialTab();
+    
+    // Si el tab actual no coincide con el rol real del usuario (y no es Admin/Pagos que pueden ver todo)
+    if (correctTab !== activeTab && !isAdmin && !isPagos) {
+      console.log(`Corrigiendo Tab: de ${activeTab} a ${correctTab}`);
+      setActiveTab(correctTab);
+      // Forzamos el fetch inmediatamente
+      fetchTickets(correctTab, filteredPuerto, true);
+    } else {
+      // Carga inicial normal
+      fetchTickets(activeTab, filteredPuerto);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isRevalidaciones, isLogistica, isClasificacion, puertoCodigo]); 
+
 
   // Cuando cambia el tab manualmente
   const handleTabChange = (newTab) => {
     setActiveTab(newTab);
-    fetchTickets(newTab, filteredPuerto);
+    // Forzamos fetch al cambiar de tab
+    fetchTickets(newTab, filteredPuerto, true);
   };
 
-  // Cuando cambia el filtro de puerto
   const handlePuertoChange = (newPuerto) => {
     setFilteredPuerto(newPuerto);
-    fetchTickets(activeTab, newPuerto);
+    fetchTickets(activeTab, newPuerto, true);
   };
 
   const tabs = [
-    { id: 'todos', label: 'Todos', icon: Filter, color: 'slate' },  // <-- Agregar este
+    { id: 'todos', label: 'Todos', icon: Filter, color: 'slate' },
     { id: 'revalidaciones', label: 'Revalidaciones', icon: Ship, color: 'blue' },
     { id: 'logistica', label: 'Logistica', icon: Truck, color: 'cyan' },
     { id: 'clasificacion', label: 'Clasificacion', icon: FileCheck, color: 'pink' },
@@ -136,17 +152,17 @@ const SabanaView = ({
           ) : (
             <div className="flex items-center gap-3">
               <div className={`p-2 rounded-lg ${
-                isRevalidaciones ? 'bg-blue-100 text-blue-600' :
-                isLogistica ? 'bg-cyan-100 text-cyan-600' :
+                activeTab === 'revalidaciones' ? 'bg-blue-100 text-blue-600' :
+                activeTab === 'logistica' ? 'bg-cyan-100 text-cyan-600' :
                 'bg-pink-100 text-pink-600'
               }`}>
-                {isRevalidaciones && <Ship size={24} />}
-                {isLogistica && <Truck size={24} />}
-                {isClasificacion && <FileCheck size={24} />}
+                {activeTab === 'revalidaciones' && <Ship size={24} />}
+                {activeTab === 'logistica' && <Truck size={24} />}
+                {activeTab === 'clasificacion' && <FileCheck size={24} />}
               </div>
               <div>
                 <h2 className="text-lg font-bold text-slate-800">
-                  Sabana de {isRevalidaciones ? 'Revalidaciones' : isLogistica ? 'Logistica' : 'Clasificacion'}
+                  Sabana de {activeTab.charAt(0).toUpperCase() + activeTab.slice(1)}
                 </h2>
                 <p className="text-sm text-slate-500">
                   Puerto: {puertoCodigo || 'No asignado'}
@@ -172,7 +188,7 @@ const SabanaView = ({
                 </select>
               </div>
               <button
-                onClick={() => fetchTickets(activeTab, filteredPuerto)}
+                onClick={() => fetchTickets(activeTab, filteredPuerto, true)}
                 className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
                 title="Actualizar"
               >
@@ -181,7 +197,8 @@ const SabanaView = ({
             </div>
           )}
         </div>
-
+        
+        {/* Info bar opcional */}
         {canSwitchSabanas && (
           <div className="mt-4 pt-4 border-t border-slate-100">
             <div className="flex items-center gap-2 text-sm text-slate-500">
@@ -190,11 +207,6 @@ const SabanaView = ({
                 Mostrando: <strong className="text-slate-700">
                   {tabs.find(t => t.id === activeTab)?.label}
                 </strong>
-                {filteredPuerto !== 'todos' && (
-                  <> en <strong className="text-slate-700">
-                    {puertoOptions.find(p => p.value === filteredPuerto)?.label}
-                  </strong></>
-                )}
                 <span className="ml-2 px-2 py-0.5 bg-slate-100 rounded-full text-xs">
                   {data.length} registros
                 </span>
@@ -204,29 +216,35 @@ const SabanaView = ({
         )}
       </div>
 
-<ListView
+      <ListView
+        // === LA CLAVE ===
+        // Al poner el key con el nombre del tab, obligamos a React a borrar 
+        // la tabla vieja y pintar una nueva cuando cambia de Revalidaciones a Logística.
+        // Esto asegura que las columnas se recalculen desde cero.
+        key={activeTab} 
+        
         data={data}
         onPayAll={async (ticketId) => {
-          // 1. Mandamos el pago al backend
           await onPayAll(ticketId);
-          
-          // 2. ACTUALIZACIÓN OPTIMISTA (Sin recargar, sin salto de scroll)
           setData(prevData => prevData.map(ticket => 
             ticket.id === ticketId 
-              ? { ...ticket, estatus: 'pagado' } // Pintamos verde al instante
+              ? { ...ticket, estatus: 'pagado' }
               : ticket
           ));
         }}
         onCloseOperation={async (ticketPrincipal, ticketsDelGrupo) => {
-          // 1. Llamada al backend (usando la función que viene de props)
-          await onCloseOperation(ticketPrincipal);
-
-          // 2. Actualización visual inmediata (Optimista)
+          await onCloseOperation(ticketPrincipal, ticketsDelGrupo);
+          
           if (ticketsDelGrupo && ticketsDelGrupo.length > 0) {
             const idsCerrados = ticketsDelGrupo.map(t => t.id);
-            
             setData(prevData => prevData.map(ticket => 
               idsCerrados.includes(ticket.id) 
+                ? { ...ticket, estatus: 'cerrado' } 
+                : ticket
+            ));
+          } else {
+             setData(prevData => prevData.map(ticket => 
+              ticket.id === ticketPrincipal.id 
                 ? { ...ticket, estatus: 'cerrado' } 
                 : ticket
             ));
