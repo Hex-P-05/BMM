@@ -290,20 +290,32 @@ class ClasificacionViewSet(viewsets.ModelViewSet):
     ).all()
     permission_classes = [IsAuthenticated]
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
-    filterset_fields = ['visto_bueno_otorgado', 'requiere_visto_bueno']
+    filterset_fields = ['visto_bueno_otorgado', 'requiere_visto_bueno', "bl"]
     search_fields = ['contenedor__numero', 'descripcion_mercancia']
     ordering = ['-fecha_creacion']
 
     def get_queryset(self):
         user = self.request.user
 
-        # Verificar permiso de ver sábana de clasificación
+        # === INICIO DEL CAMBIO ===
+        # Definimos si la petición es solo para "ver" (GET)
+        es_lectura = self.action in ['list', 'retrieve']
+
+        # Verificar permiso estricto (el original)
         if not user.puede_ver_sabana_clasificacion:
-            raise PermissionDenied('No tienes permiso para ver la sábana de clasificación')
+            # TRUCO: Si no tiene permiso, PERO solo quiere leer (para el autocompletado),
+            # lo dejamos pasar. Si quiere editar/crear, ahí sí lo bloqueamos.
+            if es_lectura:
+                pass 
+            else:
+                raise PermissionDenied('No tienes permiso para modificar la sábana de clasificación')
+        # === FIN DEL CAMBIO ===
 
         queryset = super().get_queryset()
 
         # Filtrar por puerto asignado
+        # ESTO ES IMPORTANTE: Se mantiene el filtro por puerto, 
+        # así que aunque puedan ver, solo verán lo de su puerto.
         queryset = user.filtrar_por_puerto(queryset, campo_puerto='contenedor__puerto')
 
         return queryset
@@ -368,6 +380,26 @@ class TicketViewSet(viewsets.ModelViewSet):
     Usar ContenedorViewSet, OperacionLogisticaViewSet y OperacionRevalidacionViewSet
     para nuevas funcionalidades.
     """
+
+    # En views.py, dentro de class TicketViewSet:
+
+    def get_queryset(self):
+        # 1. Obtenemos todos los tickets
+        queryset = Ticket.objects.all() 
+        
+        # === AQUÍ ESTÁ EL TRUCO ===
+        # Excluimos (escondemos) el concepto de "Apertura de Expediente" (ID 1)
+        # para que no haga ruido en la sábana ni en el dashboard.
+        queryset = queryset.exclude(concepto_id=1) 
+        # ==========================
+        
+        # ... (aquí sigue el resto de tu lógica de filtros que ya tienes) ...
+        # Por ejemplo:
+        # user = self.request.user
+        # if not user.es_admin and not user.es_pagos:
+        #    ...
+        
+        return queryset
     pagination_class = None
     queryset = Ticket.objects.select_related(
         'ejecutivo', 'empresa', 'concepto', 'proveedor'
@@ -438,8 +470,10 @@ class TicketViewSet(viewsets.ModelViewSet):
             tickets = tickets.order_by(ordering)
 
         # Si el usuario tiene puerto asignado y no es admin/pagos, filtrar por su puerto
+        # PERO: Si está buscando por BL o contenedor específico, no filtrar por puerto
         if not user.es_admin and not user.es_pagos and user.puerto_asignado:
-            tickets = tickets.filter(puerto=user.puerto_asignado)
+            if not bl_master and not contenedor:  # Solo filtrar si NO está buscando específicamente
+                tickets = tickets.filter(puerto=user.puerto_asignado)
         
         serializer = SimpleTicketSerializer(tickets, many=True)
         return Response(serializer.data)

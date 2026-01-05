@@ -8,7 +8,7 @@ from apps.catalogos.serializers import (
     ClienteSerializer, NavieraCuentaSerializer, PuertoSerializer,
     TerminalSerializer, NavieraSerializer
 )
-from apps.catalogos.models import Concepto
+from apps.catalogos.models import Concepto, Proveedor
 
 
 # ============ CONTENEDOR ============
@@ -403,6 +403,13 @@ class TicketCreateSerializer(serializers.ModelSerializer):
         required=False,
         allow_null=True
     )
+
+    proveedor = serializers.PrimaryKeyRelatedField(
+        queryset=Proveedor.objects.all(),
+        required=False, 
+        allow_null=True
+    )
+    
     contenedor = serializers.CharField(required=False, allow_blank=True, default='')
     # Permitir enviar consecutivo explícito para evitar incremento por cada concepto
     consecutivo = serializers.IntegerField(required=False, allow_null=True)

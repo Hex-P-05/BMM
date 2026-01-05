@@ -111,6 +111,8 @@ const CaptureForm = ({ onSave, onCancel, role, userName }) => {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
 
+  const [consecutivoHeredado, setConsecutivoHeredado] = useState(false);  // <-- Agregar esta línea
+
   // Formatear consecutivo con ceros
   const formatConsecutivo = (num) => {
     return String(num).padStart(3, '0');
@@ -124,30 +126,29 @@ const CaptureForm = ({ onSave, onCancel, role, userName }) => {
   // Contar conceptos seleccionados
   const conceptosActivos = Object.keys(conceptosSeleccionados).length;
 
-  // Obtener siguiente consecutivo del backend
   useEffect(() => {
-    const fetchConsecutivo = async () => {
-      if (formData.prefijo && formData.prefijo.length >= 2) {
-        try {
-          const response = await api.get(`/operaciones/tickets/siguiente_consecutivo/?prefijo=${formData.prefijo.toUpperCase()}`);
-          const nextNum = response.data.siguiente_consecutivo;
-          const formatted = formatConsecutivo(nextNum);
-          setPreviewConsecutivo(formatted);
-          setConsecutivoEditable(formatted);
-        } catch (err) {
-          console.error('Error fetching consecutivo:', err);
-          setPreviewConsecutivo('001');
-          setConsecutivoEditable('001');
-        }
-      } else {
+  const fetchConsecutivo = async () => {
+    // Si el consecutivo fue heredado de clasificación, no buscar nuevo
+    if (consecutivoHeredado) return;
+    
+    if (formData.prefijo && formData.prefijo.length >= 2) {
+      try {
+        const response = await api.get(`/operaciones/tickets/siguiente_consecutivo/?prefijo=${formData.prefijo.toUpperCase()}`);
+        const nextNum = response.data.siguiente_consecutivo;
+        const formatted = formatConsecutivo(nextNum);
+        setPreviewConsecutivo(formatted);
+        setConsecutivoEditable(formatted);
+      } catch (err) {
+        console.error('Error fetching consecutivo:', err);
         setPreviewConsecutivo('001');
         setConsecutivoEditable('001');
       }
-    };
+    }
+  };
 
-    const timeoutId = setTimeout(fetchConsecutivo, 300);
-    return () => clearTimeout(timeoutId);
-  }, [formData.prefijo]);
+  const timeoutId = setTimeout(fetchConsecutivo, 300);
+  return () => clearTimeout(timeoutId);
+}, [formData.prefijo, consecutivoHeredado]);
 
   // Manejar cambio de consecutivo manual
   const handleConsecutivoChange = (e) => {
@@ -157,73 +158,86 @@ const CaptureForm = ({ onSave, onCancel, role, userName }) => {
     }
   };
 
-  // --- NUEVA FUNCIÓN: Buscar datos previos del contenedor ---
   const buscarDatosContenedor = async () => {
-    // Solo aplica si hay un contenedor escrito y NO estamos en modo edición (opcional)
     if (!formData.contenedor || formData.contenedor.length < 4) return;
 
     try {
-      // Usamos el endpoint de tickets filtrando por contenedor
-      // Nota: Ordenamos por fecha de creación descendente para traer el más reciente
-      const response = await api.get(`/operaciones/tickets/?contenedor=${formData.contenedor.toUpperCase()}&ordering=-fecha_creacion&limit=1`);
+      const response = await api.get(`/operaciones/tickets/?contenedor=${formData.contenedor.toUpperCase()}&tipo_operacion=clasificacion&ordering=-fecha_creacion`);
       
       const resultados = response.data.results || response.data;
       
       if (resultados && resultados.length > 0) {
         const previo = resultados[0];
-        console.log("Datos heredados:", previo);
+        console.log("Datos heredados de clasificación:", previo);
 
-        // Actualizamos el formulario con los datos encontrados
         setFormData(prev => ({
           ...prev,
-          empresa: previo.empresa || prev.empresa, // Mantiene el actual si no trae empresa
+          empresa: previo.empresa || prev.empresa,
           bl_master: previo.bl_master || prev.bl_master,
           pedimento: previo.pedimento || prev.pedimento,
           eta: previo.eta || prev.eta,
-          dias_libres: previo.dias_libres || prev.dias_libres,
-          naviera: previo.naviera || prev.naviera, // Si tu backend legacy guarda naviera
-          prefijo: previo.prefijo || prev.prefijo, // Opcional: ¿Quieres heredar el prefijo también?
+          dias_libres: previo.dias_libres ?? prev.dias_libres,
+          prefijo: previo.prefijo || prev.prefijo,
         }));
-
-        // Feedback visual (opcional)
-        // alert("¡Datos encontrados y cargados!"); 
+        
+        // IMPORTANTE: Heredar el consecutivo de clasificación
+        if (previo.consecutivo) {
+          const consecutivoHeredado = String(previo.consecutivo).padStart(3, '0');
+          setConsecutivoEditable(consecutivoHeredado);
+          setPreviewConsecutivo(consecutivoHeredado);
+          setConsecutivoHeredado(true);  // <-- Esta línea es clave
+        }
+      } else {
+        console.log("No se encontró el contenedor en Clasificaciones");
       }
     } catch (err) {
       console.error("No se encontraron datos previos para este contenedor", err);
     }
   };
-
 // --- NUEVA FUNCIÓN: Buscar datos previos por BL Master (Revalidaciones) ---
-  const buscarDatosBL = async () => {
-    // Solo aplica si hay texto y tiene longitud decente
-    if (!formData.bl_master || formData.bl_master.length < 4) return;
+  // --- FUNCIÓN CORREGIDA: Buscar datos en CONTENEDORES (Lo que hizo Clasificación) ---
+  // --- FUNCIÓN CORREGIDA: Buscar datos por BL en tickets de clasificación ---
+const buscarDatosBL = async () => {
+  if (!formData.bl_master || formData.bl_master.length < 4) return;
+  
+  const blBusqueda = formData.bl_master.toUpperCase();
 
-    try {
-      // Buscamos tickets previos con este mismo BL
-      const response = await api.get(`/operaciones/tickets/?bl_master=${formData.bl_master.toUpperCase()}&ordering=-fecha_creacion&limit=1`);
+  try {
+    const response = await api.get(`/operaciones/tickets/?bl_master=${blBusqueda}&tipo_operacion=clasificacion&ordering=-fecha_creacion`);
+    const resultados = response.data.results || response.data;
+    
+    if (resultados && resultados.length > 0) {
+      const clasificacion = resultados[0];
       
-      const resultados = response.data.results || response.data;
-      
-      if (resultados && resultados.length > 0) {
-        const previo = resultados[0];
-        console.log("Datos heredados por BL:", previo);
+      console.log("BL encontrado en Clasificación:", clasificacion);
 
-        setFormData(prev => ({
-          ...prev,
-          empresa: previo.empresa || prev.empresa,
-          // Si el registro viejo tenía contenedor, lo traemos (aunque Revalidaciones a veces no lo usa, es útil tenerlo)
-          contenedor: previo.contenedor || prev.contenedor, 
-          pedimento: previo.pedimento || prev.pedimento,
-          eta: previo.eta || prev.eta,
-          dias_libres: previo.dias_libres || prev.dias_libres,
-          naviera: previo.naviera || prev.naviera,
-          prefijo: previo.prefijo || prev.prefijo,
-        }));
-      }
-    } catch (err) {
-      console.error("No se encontraron datos previos para este BL", err);
+      // Llenamos el formulario con la info del ticket de clasificación
+      setFormData(prev => ({
+        ...prev,
+        empresa: clasificacion.empresa || prev.empresa,
+        contenedor: clasificacion.contenedor || prev.contenedor,
+        eta: clasificacion.eta || prev.eta,
+        dias_libres: clasificacion.dias_libres ?? prev.dias_libres,
+        pedimento: clasificacion.pedimento || prev.pedimento,
+        prefijo: clasificacion.prefijo || prev.prefijo,
+      }));
+      
+      // IMPORTANTE: Heredar el consecutivo de clasificación
+        if (clasificacion.consecutivo) {
+          const consecutivoHeredado = String(clasificacion.consecutivo).padStart(3, '0');
+          setConsecutivoEditable(consecutivoHeredado);
+          setPreviewConsecutivo(consecutivoHeredado);
+          setConsecutivoHeredado(true);  // <-- Marcar como heredado
+}
+      
+      console.log("Datos cargados exitosamente desde clasificación");
+    } else {
+      console.log("No se encontró el BL en tickets de Clasificación");
     }
-  };
+  } catch (err) {
+    console.error("Error buscando datos por BL:", err);
+  }
+};
   // Generar comentario para un concepto (Revalidaciones usa BL, no contenedor)
  // Generar comentario con el orden: PREFIJO CONS - CONCEPTO - ID
   const generarComentario = (conceptoNombre) => {

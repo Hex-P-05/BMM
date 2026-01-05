@@ -1,8 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { FileText, Save, RefreshCw, AlertCircle, CheckCircle, Package, Calendar } from 'lucide-react';
 import api from '../api/axios'; // Asegúrate que la ruta a tu api sea correcta
+import { useAuth } from '../context/AuthContext';
 
 const OperationSetup = () => {
+
+    const { puertoId } = useAuth();  // <-- Agregar esta línea
+
   // --- ESTADOS ---
   const [loading, setLoading] = useState(false);
   const [empresas, setEmpresas] = useState([]);
@@ -97,19 +101,11 @@ const OperationSetup = () => {
         consecutivo: parseInt(consecutivoEditable),
         tipo_operacion: 'clasificacion', 
         fecha_alta: new Date().toISOString().split('T')[0],
-        importe: 0,
         divisa: 'MXN',
-        
-        // --- CAMBIO 1: EL CONCEPTO ES OBLIGATORIO ---
-        // Pon aquí el ID real de un concepto que exista en tu BD (ej. 1, 5, 10...)
-        // Idealmente crea uno en el Admin que se llame "ALTA OPERACION" y usa ese ID.
-        concepto: 1, 
-        // --------------------------------------------
-
-        // --- CAMBIO 2: NAVIERA SE GUARDA COMO PROVEEDOR ---
-        // El modelo Ticket no tiene 'naviera', tiene 'proveedor'. Hacemos el mapeo:
-        proveedor: formData.naviera ? parseInt(formData.naviera) : null,
-        // --------------------------------------------------
+        concepto: 1,
+        proveedor: null,
+        importe: 0,
+        puerto: puertoId,  // <-- Agregar esto
       };
 
       await api.post('/operaciones/tickets/', payload);
