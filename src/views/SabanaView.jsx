@@ -5,12 +5,14 @@ import ListView from './ListView';
 import { Ship, Truck, FileCheck, Filter, MapPin, RefreshCw } from 'lucide-react';
 import api from '../api/axios';
 
-const SabanaView = ({ 
-  // No usamos la prop 'data' de App para evitar conflictos, 
+const SabanaView = ({
+  // No usamos la prop 'data' de App para evitar conflictos,
   // cargamos todo aquí para controlar las pestañas.
-  onPayAll, 
-  onCloseOperation, 
-  onEdit, 
+  onPayAll,
+  onCloseOperation,
+  onEdit,
+  // Prop para forzar refresh desde afuera (cuando se crea una operación)
+  refreshKey = 0,
 }) => {
   const {
     role,
@@ -75,7 +77,7 @@ const SabanaView = ({
   // Este efecto detecta el cambio a Logística y corrige el rumbo automáticamente.
   useEffect(() => {
     const correctTab = getInitialTab();
-    
+
     // Si el tab actual no coincide con el rol real del usuario (y no es Admin/Pagos que pueden ver todo)
     if (correctTab !== activeTab && !isAdmin && !isPagos) {
       console.log(`Corrigiendo Tab: de ${activeTab} a ${correctTab}`);
@@ -87,7 +89,17 @@ const SabanaView = ({
       fetchTickets(activeTab, filteredPuerto);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isRevalidaciones, isLogistica, isClasificacion, puertoCodigo]); 
+  }, [isRevalidaciones, isLogistica, isClasificacion, puertoCodigo]);
+
+  // 2. EFECTO DE REFRESH: Cuando refreshKey cambia, refrescamos los datos
+  // Esto permite que App.jsx fuerce un refresh después de crear operaciones/pagos
+  useEffect(() => {
+    if (refreshKey > 0) {
+      console.log('SabanaView: Refresh forzado desde App');
+      fetchTickets(activeTab, filteredPuerto, true);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [refreshKey]); 
 
 
   // Cuando cambia el tab manualmente

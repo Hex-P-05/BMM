@@ -78,9 +78,14 @@ const CaptureForm = ({ onSave, onCancel, role, userName }) => {
   }
 
   // Determinar qué conceptos mostrar según el rol
-  const conceptosDisponibles = isRevalidaciones ? CONCEPTOS_REVALIDACIONES : 
-                               isLogistica ? CONCEPTOS_LOGISTICA : 
-                               CONCEPTOS_REVALIDACIONES; // Admin ve todos
+  // Admin ve TODOS los conceptos de ambos departamentos
+  const conceptosDisponibles = isAdmin
+    ? [...CONCEPTOS_REVALIDACIONES, ...CONCEPTOS_LOGISTICA.filter(c =>
+        !CONCEPTOS_REVALIDACIONES.some(r => r.id === c.id) // Evitar duplicados como 'limpieza'
+      )]
+    : isRevalidaciones ? CONCEPTOS_REVALIDACIONES
+    : isLogistica ? CONCEPTOS_LOGISTICA
+    : CONCEPTOS_REVALIDACIONES;
 
   // Hook de catálogos del backend
   const { empresas, proveedores, navieras, loading: catalogosLoading } = useCatalogos();
@@ -163,9 +168,9 @@ const CaptureForm = ({ onSave, onCancel, role, userName }) => {
 
     try {
       const response = await api.get(`/operaciones/tickets/?contenedor=${formData.contenedor.toUpperCase()}&tipo_operacion=clasificacion&ordering=-fecha_creacion`);
-      
+
       const resultados = response.data.results || response.data;
-      
+
       if (resultados && resultados.length > 0) {
         const previo = resultados[0];
         console.log("Datos heredados de clasificación:", previo);
@@ -178,14 +183,29 @@ const CaptureForm = ({ onSave, onCancel, role, userName }) => {
           eta: previo.eta || prev.eta,
           dias_libres: previo.dias_libres ?? prev.dias_libres,
           prefijo: previo.prefijo || prev.prefijo,
+          // CORRECCIÓN: También heredar naviera desde clasificación
+          naviera: previo.naviera || prev.naviera,
         }));
-        
+
+        // Si hay naviera, cargar sus datos bancarios
+        if (previo.naviera) {
+          const nav = navieras?.find(n => n.id === parseInt(previo.naviera));
+          if (nav && nav.cuentas && nav.cuentas.length > 0) {
+            const cuenta = nav.cuentas[0];
+            setNavieraData({
+              banco: cuenta.banco || '',
+              cuenta: cuenta.cuenta || '',
+              clabe: cuenta.clabe || ''
+            });
+          }
+        }
+
         // IMPORTANTE: Heredar el consecutivo de clasificación
         if (previo.consecutivo) {
           const consecutivoHeredado = String(previo.consecutivo).padStart(3, '0');
           setConsecutivoEditable(consecutivoHeredado);
           setPreviewConsecutivo(consecutivoHeredado);
-          setConsecutivoHeredado(true);  // <-- Esta línea es clave
+          setConsecutivoHeredado(true);
         }
       } else {
         console.log("No se encontró el contenedor en Clasificaciones");
@@ -199,16 +219,16 @@ const CaptureForm = ({ onSave, onCancel, role, userName }) => {
   // --- FUNCIÓN CORREGIDA: Buscar datos por BL en tickets de clasificación ---
 const buscarDatosBL = async () => {
   if (!formData.bl_master || formData.bl_master.length < 4) return;
-  
+
   const blBusqueda = formData.bl_master.toUpperCase();
 
   try {
     const response = await api.get(`/operaciones/tickets/?bl_master=${blBusqueda}&tipo_operacion=clasificacion&ordering=-fecha_creacion`);
     const resultados = response.data.results || response.data;
-    
+
     if (resultados && resultados.length > 0) {
       const clasificacion = resultados[0];
-      
+
       console.log("BL encontrado en Clasificación:", clasificacion);
 
       // Llenamos el formulario con la info del ticket de clasificación
@@ -220,16 +240,31 @@ const buscarDatosBL = async () => {
         dias_libres: clasificacion.dias_libres ?? prev.dias_libres,
         pedimento: clasificacion.pedimento || prev.pedimento,
         prefijo: clasificacion.prefijo || prev.prefijo,
+        // CORRECCIÓN: También heredar naviera desde clasificación
+        naviera: clasificacion.naviera || prev.naviera,
       }));
-      
+
+      // Si hay naviera, cargar sus datos bancarios
+      if (clasificacion.naviera) {
+        const nav = navieras?.find(n => n.id === parseInt(clasificacion.naviera));
+        if (nav && nav.cuentas && nav.cuentas.length > 0) {
+          const cuenta = nav.cuentas[0];
+          setNavieraData({
+            banco: cuenta.banco || '',
+            cuenta: cuenta.cuenta || '',
+            clabe: cuenta.clabe || ''
+          });
+        }
+      }
+
       // IMPORTANTE: Heredar el consecutivo de clasificación
-        if (clasificacion.consecutivo) {
-          const consecutivoHeredado = String(clasificacion.consecutivo).padStart(3, '0');
-          setConsecutivoEditable(consecutivoHeredado);
-          setPreviewConsecutivo(consecutivoHeredado);
-          setConsecutivoHeredado(true);  // <-- Marcar como heredado
-}
-      
+      if (clasificacion.consecutivo) {
+        const consecutivoHeredado = String(clasificacion.consecutivo).padStart(3, '0');
+        setConsecutivoEditable(consecutivoHeredado);
+        setPreviewConsecutivo(consecutivoHeredado);
+        setConsecutivoHeredado(true);
+      }
+
       console.log("Datos cargados exitosamente desde clasificación");
     } else {
       console.log("No se encontró el BL en tickets de Clasificación");
@@ -254,6 +289,41 @@ const buscarDatosBL = async () => {
   };
 
   // Toggle concepto seleccionado
+  // Función auxiliar para buscar beneficiario por naviera y concepto
+  const getBeneficiarioPorConcepto = (conceptoNombre) => {
+    if (!formData.naviera) return null;
+
+    const naviera = navieras?.find(n => n.id === parseInt(formData.naviera));
+    if (!naviera || !naviera.cuentas || naviera.cuentas.length === 0) return null;
+
+    // Buscar cuenta que coincida con el tipo de concepto
+    const conceptoLower = conceptoNombre.toLowerCase();
+    const cuenta = naviera.cuentas.find(c => {
+      const tipoLower = c.tipo_concepto.toLowerCase();
+      return tipoLower.includes(conceptoLower) || conceptoLower.includes(tipoLower);
+    });
+
+    if (cuenta) {
+      return {
+        beneficiario: cuenta.beneficiario || naviera.nombre,
+        banco: cuenta.banco,
+        cuenta: cuenta.cuenta,
+        clabe: cuenta.clabe,
+        moneda: cuenta.moneda
+      };
+    }
+
+    // Si no hay cuenta específica, usar la primera cuenta de la naviera
+    const cuentaDefault = naviera.cuentas[0];
+    return {
+      beneficiario: cuentaDefault.beneficiario || naviera.nombre,
+      banco: cuentaDefault.banco,
+      cuenta: cuentaDefault.cuenta,
+      clabe: cuentaDefault.clabe,
+      moneda: cuentaDefault.moneda
+    };
+  };
+
   const toggleConcepto = (conceptoId, conceptoNombre) => {
     setConceptosSeleccionados(prev => {
       if (prev[conceptoId]) {
@@ -261,13 +331,16 @@ const buscarDatosBL = async () => {
         const { [conceptoId]: removed, ...rest } = prev;
         return rest;
       } else {
-        // Seleccionar
+        // Seleccionar - incluir beneficiario si hay naviera seleccionada
+        const beneficiario = formData.naviera ? getBeneficiarioPorConcepto(conceptoNombre) : null;
+
         return {
           ...prev,
           [conceptoId]: {
             nombre: conceptoNombre,
             monto: '',
-            comentario: generarComentario(conceptoNombre)
+            comentario: generarComentario(conceptoNombre),
+            beneficiario: beneficiario
           }
         };
       }

@@ -397,16 +397,17 @@ class TicketDetailSerializer(TicketListSerializer):
 
 
 class TicketCreateSerializer(serializers.ModelSerializer):
-    """Serializer para crear tickets - LEGACY (concepto y contenedor opcionales)"""
+    """Serializer para crear tickets - LEGACY"""
+    # Concepto es obligatorio en la base de datos
     concepto = serializers.PrimaryKeyRelatedField(
         queryset=Concepto.objects.all(),
-        required=False,
-        allow_null=True
+        required=True,
+        allow_null=False
     )
 
     proveedor = serializers.PrimaryKeyRelatedField(
         queryset=Proveedor.objects.all(),
-        required=False, 
+        required=False,
         allow_null=True
     )
     
