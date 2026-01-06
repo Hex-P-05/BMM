@@ -398,11 +398,11 @@ class TicketDetailSerializer(TicketListSerializer):
 
 class TicketCreateSerializer(serializers.ModelSerializer):
     """Serializer para crear tickets - LEGACY"""
-    # Concepto es obligatorio en la base de datos
+    # Concepto es opcional - el frontend guarda la info del concepto en observaciones
     concepto = serializers.PrimaryKeyRelatedField(
         queryset=Concepto.objects.all(),
-        required=True,
-        allow_null=False
+        required=False,
+        allow_null=True
     )
 
     proveedor = serializers.PrimaryKeyRelatedField(

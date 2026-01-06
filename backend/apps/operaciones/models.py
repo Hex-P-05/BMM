@@ -1119,7 +1119,9 @@ class Ticket(models.Model):
         'catalogos.Concepto',
         on_delete=models.PROTECT,
         related_name='tickets',
-        verbose_name='Concepto'
+        verbose_name='Concepto',
+        null=True,
+        blank=True
     )
     prefijo = models.CharField('Prefijo', max_length=10)
     consecutivo = models.PositiveIntegerField('Consecutivo')
