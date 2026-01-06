@@ -6,7 +6,7 @@ from rest_framework.filters import SearchFilter, OrderingFilter
 from .models import Empresa, Concepto, Proveedor, Naviera, Puerto, Terminal
 from .serializers import (
     EmpresaSerializer, ConceptoSerializer, ProveedorSerializer,
-    NavieraSerializer, PuertoSerializer, TerminalSerializer
+    NavieraSerializer, NavieraConCuentasSerializer, PuertoSerializer, TerminalSerializer
 )
 from apps.auditoria.utils import registrar_accion
 
@@ -77,8 +77,10 @@ class ProveedorViewSet(CatalogoBaseViewSet):
 
 
 class NavieraViewSet(CatalogoBaseViewSet):
-    queryset = Naviera.objects.all()
-    serializer_class = NavieraSerializer
+    # Prefetch las cuentas para evitar N+1 queries
+    queryset = Naviera.objects.prefetch_related('cuentas').all()
+    # Usar serializer con cuentas incluidas para beneficiarios por concepto
+    serializer_class = NavieraConCuentasSerializer
     search_fields = ['nombre', 'codigo']
     filterset_fields = ['activo']
     ordering_fields = ['nombre']

@@ -142,7 +142,11 @@ const ListView = ({ data = [], onPayItem, onPayAll, onCloseOperation, role, onEd
   };
 
   // Obtener color del semáforo
-  const getSemaforoColor = (semaforo) => {
+  // Si la operación está cerrada, el semáforo se "congela" en gris
+  const getSemaforoColor = (semaforo, estatus) => {
+    // Si está cerrado, mostrar gris (semáforo detenido)
+    if (estatus === 'cerrado') return 'bg-slate-400';
+
     switch (semaforo) {
       case 'verde': return 'bg-green-500';
       case 'amarillo': return 'bg-yellow-500';
@@ -275,16 +279,24 @@ const ListView = ({ data = [], onPayItem, onPayAll, onCloseOperation, role, onEd
                       <div className="flex flex-col items-center justify-center gap-1">
                         <div className="flex items-center gap-2 bg-slate-50 px-2 py-1 rounded border border-slate-100">
                           {/* El puntito del semáforo ahora vive aquí */}
-                          <div 
-                            className={`w-2.5 h-2.5 rounded-full shadow-sm ${getSemaforoColor(group.semaforo)}`} 
-                            title={`Estatus: ${group.semaforo}`}
+                          {/* Si está cerrado, el semáforo se "congela" */}
+                          <div
+                            className={`w-2.5 h-2.5 rounded-full shadow-sm ${getSemaforoColor(group.semaforo, group.estatus)}`}
+                            title={groupIsClosed ? 'Operación cerrada' : `Estatus: ${group.semaforo}`}
                           ></div>
-                          <span className="font-bold text-slate-700">{formatDate(group.eta)}</span>
+                          <span className={`font-bold ${groupIsClosed ? 'text-slate-400' : 'text-slate-700'}`}>
+                            {formatDate(group.eta)}
+                          </span>
                         </div>
-                        
-                        {group.dias_libres && (
+
+                        {group.dias_libres && !groupIsClosed && (
                           <span className="text-[10px] text-slate-400 font-medium tracking-wide">
                             {group.dias_libres}d libres
+                          </span>
+                        )}
+                        {groupIsClosed && (
+                          <span className="text-[10px] text-slate-400 font-medium tracking-wide">
+                            Finalizado
                           </span>
                         )}
                       </div>

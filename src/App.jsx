@@ -73,6 +73,8 @@ function AppContent() {
   // UI State
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [activeTab, setActiveTab] = useState('dashboard');
+  // Estado para forzar refresh de SabanaView
+  const [sabanaRefreshKey, setSabanaRefreshKey] = useState(0);
 
   // Modal States
   const [paymentConfirmation, setPaymentConfirmation] = useState({ isOpen: false, item: null });
@@ -104,6 +106,8 @@ function AppContent() {
     if (result.success) {
       setActiveTab('list');
       refreshTickets();
+      // Forzar refresh de SabanaView
+      setSabanaRefreshKey(prev => prev + 1);
     } else {
       alert('Error al crear el contenedor: ' + JSON.stringify(result.error));
     }
@@ -116,6 +120,8 @@ function AppContent() {
     if (result.success) {
       setEditingItem(null);
       refreshTickets();
+      // Forzar refresh de SabanaView
+      setSabanaRefreshKey(prev => prev + 1);
     } else {
       alert('Error al editar: ' + JSON.stringify(result.error));
     }
@@ -128,6 +134,8 @@ function AppContent() {
     if (result.success) {
       console.log('Pago exitoso, refrescando...');
       refreshTickets();
+      // Forzar refresh de SabanaView
+      setSabanaRefreshKey(prev => prev + 1);
     } else {
       alert('Error al registrar pago: ' + result.error);
     }
@@ -158,6 +166,8 @@ function AppContent() {
     });
     if (result.success) {
       refreshTickets();
+      // Forzar refresh de SabanaView
+      setSabanaRefreshKey(prev => prev + 1);
     } else {
       alert('Error al cerrar operacion: ' + result.error);
     }
@@ -332,12 +342,13 @@ function AppContent() {
             />
           )}
           {activeTab === 'list' && canViewSabana && (
-            <SabanaView 
-              data={tickets} 
+            <SabanaView
+              data={tickets}
               onPayAll={handlePayAll}
-              onCloseOperation={handleCloseOperation} 
+              onCloseOperation={handleCloseOperation}
               onEdit={handleEditClick}
               loading={ticketsLoading}
+              refreshKey={sabanaRefreshKey}
             />
           )}
           {activeTab === 'closure' && (isAdmin || isPagos) && (
