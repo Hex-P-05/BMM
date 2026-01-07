@@ -118,7 +118,8 @@ const ListView = ({ data = [], onPayItem, onPayAll, onCloseOperation, role, onEd
     return Object.values(groups);
   }, [data]);
 
-  
+ 
+
   // Filtro de búsqueda
   const filteredGroups = useMemo(() => {
     if (!searchTerm) return groupedData;
@@ -150,22 +151,85 @@ const ListView = ({ data = [], onPayItem, onPayAll, onCloseOperation, role, onEd
     });
   };
 
-  // Obtener color del semáforo
-  // Si la operación está cerrada, el semáforo se "congela" en gris
-  const getSemaforoColor = (semaforo, estatus) => {
-    // Si está cerrado, mostrar gris (semáforo detenido)
-    if (estatus === 'cerrado') return 'bg-slate-400';
+  // --- NUEVA LÓGICA DE SEMÁFORO ---
+  // --- LÓGICA MAESTRA DE SEMÁFORO (FINAL v2) ---
+  const calcularSemaforo = (eta, tipoOperacion) => {
+    // 1. Validaciones
+    if (!eta) return { color: 'bg-slate-300', texto: '-', dias: 0 };
 
-    switch (semaforo) {
-      case 'verde': return 'bg-green-500';
-      case 'amarillo': return 'bg-yellow-500';
-      case 'azul': return 'bg-sky-500';     // <--- NUEVO
-      case 'rojo': return 'bg-red-500';
-      case 'vencido': return 'bg-purple-600';
-      default: return 'bg-slate-400';
+    // 2. Limpieza de Fecha
+    let fechaEta;
+    const etaStr = eta.toString();
+    if (etaStr.includes('/')) {
+      const [dia, mes, anio] = etaStr.split('/');
+      fechaEta = new Date(`${anio}-${mes}-${dia}T00:00:00`);
+    } else {
+      fechaEta = new Date(`${etaStr.substring(0, 10)}T00:00:00`);
+    }
+
+    if (isNaN(fechaEta.getTime())) return { color: 'bg-slate-300', texto: 'Error', dias: 0 };
+
+    // 3. Días transcurridos (Hoy - ETA)
+    const hoy = new Date();
+    hoy.setHours(0,0,0,0);
+    const diffMs = hoy - fechaEta;
+    const diasTranscurridos = Math.floor(diffMs / (1000 * 60 * 60 * 24)); 
+
+    // =========================================================
+    // CASO A: LOGÍSTICA (7 Días libres | Verde -> Amarillo -> Rojo)
+    // =========================================================
+    if (tipoOperacion === 'logistica') {
+       // --- 1. Antes de llegar: Azul ---
+       if (diasTranscurridos < 0) {
+           return { color: 'bg-sky-500', texto: 'En tránsito', dias: Math.abs(diasTranscurridos) };
+       }
+       
+       // --- 2. Ya llegó (Cuenta de días libres restantes) ---
+       const diasLibresTotales = 7;
+       const restantes = diasLibresTotales - diasTranscurridos;
+
+       // Verde: 0 a 3 días después de ETA (Te quedan 7, 6, 5 o 4 días)
+       if (diasTranscurridos <= 3) {
+           return { color: 'bg-emerald-500', texto: 'Días libres', dias: restantes };
+       }
+       
+       // Amarillo: 4 a 6 días después de ETA (Te quedan 3, 2 o 1 día)
+       if (diasTranscurridos <= 6) {
+           return { color: 'bg-yellow-400', texto: 'Por vencer', dias: restantes };
+       }
+
+       // Rojo: 7 días o más (Se acabaron los 7 libres, empieza el cobro)
+       // día 7 = 1 día de almacenaje
+       return { color: 'bg-red-600', texto: 'Almacenaje', dias: Math.abs(restantes) }; 
+    }
+
+    // =========================================================
+    // CASO B: REVALIDACIÓN (Ciclo de 21 Días)
+    // =========================================================
+    else {
+        // Azul: Antes de llegar
+        if (diasTranscurridos < 0) {
+            const diasParaLlegar = Math.abs(diasTranscurridos);
+            if (diasParaLlegar <= 10) return { color: 'bg-sky-500', texto: 'Por arribar', dias: diasParaLlegar };
+            return { color: 'bg-slate-400', texto: 'En camino', dias: diasParaLlegar };
+        }
+
+        // Cuenta regresiva hacia el límite de 21 días
+        const LIMITE_TOTAL = 21; 
+        const diasRestantesParaLimite = LIMITE_TOTAL - diasTranscurridos;
+
+        if (diasTranscurridos > 21) {
+            return { color: 'bg-red-600', texto: 'Demora', dias: diasTranscurridos - 21 };
+        } else if (diasTranscurridos >= 15) {
+            return { color: 'bg-orange-500', texto: 'Crítico', dias: diasRestantesParaLimite };
+        } else if (diasTranscurridos >= 7) {
+            return { color: 'bg-yellow-400', texto: 'Alerta', dias: diasRestantesParaLimite };
+        }
+
+        // Verde (0-6 días)
+        return { color: 'bg-emerald-500', texto: 'Libre', dias: diasRestantesParaLimite };
     }
   };
-
   if (loading) {
     return (
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-12 text-center">
@@ -220,9 +284,15 @@ const ListView = ({ data = [], onPayItem, onPayAll, onCloseOperation, role, onEd
               <th className="p-4 bg-slate-50 text-left min-w-[200px]">Identificador</th>
               {!isSimpleView && <th className="p-4 bg-slate-50 text-center">Fecha</th>}
               <th className="p-4 bg-slate-50 text-left">BL / Contenedor</th>
-              <th className="p-4 bg-slate-50 text-left">Pedimento</th>
+              <th className="p-4 bg-slate-50 text-left">Pedimento</th>  
               <th className="p-4 bg-slate-50 text-center">ETA</th>
-              <th className="p-4 bg-slate-50 text-center">Conceptos</th>
+              {/* Título dinámico según el rol */}
+              <th className="p-4 bg-slate-50 text-center font-bold">
+                {role === 'logistica' ? 'Días libres almacenaje' : 
+                role === 'revalidaciones' ? 'Días libres demora' : 
+                'Estatus Operativo'}
+              </th>             
+               <th className="p-4 bg-slate-50 text-center">Conceptos</th>
               <th className="p-4 bg-slate-50 text-right min-w-[120px]">Total</th>
               <th className="p-4 bg-slate-50 text-center">Estado</th>
               {!isSimpleView && canEdit && <th className="p-4 bg-slate-50 text-center">Acciones</th>}
@@ -284,34 +354,42 @@ const ListView = ({ data = [], onPayItem, onPayAll, onCloseOperation, role, onEd
                     {/* Columna: Pedimento */}
                     <td className="p-4 text-xs">{group.pedimento || '-'}</td>
 
-                    {/* --- COLUMNA ETA MODIFICADA (SEMÁFORO INTEGRADO) --- */}
-                    <td className="p-4 text-center text-xs">
-                      <div className="flex flex-col items-center justify-center gap-1">
-                        <div className="flex items-center gap-2 bg-slate-50 px-2 py-1 rounded border border-slate-100">
-                          {/* El puntito del semáforo ahora vive aquí */}
-                          {/* Si está cerrado, el semáforo se "congela" */}
-                          <div
-                            className={`w-2.5 h-2.5 rounded-full shadow-sm ${getSemaforoColor(group.semaforo, group.estatus)}`}
-                            title={groupIsClosed ? 'Operación cerrada' : `Estatus: ${group.semaforo}`}
-                          ></div>
-                          <span className={`font-bold ${groupIsClosed ? 'text-slate-400' : 'text-slate-700'}`}>
-                            {formatDate(group.eta)}
-                          </span>
-                        </div>
-
-                        {group.dias_libres && !groupIsClosed && (
-                          <span className="text-[10px] text-slate-400 font-medium tracking-wide">
-                            {group.dias_libres}d libres
-                          </span>
-                        )}
-                        {groupIsClosed && (
-                          <span className="text-[10px] text-slate-400 font-medium tracking-wide">
-                            Finalizado
-                          </span>
-                        )}
-                      </div>
+                   {/* --- COLUMNA 1: ETA (FECHA) --- */}
+                    <td className="p-4 text-center text-xs font-bold text-slate-700">
+                      {/* Si hay fecha la mostramos, si no, un guión */}
+                      {group.eta ? formatDate(group.eta) : '-'}
                     </td>
-                    {/* --------------------------------------------------- */}
+
+                    {/* --- COLUMNA 2: SEMÁFORO INTELIGENTE --- */}
+                    <td className="p-4 text-center">
+                      {(() => {
+                        // 1. Calculamos el estado para esta fila específica
+                        const esLogistica = group.isLogistica || role === 'logistica';
+                        const info = calcularSemaforo(group.eta, esLogistica ? 'logistica' : 'revalidaciones');
+                        
+                        return (
+                          <div className="flex flex-col items-center justify-center gap-1">
+                            {/* Bolita de color */}
+                            <div 
+                              className={`w-4 h-4 rounded-full shadow-sm border-2 border-white ${info.color}`} 
+                              title={info.texto}
+                            ></div>
+                            
+                            {/* Texto: Muestra días restantes o días de exceso si es rojo */}
+                            <span className={`text-[10px] font-bold tracking-wide ${
+                              info.color.includes('red') ? 'text-red-600' : 
+                              info.color.includes('orange') ? 'text-orange-600' :
+                              info.color.includes('yellow') ? 'text-yellow-600' :
+                              info.color.includes('emerald') ? 'text-emerald-600' : 'text-slate-500'
+                            }`}>
+                              {info.dias} {info.color.includes('red') ? 'días ex' : 
+                                           info.texto === 'Libre' || info.texto === 'Días libres' ? 'días rest' : 
+                                           info.texto === 'Por arribar' ? 'días para' : 'días'}
+                            </span>
+                          </div>
+                        );
+                      })()}
+                    </td>
 
                     {/* Columna: Conteo Conceptos */}
                     <td className="p-4 text-center">

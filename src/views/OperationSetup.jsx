@@ -299,15 +299,17 @@ const OperationSetup = () => {
                   />
                 </div>
 
-                <div>
+               <div>
                    <label className="block text-xs font-bold text-slate-600 mb-1">Días Libres</label>
                    <input
                     type="number"
                     name="dias_libres"
-                    value={formData.dias_libres}
-                    onChange={handleChange}
-                    className="w-full p-2.5 bg-white border border-slate-300 rounded-md focus:ring-2 focus:ring-purple-500"
+                    value={7} // <--- Valor fijo visual
+                    disabled  // <--- Bloqueado para que no lo editen
+                    className="w-full p-2.5 bg-slate-100 text-slate-500 border border-slate-300 rounded-md focus:ring-2 focus:ring-purple-500 font-bold cursor-not-allowed"
                   />
+                   {/* Input oculto para asegurar que el state tenga el valor si usas handleChange, 
+                       aunque lo mejor es asegurar que el formData tenga 7 por defecto */}
                 </div>
 
               </div>
