@@ -151,6 +151,39 @@ const ListView = ({ data = [], onPayItem, onPayAll, onCloseOperation, role, onEd
     });
   };
 
+// Calcular días exactos de multa (Demora o Almacenaje)
+  const calcularDiasPenalty = (eta, tipoOperacion) => {
+    if (!eta) return 0;
+
+    // Parseo de fecha (Igual que en el semáforo)
+    let fechaEta;
+    const etaStr = eta.toString();
+    if (etaStr.includes('/')) {
+      const [dia, mes, anio] = etaStr.split('/');
+      fechaEta = new Date(`${anio}-${mes}-${dia}T00:00:00`);
+    } else {
+      fechaEta = new Date(`${etaStr.substring(0, 10)}T00:00:00`);
+    }
+    if (isNaN(fechaEta.getTime())) return 0;
+
+    const hoy = new Date();
+    hoy.setHours(0,0,0,0);
+    const diffMs = hoy - fechaEta;
+    const diasTranscurridos = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+    // Si aún no llega, 0 días
+    if (diasTranscurridos < 0) return 0;
+
+    // Reglas de cobro:
+    if (tipoOperacion === 'logistica') {
+        // Logística: 7 días libres. El día 8 ya cobra (1 día extra).
+        return diasTranscurridos > 7 ? diasTranscurridos - 7 : 0;
+    } else {
+        // Revalidación: 21 días límite. El día 22 ya cobra.
+        return diasTranscurridos > 21 ? diasTranscurridos - 21 : 0;
+    }
+  };
+
   // --- NUEVA LÓGICA DE SEMÁFORO ---
   // --- LÓGICA MAESTRA DE SEMÁFORO (FINAL v2) ---
   const calcularSemaforo = (eta, tipoOperacion) => {
@@ -230,6 +263,8 @@ const ListView = ({ data = [], onPayItem, onPayAll, onCloseOperation, role, onEd
         return { color: 'bg-emerald-500', texto: 'Libre', dias: diasRestantesParaLimite };
     }
   };
+
+
   if (loading) {
     return (
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-12 text-center">
@@ -238,7 +273,7 @@ const ListView = ({ data = [], onPayItem, onPayAll, onCloseOperation, role, onEd
       </div>
     );
   }
-
+ //////////////////////////////////// COLUMNAS Y FILAS PRINCIPALES ////////////////////////////////////////////
   return (
     <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
       {/* Header */}
@@ -292,6 +327,12 @@ const ListView = ({ data = [], onPayItem, onPayAll, onCloseOperation, role, onEd
                 role === 'revalidaciones' ? 'Días libres demora' : 
                 'Estatus Operativo'}
               </th>             
+              {/* --- NUEVA COLUMNA DE DÍAS EXTRA --- */}
+              <th className="p-4 bg-slate-50 text-center text-red-600 font-bold">
+                {/* El título cambia según el rol */}
+                {role === 'logistica' ? 'Días Alm.' : 'Días Dem.'}
+              </th>
+              {/* ----------------------------------- */}
                <th className="p-4 bg-slate-50 text-center">Conceptos</th>
               <th className="p-4 bg-slate-50 text-right min-w-[120px]">Total</th>
               <th className="p-4 bg-slate-50 text-center">Estado</th>
@@ -390,7 +431,21 @@ const ListView = ({ data = [], onPayItem, onPayAll, onCloseOperation, role, onEd
                         );
                       })()}
                     </td>
-
+                    {/* --- NUEVA CELDA: CONTADOR DE DÍAS EXTRA --- */}
+                    <td className="p-4 text-center">
+                      {(() => {
+                        const esLogistica = group.isLogistica || role === 'logistica';
+                        const diasExtra = calcularDiasPenalty(group.eta, esLogistica ? 'logistica' : 'revalidaciones');
+                        
+                        return (
+                          <div className={`font-mono font-bold text-sm ${diasExtra > 0 ? 'text-red-600 bg-red-50 px-2 py-1 rounded border border-red-100' : 'text-slate-300'}`}>
+                            {diasExtra > 0 ? `+${diasExtra}` : '-'}
+                          </div>
+                        );
+                      })()}
+                    </td>
+                    {/* ------------------------------------------- */}
+                    
                     {/* Columna: Conteo Conceptos */}
                     <td className="p-4 text-center">
                       <span className="inline-flex items-center justify-center w-6 h-6 bg-blue-100 text-blue-700 rounded-full text-xs font-bold">
