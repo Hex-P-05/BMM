@@ -1,5 +1,5 @@
 // src/App.jsx
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   LayoutDashboard, Table as TableIcon, Plus, 
   ClipboardCheck, Calculator, ChevronRight, 
@@ -83,6 +83,12 @@ function AppContent() {
   const [itemToClose, setItemToClose] = useState(null);
   const [ticketsToClose, setTicketsToClose] = useState([]);  // <-- Agregar esta línea
 
+  // Refrescar datos del dashboard cuando se navega a la pestaña
+  useEffect(() => {
+    if (activeTab === 'dashboard') {
+      refreshTickets();
+    }
+  }, [activeTab]);
 
   // Loading screen
   if (authLoading) {
@@ -323,7 +329,12 @@ function AppContent() {
         
         <div className="flex-1 overflow-auto p-4 md:p-8">
           {activeTab === 'dashboard' && (
-            <DashboardView data={tickets} dashboard={dashboard} />
+            <DashboardView
+              data={tickets}
+              dashboard={dashboard}
+              loading={ticketsLoading}
+              onRefresh={refreshTickets}
+            />
           )}
         {/* --- VISTA DE CLASIFICACIÓN --- */}
           {activeTab === 'setup' && (isClasificacion || isAdmin) && (
