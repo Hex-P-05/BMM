@@ -77,7 +77,16 @@ const ListView = ({ data = [], onPayItem, onPayAll, onCloseOperation, role, onEd
       groups[uniqueGroupKey].totalImporte += parseFloat(ticket.importe) || 0;
       
       // Actualizar semáforo al peor caso
-      const semaforoPriority = { 'vencido': 4, 'rojo': 3, 'amarillo': 2, 'verde': 1 };
+      // Agregamos 'azul' con prioridad baja o media según prefieras. 
+      // Aquí lo pongo bajo el verde porque es informativo, no urgente.
+      const semaforoPriority = { 
+        'vencido': 5, 
+        'rojo': 4, 
+        'amarillo': 3, 
+        'azul': 2,    // <--- NUEVO (Informativo, más relevante que verde simple)
+        'verde': 1 
+      };
+      
       if (semaforoPriority[ticket.semaforo] > semaforoPriority[groups[uniqueGroupKey].semaforo]) {
         groups[uniqueGroupKey].semaforo = ticket.semaforo;
       }
@@ -150,6 +159,7 @@ const ListView = ({ data = [], onPayItem, onPayAll, onCloseOperation, role, onEd
     switch (semaforo) {
       case 'verde': return 'bg-green-500';
       case 'amarillo': return 'bg-yellow-500';
+      case 'azul': return 'bg-sky-500';     // <--- NUEVO
       case 'rojo': return 'bg-red-500';
       case 'vencido': return 'bg-purple-600';
       default: return 'bg-slate-400';

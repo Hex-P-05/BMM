@@ -161,29 +161,37 @@ class Contenedor(models.Model):
     @property
     def semaforo(self):
         """
-        Calcula el semáforo considerando los días libres a partir del ETA.
-        Fecha Límite = ETA + Días Libres
+        Calcula el semáforo considerando ETA y días libres.
+        - AZUL: Faltan 10 días o menos para el ETA.
+        - VERDE: Llegó y tiene buen tiempo de días libres.
+        - AMARILLO/ROJO/VENCIDO: Se acaban los días libres.
         """
         if not self.eta:
-            return 'verde'  # Si no hay fecha, asumimos que está bien o es indefinido
+            return 'verde'  # Sin fecha, asumimos verde
 
-        # 1. Calculamos la fecha límite real
-        # Usamos timedelta para sumar los días libres a la fecha de llegada
+        hoy = date.today()
+
+        # --- LÓGICA NUEVA: PREVIO A LA LLEGADA (AZUL) ---
+        if hoy < self.eta:
+            dias_para_llegar = (self.eta - hoy).days
+            # Si faltan 10 días o menos para llegar, es AZUL (Pre-alerta)
+            if dias_para_llegar <= 10:
+                return 'azul'
+            return 'verde' # Si falta mucho más, se mantiene verde
+
+        # --- LÓGICA EXISTENTE: POST LLEGADA (Días Libres) ---
+        # Fecha Límite = ETA + Días Libres
         fecha_limite = self.eta + timedelta(days=self.dias_libres)
-        
-        # 2. Vemos cuántos días faltan para esa fecha límite
-        # Si hoy es 10 y el límite es 15, faltan 5 días.
-        dias_restantes = (fecha_limite - date.today()).days
+        dias_restantes = (fecha_limite - hoy).days
 
-        # 3. Aplicamos las reglas del negocio
         if dias_restantes < 0:
-            return 'vencido'  # Ya se pasó del límite (Morado)
+            return 'vencido'  # Morado
         elif dias_restantes <= 2: 
-            return 'rojo'     # Le quedan 0, 1 o 2 días (Crítico)
+            return 'rojo'     # Crítico
         elif dias_restantes <= 5:
-            return 'amarillo' # Le quedan entre 3 y 5 días (Preventivo)
+            return 'amarillo' # Preventivo
         else:
-            return 'verde'    # Tiene 6 o más días (A tiempo)
+            return 'verde'    # A tiempo
 
 
 class Pedimento(models.Model):
@@ -1216,29 +1224,37 @@ class Ticket(models.Model):
     @property
     def semaforo(self):
         """
-        Calcula el semáforo considerando los días libres a partir del ETA.
-        Fecha Límite = ETA + Días Libres
+        Calcula el semáforo considerando ETA y días libres.
+        - AZUL: Faltan 10 días o menos para el ETA.
+        - VERDE: Llegó y tiene buen tiempo de días libres.
+        - AMARILLO/ROJO/VENCIDO: Se acaban los días libres.
         """
         if not self.eta:
-            return 'verde'  # Si no hay fecha, asumimos que está bien o es indefinido
+            return 'verde'  # Sin fecha, asumimos verde
 
-        # 1. Calculamos la fecha límite real
-        # Usamos timedelta para sumar los días libres a la fecha de llegada
+        hoy = date.today()
+
+        # --- LÓGICA NUEVA: PREVIO A LA LLEGADA (AZUL) ---
+        if hoy < self.eta:
+            dias_para_llegar = (self.eta - hoy).days
+            # Si faltan 10 días o menos para llegar, es AZUL (Pre-alerta)
+            if dias_para_llegar <= 10:
+                return 'azul'
+            return 'verde' # Si falta mucho más, se mantiene verde
+
+        # --- LÓGICA EXISTENTE: POST LLEGADA (Días Libres) ---
+        # Fecha Límite = ETA + Días Libres
         fecha_limite = self.eta + timedelta(days=self.dias_libres)
-        
-        # 2. Vemos cuántos días faltan para esa fecha límite
-        # Si hoy es 10 y el límite es 15, faltan 5 días.
-        dias_restantes = (fecha_limite - date.today()).days
+        dias_restantes = (fecha_limite - hoy).days
 
-        # 3. Aplicamos las reglas del negocio
         if dias_restantes < 0:
-            return 'vencido'  # Ya se pasó del límite (Morado)
+            return 'vencido'  # Morado
         elif dias_restantes <= 2: 
-            return 'rojo'     # Le quedan 0, 1 o 2 días (Crítico)
+            return 'rojo'     # Crítico
         elif dias_restantes <= 5:
-            return 'amarillo' # Le quedan entre 3 y 5 días (Preventivo)
+            return 'amarillo' # Preventivo
         else:
-            return 'verde'    # Tiene 6 o más días (A tiempo)
+            return 'verde'    # A tiempo
 
     @property
     def puede_ser_editado_por_ejecutivo(self):
