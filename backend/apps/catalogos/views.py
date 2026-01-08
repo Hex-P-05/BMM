@@ -3,10 +3,11 @@ from rest_framework.permissions import IsAuthenticated
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.filters import SearchFilter, OrderingFilter
 
-from .models import Empresa, Concepto, Proveedor, Naviera, Puerto, Terminal
+from .models import Empresa, Concepto, Proveedor, Naviera, Puerto, Terminal, Cliente, AgenteAduanal
 from .serializers import (
     EmpresaSerializer, ConceptoSerializer, ProveedorSerializer,
-    NavieraSerializer, NavieraConCuentasSerializer, PuertoSerializer, TerminalSerializer
+    NavieraSerializer, NavieraConCuentasSerializer, PuertoSerializer, TerminalSerializer,
+    ClienteSerializer, AgenteAduanalSerializer
 )
 from apps.auditoria.utils import registrar_accion
 
@@ -103,3 +104,21 @@ class TerminalViewSet(CatalogoBaseViewSet):
     filterset_fields = ['activo', 'puerto']
     ordering_fields = ['nombre']
     modelo_nombre = 'Terminal'
+
+
+class ClienteViewSet(CatalogoBaseViewSet):
+    queryset = Cliente.objects.select_related('empresa_asociada').all()
+    serializer_class = ClienteSerializer
+    search_fields = ['nombre', 'prefijo', 'contacto', 'email']
+    filterset_fields = ['activo', 'empresa_asociada']
+    ordering_fields = ['nombre', 'prefijo', 'fecha_creacion']
+    modelo_nombre = 'Cliente'
+
+
+class AgenteAduanalViewSet(CatalogoBaseViewSet):
+    queryset = AgenteAduanal.objects.all()
+    serializer_class = AgenteAduanalSerializer
+    search_fields = ['nombre', 'patente', 'banco']
+    filterset_fields = ['activo']
+    ordering_fields = ['nombre', 'fecha_creacion']
+    modelo_nombre = 'AgenteAduanal'
