@@ -1,6 +1,6 @@
 // src/views/ListView.jsx
 import React, { useState, useMemo } from 'react';
-import { ChevronUp, ChevronDown, Edit, Lock, FileText, Search, DollarSign } from 'lucide-react';
+import { ChevronUp, ChevronDown, Edit, Lock, FileText, Search, DollarSign, Download } from 'lucide-react';
 import StatusBadge from '../components/StatusBadge';
 import { formatDate } from '../utils/helpers';
 import { generatePDF } from '../utils/pdfGenerator';
@@ -470,24 +470,13 @@ const ListView = ({ data = [], onPayItem, onPayAll, onCloseOperation, role, onEd
                     {/* Columna: Acciones */}
                     {!isSimpleView && canEdit && (
                       <td className="p-4 text-center">
-                        <button 
-                          onClick={() => onEdit(group.tickets[0])} 
+                        <button
+                          onClick={() => onEdit(group.tickets[0])}
                           className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded"
                           title="Editar"
                         >
                           <Edit size={16}/>
                         </button>
-                        {/* SNIPPET PARA ListView.jsx */}
-                          {item.comprobante_pago && (
-                            <a 
-                              href={item.comprobante_pago} 
-                              target="_blank" 
-                              rel="noopener noreferrer"
-                              className="ml-2 text-blue-600 hover:text-blue-800 underline text-xs"
-                            >
-                              Ver PDF
-                            </a>
-                          )}
                       </td>
                     )}
                   </tr>
@@ -514,6 +503,7 @@ const ListView = ({ data = [], onPayItem, onPayAll, onCloseOperation, role, onEd
                                   <th className="p-3 text-left font-bold">CLABE</th>
                                   <th className="p-3 text-right font-bold">Importe</th>
                                   <th className="p-3 text-center font-bold">Estado</th>
+                                  <th className="p-3 text-center font-bold">Comprobante</th>
                                   {canPay && <th className="p-3 text-center font-bold">Acción</th>}
                                 </tr>
                               </thead>
@@ -546,9 +536,26 @@ const ListView = ({ data = [], onPayItem, onPayAll, onCloseOperation, role, onEd
                                         ticket.estatus === 'pagado' ? 'bg-green-100 text-green-700' :
                                         'bg-amber-100 text-amber-700'
                                       }`}>
-                                        {ticket.estatus === 'cerrado' ? 'Cerrado' : 
+                                        {ticket.estatus === 'cerrado' ? 'Cerrado' :
                                          ticket.estatus === 'pagado' ? 'Pagado' : 'Pendiente'}
                                       </span>
+                                    </td>
+                                    {/* Columna: Comprobante de pago */}
+                                    <td className="p-3 text-center">
+                                      {ticket.comprobante_pago ? (
+                                        <a
+                                          href={ticket.comprobante_pago}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          className="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-700 rounded hover:bg-blue-200 transition-colors"
+                                          title="Descargar comprobante"
+                                        >
+                                          <Download size={12} />
+                                          <span className="text-[10px] font-bold">PDF</span>
+                                        </a>
+                                      ) : (
+                                        <span className="text-slate-300 text-[10px]">-</span>
+                                      )}
                                     </td>
                                     {canPay && (
                                       <td className="p-3 text-center">
@@ -571,6 +578,7 @@ const ListView = ({ data = [], onPayItem, onPayAll, onCloseOperation, role, onEd
                                   <td className="p-3 text-right text-slate-800">
                                     ${visibleTickets.reduce((sum, t) => sum + (parseFloat(t.importe) || 0), 0).toLocaleString('es-MX', { minimumFractionDigits: 2 })}
                                   </td>
+                                  <td></td>
                                   <td></td>
                                   {canPay && <td></td>}
                                 </tr>
