@@ -5,8 +5,7 @@ import { useCatalogos } from '../hooks/useCatalogos';
 import { useAuth } from '../context/AuthContext';
 import api from '../api/axios';
 
-// --- DEFINICIÓN DE CONCEPTOS ---
-
+// Conceptos disponibles para Revalidaciones
 const CONCEPTOS_REVALIDACIONES = [
   { id: 'cargos_locales', nombre: 'CARGOS LOCALES' },
   { id: 'cambio_aa', nombre: 'CAMBIO A.A' },
@@ -26,9 +25,9 @@ const CONCEPTOS_REVALIDACIONES = [
   { id: 'cedi', nombre: 'CEDI' },
 ];
 
-// Conceptos de Logística (TOTAL REORGANIZADO)
+// --- CONCEPTOS LOGÍSTICA ORGANIZADOS ---
 const CONCEPTOS_LOGISTICA_ALL = [
-  // --- SECCIÓN LOGÍSTICA ---
+  // LOGÍSTICA
   { id: 'impuestos', nombre: 'IMPUESTOS' },
   { id: 'honorarios_aa', nombre: 'HONORARIOS A.A.' },
   { id: 'honorarios_comer', nombre: 'HONORARIOS COMER' },
@@ -37,38 +36,38 @@ const CONCEPTOS_LOGISTICA_ALL = [
   { id: 'maniobras', nombre: 'MANIOBRAS' },
   { id: 'almacenajes', nombre: 'ALMACENAJES' },
   { id: 'uva', nombre: 'UVA' },
-  { id: 'complemento_impuestos', nombre: 'COMPLEMENTO IMPUESTOS' }, // Movido
-  { id: 'constancia', nombre: 'CONSTANCIA' }, // Movido
+  { id: 'complemento_impuestos', nombre: 'COMPLEMENTO IMPUESTOS' },
+  { id: 'constancia', nombre: 'CONSTANCIA' },
 
-  // --- SECCIÓN TRANSPORTE ---
+  // TRANSPORTE
   { id: 'flete', nombre: 'FLETE' },
   { id: 'sobrepeso', nombre: 'SOBREPESO' },
   { id: 'flete_falso', nombre: 'FLETE EN FALSO' },
-  { id: 'estadias_jaula', nombre: 'ESTADÍAS EN JAULA O ROJO' },
+  { id: 'estadias_jaula', nombre: 'ESTADÍAS JAULA/ROJO' },
   { id: 'burrero', nombre: 'BURRERO' },
   { id: 'reexpedicion', nombre: 'REEXPEDICIÓN' },
-  { id: 'maniobra_carga', nombre: 'MANIOBRAS DE CARGA' },
-  { id: 'maniobra_descarga', nombre: 'MANIOBRAS DE DESCARGA' },
+  { id: 'maniobra_carga', nombre: 'MANIOBRA CARGA' },
+  { id: 'maniobra_descarga', nombre: 'MANIOBRA DESCARGA' },
   { id: 'consulta', nombre: 'CONSULTA' },
   { id: 'tiempo_extra_descarga', nombre: 'TIEMPO EXTRA DESCARGA' },
-  { id: 'limpieza', nombre: 'LIMPIEZA' },
+  { id: 'limpieza_log', nombre: 'LIMPIEZA' },
   { id: 'custodia', nombre: 'CUSTODIA' },
-  { id: 'estadia', nombre: 'ESTADÍA (General)' }, // Movido
-  { id: 'estadias_patio', nombre: 'ESTADÍAS EN PATIO' }, // Movido
-  { id: 'reconocimiento', nombre: 'RECONOCIMIENTO' }, // Movido
-  { id: 'apoyo_ferreo', nombre: 'APOYO FÉRREO' }, // Movido
+  { id: 'estadia', nombre: 'ESTADÍA (General)' },
+  { id: 'estadias_patio', nombre: 'ESTADÍAS EN PATIO' },
+  { id: 'reconocimiento', nombre: 'RECONOCIMIENTO' },
+  { id: 'apoyo_ferreo', nombre: 'APOYO FÉRREO' },
 
-  // --- SECCIÓN CIERRE DE CUENTA ---
+  // CIERRE DE CUENTA
   { id: 'monto_depositado', nombre: 'MONTO DEPOSITADO' },
   { id: 'total_gastos', nombre: 'TOTAL DE GASTOS' },
   { id: 'deudor', nombre: 'DEUDOR' },
   { id: 'apoyos', nombre: 'APOYOS' },
-  { id: 'gastos_revalidacion', nombre: 'GASTOS DE REVALIDACIÓN' },
-  { id: 'garantia_contenedor', nombre: 'GARANTÍA DE CONTENEDOR' },
-  { id: 'vacio', nombre: 'VACÍO' }, // Movido
+  { id: 'gastos_revalidacion', nombre: 'GASTOS REVALIDACIÓN' },
+  { id: 'garantia_contenedor', nombre: 'GARANTÍA CONTENEDOR' },
+  { id: 'vacio', nombre: 'VACÍO' },
   { id: 'otros', nombre: 'OTROS' },
-  
-  // Conceptos extra (sobrantes que irán a "Otros")
+
+  // EXTRAS
   { id: 'g1', nombre: 'G1' },
   { id: 'profepa', nombre: 'PROFEPA' },
   { id: 'rectificacion', nombre: 'RECTIFICACION' },
@@ -77,30 +76,20 @@ const CONCEPTOS_LOGISTICA_ALL = [
   { id: 'pama', nombre: 'PAMA' },
 ];
 
-// --- GRUPOS PARA VISUALIZACIÓN ---
-const GRUPO_LOGISTICA_IDS = [
-  'impuestos', 'honorarios_aa', 'honorarios_comer', 'no_previo', 
-  'anticipo', 'maniobras', 'almacenajes', 'uva', 
-  'complemento_impuestos', 'constancia'
-];
-
-const GRUPO_TRANSPORTE_IDS = [
-  'flete', 'sobrepeso', 'flete_falso', 'estadias_jaula', 'burrero', 
-  'reexpedicion', 'maniobra_carga', 'maniobra_descarga', 'consulta', 
-  'tiempo_extra_descarga', 'limpieza', 'custodia', 
-  'estadia', 'estadias_patio', 'reconocimiento', 'apoyo_ferreo'
-];
-
-const GRUPO_CIERRE_IDS = [
-  'monto_depositado', 'total_gastos', 'deudor', 'apoyos', 
-  'gastos_revalidacion', 'garantia_contenedor', 'vacio', 'otros'
-];
+const GRUPO_LOGISTICA_IDS = ['impuestos', 'honorarios_aa', 'honorarios_comer', 'no_previo', 'anticipo', 'maniobras', 'almacenajes', 'uva', 'complemento_impuestos', 'constancia'];
+const GRUPO_TRANSPORTE_IDS = ['flete', 'sobrepeso', 'flete_falso', 'estadias_jaula', 'burrero', 'reexpedicion', 'maniobra_carga', 'maniobra_descarga', 'consulta', 'tiempo_extra_descarga', 'limpieza_log', 'custodia', 'estadia', 'estadias_patio', 'reconocimiento', 'apoyo_ferreo'];
+const GRUPO_CIERRE_IDS = ['monto_depositado', 'total_gastos', 'deudor', 'apoyos', 'gastos_revalidacion', 'garantia_contenedor', 'vacio', 'otros'];
 
 const CaptureForm = ({ onSave, onCancel, role, userName }) => {
   const { isRevalidaciones, isLogistica, isClasificacion, isAdmin, canCreateContainers, puertoId } = useAuth();
-  const { empresas, navieras, loading: catalogosLoading } = useCatalogos();
+  
+  // Hook de catálogos del backend
+  const { empresas, proveedores, navieras, loading: catalogosLoading } = useCatalogos();
 
-  // Estado del formulario
+  // ESTADO: Buscador de conceptos
+  const [conceptoSearch, setConceptoSearch] = useState('');
+
+  // Estado del formulario - datos del contenedor
   const [formData, setFormData] = useState({
     empresa: '',
     fecha_alta: new Date().toISOString().split('T')[0],
@@ -115,90 +104,124 @@ const CaptureForm = ({ onSave, onCancel, role, userName }) => {
     observaciones: ''
   });
 
+  // Estado para conceptos seleccionados y sus montos
   const [conceptosSeleccionados, setConceptosSeleccionados] = useState({});
+  
+  // Estado para datos de naviera (para mostrar datos bancarios)
   const [navieraData, setNavieraData] = useState({ banco: '', cuenta: '', clabe: '' });
+  
   const [previewConsecutivo, setPreviewConsecutivo] = useState('001');
   const [consecutivoEditable, setConsecutivoEditable] = useState('');
   const [consecutivoHeredado, setConsecutivoHeredado] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
-  const [conceptoSearch, setConceptoSearch] = useState('');
 
-  // 1. Clasificar conceptos para renderizado
-  const { revalidaciones, logisticaSection, transporteSection, cierreSection, otrosSection } = useMemo(() => {
-    // Si NO es logística ni admin (es revalidación puro)
-    if (!isLogistica && !isAdmin) {
-      return { revalidaciones: CONCEPTOS_REVALIDACIONES, logisticaSection: [], transporteSection: [], cierreSection: [], otrosSection: [] };
-    }
-
-    const filtrados = CONCEPTOS_LOGISTICA_ALL.filter(c => 
-      c.nombre.toLowerCase().includes(conceptoSearch.toLowerCase())
-    );
-
-    const logistica = filtrados.filter(c => GRUPO_LOGISTICA_IDS.includes(c.id));
-    const transporte = filtrados.filter(c => GRUPO_TRANSPORTE_IDS.includes(c.id));
-    const cierre = filtrados.filter(c => GRUPO_CIERRE_IDS.includes(c.id));
-    
-    // Los que no están en ningún grupo específico van a "Otros"
-    const otros = filtrados.filter(c => 
-      !GRUPO_LOGISTICA_IDS.includes(c.id) && 
-      !GRUPO_TRANSPORTE_IDS.includes(c.id) && 
-      !GRUPO_CIERRE_IDS.includes(c.id)
-    );
-
-    return { 
-      revalidaciones: [], 
-      logisticaSection: logistica, 
-      transporteSection: transporte, 
-      cierreSection: cierre,
-      otrosSection: otros 
-    };
-  }, [isLogistica, isAdmin, conceptoSearch]);
-
-  // Acceso denegado
+  // Acceso denegado si no puede crear
   if (!canCreateContainers && !isRevalidaciones && !isLogistica && !isAdmin) {
     return (
       <div className="p-10 text-center">
         <AlertCircle size={48} className="text-red-500 mx-auto mb-4" />
         <p className="text-red-500 font-bold">Acceso denegado</p>
+        <p className="text-slate-500 text-sm mt-2">No tienes permisos para dar de alta pagos.</p>
       </div>
     );
   }
 
-  // --- LÓGICA DE CONSECUTIVO Y BÚSQUEDA ---
-  const formatConsecutivo = (num) => String(num).padStart(3, '0');
+  // LÓGICA DE CLASIFICACIÓN DE CONCEPTOS (useMemo)
+  const { revalidacionesSection, logisticaSection, transporteSection, cierreSection, otrosSection, conceptosDisponibles } = useMemo(() => {
+    // Caso 1: Revalidaciones puro (lista simple)
+    if (isRevalidaciones && !isAdmin) {
+      return { 
+        revalidacionesSection: CONCEPTOS_REVALIDACIONES, 
+        logisticaSection: [], 
+        transporteSection: [], 
+        cierreSection: [], 
+        otrosSection: [],
+        conceptosDisponibles: CONCEPTOS_REVALIDACIONES
+      };
+    }
 
+    // Caso 2: Logística o Admin (listas agrupadas)
+    const filtrados = CONCEPTOS_LOGISTICA_ALL.filter(c => 
+      c.nombre.toLowerCase().includes(conceptoSearch.toLowerCase())
+    );
+
+    // Admin ve todos los conceptos
+    const allConceptos = isAdmin 
+      ? [...CONCEPTOS_REVALIDACIONES, ...CONCEPTOS_LOGISTICA_ALL]
+      : CONCEPTOS_LOGISTICA_ALL;
+
+    return {
+      revalidacionesSection: isAdmin ? CONCEPTOS_REVALIDACIONES : [],
+      logisticaSection: filtrados.filter(c => GRUPO_LOGISTICA_IDS.includes(c.id)),
+      transporteSection: filtrados.filter(c => GRUPO_TRANSPORTE_IDS.includes(c.id)),
+      cierreSection: filtrados.filter(c => GRUPO_CIERRE_IDS.includes(c.id)),
+      otrosSection: filtrados.filter(c => 
+        !GRUPO_LOGISTICA_IDS.includes(c.id) && 
+        !GRUPO_TRANSPORTE_IDS.includes(c.id) && 
+        !GRUPO_CIERRE_IDS.includes(c.id)
+      ),
+      conceptosDisponibles: allConceptos
+    };
+  }, [isLogistica, isAdmin, isRevalidaciones, conceptoSearch]);
+
+  // Formatear consecutivo con ceros
+  const formatConsecutivo = (num) => {
+    return String(num).padStart(3, '0');
+  };
+
+  // Calcular importe total de conceptos seleccionados
+  const importeTotal = Object.values(conceptosSeleccionados).reduce((sum, concepto) => {
+    return sum + (parseFloat(concepto.monto) || 0);
+  }, 0);
+
+  // Contar conceptos seleccionados
+  const conceptosActivos = Object.keys(conceptosSeleccionados).length;
+
+  // Obtener siguiente consecutivo
   useEffect(() => {
     const fetchConsecutivo = async () => {
       if (consecutivoHeredado) return;
+      
       if (formData.prefijo && formData.prefijo.length >= 2) {
         try {
           const response = await api.get(`/operaciones/tickets/siguiente_consecutivo/?prefijo=${formData.prefijo.toUpperCase()}`);
-          const formatted = formatConsecutivo(response.data.siguiente_consecutivo);
+          const nextNum = response.data.siguiente_consecutivo;
+          const formatted = formatConsecutivo(nextNum);
           setPreviewConsecutivo(formatted);
           setConsecutivoEditable(formatted);
         } catch (err) {
+          console.error('Error fetching consecutivo:', err);
           setPreviewConsecutivo('001');
           setConsecutivoEditable('001');
         }
       }
     };
+
     const timeoutId = setTimeout(fetchConsecutivo, 300);
     return () => clearTimeout(timeoutId);
   }, [formData.prefijo, consecutivoHeredado]);
 
+  // Manejar cambio de consecutivo manual
   const handleConsecutivoChange = (e) => {
     const value = e.target.value.replace(/\D/g, '');
-    if (value.length <= 5) setConsecutivoEditable(value.padStart(3, '0').slice(-Math.max(3, value.length)));
+    if (value.length <= 5) {
+      setConsecutivoEditable(value.padStart(3, '0').slice(-Math.max(3, value.length)));
+    }
   };
 
+  // Buscar datos por contenedor (Logística)
   const buscarDatosContenedor = async () => {
     if (!formData.contenedor || formData.contenedor.length < 4) return;
+
     try {
       const response = await api.get(`/operaciones/tickets/?contenedor=${formData.contenedor.toUpperCase()}&tipo_operacion=clasificacion&ordering=-fecha_creacion`);
       const resultados = response.data.results || response.data;
+
       if (resultados && resultados.length > 0) {
         const previo = resultados[0];
+        console.log("Datos heredados de clasificación:", previo);
+
         setFormData(prev => ({
           ...prev,
           empresa: previo.empresa || prev.empresa,
@@ -209,42 +232,87 @@ const CaptureForm = ({ onSave, onCancel, role, userName }) => {
           prefijo: previo.prefijo || prev.prefijo,
           naviera: previo.naviera || prev.naviera,
         }));
+
+        if (previo.naviera) {
+          const nav = navieras?.find(n => n.id === parseInt(previo.naviera));
+          if (nav && nav.cuentas && nav.cuentas.length > 0) {
+            const cuenta = nav.cuentas[0];
+            setNavieraData({
+              banco: cuenta.banco || '',
+              cuenta: cuenta.cuenta || '',
+              clabe: cuenta.clabe || ''
+            });
+          }
+        }
+
         if (previo.consecutivo) {
-          const ch = String(previo.consecutivo).padStart(3, '0');
-          setConsecutivoEditable(ch);
-          setPreviewConsecutivo(ch);
+          const consHeredado = String(previo.consecutivo).padStart(3, '0');
+          setConsecutivoEditable(consHeredado);
+          setPreviewConsecutivo(consHeredado);
           setConsecutivoHeredado(true);
         }
+      } else {
+        console.log("No se encontró el contenedor en Clasificaciones");
       }
-    } catch (err) { console.error(err); }
+    } catch (err) {
+      console.error("No se encontraron datos previos para este contenedor", err);
+    }
   };
 
+  // Buscar datos por BL (Revalidaciones)
   const buscarDatosBL = async () => {
     if (!formData.bl_master || formData.bl_master.length < 4) return;
+
+    const blBusqueda = formData.bl_master.toUpperCase();
+
     try {
-      const response = await api.get(`/operaciones/tickets/?bl_master=${formData.bl_master.toUpperCase()}&tipo_operacion=clasificacion&ordering=-fecha_creacion`);
+      const response = await api.get(`/operaciones/tickets/?bl_master=${blBusqueda}&tipo_operacion=clasificacion&ordering=-fecha_creacion`);
       const resultados = response.data.results || response.data;
+
       if (resultados && resultados.length > 0) {
-        const previo = resultados[0];
+        const clasificacion = resultados[0];
+        console.log("BL encontrado en Clasificación:", clasificacion);
+
         setFormData(prev => ({
           ...prev,
-          empresa: previo.empresa || prev.empresa,
-          contenedor: previo.contenedor || prev.contenedor,
-          pedimento: previo.pedimento || prev.pedimento,
-          eta: previo.eta || prev.eta,
-          prefijo: previo.prefijo || prev.prefijo,
-          naviera: previo.naviera || prev.naviera,
+          empresa: clasificacion.empresa || prev.empresa,
+          contenedor: clasificacion.contenedor || prev.contenedor,
+          eta: clasificacion.eta || prev.eta,
+          dias_libres: clasificacion.dias_libres ?? prev.dias_libres,
+          pedimento: clasificacion.pedimento || prev.pedimento,
+          prefijo: clasificacion.prefijo || prev.prefijo,
+          naviera: clasificacion.naviera || prev.naviera,
         }));
-        if (previo.consecutivo) {
-          const ch = String(previo.consecutivo).padStart(3, '0');
-          setConsecutivoEditable(ch);
-          setPreviewConsecutivo(ch);
+
+        if (clasificacion.naviera) {
+          const nav = navieras?.find(n => n.id === parseInt(clasificacion.naviera));
+          if (nav && nav.cuentas && nav.cuentas.length > 0) {
+            const cuenta = nav.cuentas[0];
+            setNavieraData({
+              banco: cuenta.banco || '',
+              cuenta: cuenta.cuenta || '',
+              clabe: cuenta.clabe || ''
+            });
+          }
+        }
+
+        if (clasificacion.consecutivo) {
+          const consHeredado = String(clasificacion.consecutivo).padStart(3, '0');
+          setConsecutivoEditable(consHeredado);
+          setPreviewConsecutivo(consHeredado);
           setConsecutivoHeredado(true);
         }
+
+        console.log("Datos cargados exitosamente desde clasificación");
+      } else {
+        console.log("No se encontró el BL en tickets de Clasificación");
       }
-    } catch (err) { console.error(err); }
+    } catch (err) {
+      console.error("Error buscando datos por BL:", err);
+    }
   };
 
+  // Generar comentario para un concepto
   const generarComentario = (conceptoNombre) => {
     const cleanPrefijo = formData.prefijo ? formData.prefijo.toUpperCase() : '---';
     const consecutivo = consecutivoEditable || '001';
@@ -254,86 +322,85 @@ const CaptureForm = ({ onSave, onCancel, role, userName }) => {
     return `${cleanPrefijo} ${consecutivo} - ${conceptoNombre} - ${identificador}`;
   };
 
-  const getBeneficiarioPorConcepto = (conceptoNombre) => {
-    if (!formData.naviera) return null;
-    const naviera = navieras?.find(n => n.id === parseInt(formData.naviera));
-    if (!naviera || !naviera.cuentas || naviera.cuentas.length === 0) return null;
-    const conceptoLower = conceptoNombre.toLowerCase();
-    const cuenta = naviera.cuentas.find(c => {
-      const tipoLower = c.tipo_concepto.toLowerCase();
-      return tipoLower.includes(conceptoLower) || conceptoLower.includes(tipoLower);
-    });
-    const finalCuenta = cuenta || naviera.cuentas[0];
-    return {
-      beneficiario: finalCuenta.beneficiario || naviera.nombre,
-      banco: finalCuenta.banco,
-      cuenta: finalCuenta.cuenta,
-      clabe: finalCuenta.clabe,
-      moneda: finalCuenta.moneda
-    };
-  };
-
+  // Toggle concepto seleccionado
   const toggleConcepto = (conceptoId, conceptoNombre) => {
     setConceptosSeleccionados(prev => {
       if (prev[conceptoId]) {
         const { [conceptoId]: removed, ...rest } = prev;
         return rest;
       } else {
-        const beneficiario = formData.naviera ? getBeneficiarioPorConcepto(conceptoNombre) : null;
         return {
           ...prev,
           [conceptoId]: {
             nombre: conceptoNombre,
             monto: '',
-            comentario: generarComentario(conceptoNombre),
-            beneficiario: beneficiario
+            comentario: generarComentario(conceptoNombre)
           }
         };
       }
     });
   };
 
+  // Actualizar monto de un concepto
   const updateConceptoMonto = (conceptoId, monto) => {
     setConceptosSeleccionados(prev => ({
       ...prev,
-      [conceptoId]: { ...prev[conceptoId], monto: monto }
+      [conceptoId]: {
+        ...prev[conceptoId],
+        monto: monto
+      }
     }));
   };
 
+  // Actualizar comentarios cuando cambian los datos del contenedor
   useEffect(() => {
     setConceptosSeleccionados(prev => {
       const updated = {};
       for (const [id, concepto] of Object.entries(prev)) {
-        updated[id] = { ...concepto, comentario: generarComentario(concepto.nombre) };
+        updated[id] = {
+          ...concepto,
+          comentario: generarComentario(concepto.nombre)
+        };
       }
       return updated;
     });
   }, [formData.prefijo, formData.contenedor, formData.bl_master, consecutivoEditable]);
 
+  // Manejar cambios en el formulario
   const handleChange = (e) => {
     const { name, value } = e.target;
+
     if (name === 'prefijo') {
-      if (value.length <= 10) setFormData({ ...formData, [name]: value.toUpperCase() });
+      if (value.length <= 10) {
+        setFormData({ ...formData, [name]: value.toUpperCase() });
+      }
       return;
     }
+
     if (name === 'naviera') {
       const nav = navieras?.find(n => n.id === parseInt(value));
       if (nav && nav.cuentas && nav.cuentas.length > 0) {
         const cuenta = nav.cuentas[0];
-        setNavieraData({ banco: cuenta.banco || '', cuenta: cuenta.cuenta || '', clabe: cuenta.clabe || '' });
+        setNavieraData({
+          banco: cuenta.banco || '',
+          cuenta: cuenta.cuenta || '',
+          clabe: cuenta.clabe || ''
+        });
       } else {
         setNavieraData({ banco: '', cuenta: '', clabe: '' });
       }
     }
+
     setFormData({ ...formData, [name]: value });
   };
 
+  // Enviar formulario
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSubmitting(true);
     setError('');
 
-    if (Object.keys(conceptosSeleccionados).length === 0) {
+    if (conceptosActivos === 0) {
       setError('Debes seleccionar al menos un concepto');
       setSubmitting(false);
       return;
@@ -358,9 +425,12 @@ const CaptureForm = ({ onSave, onCancel, role, userName }) => {
           divisa: formData.divisa,
           importe: parseFloat(concepto.monto) || 0,
           observaciones: concepto.comentario + (formData.observaciones ? `\n${formData.observaciones}` : ''),
-          tipo_operacion: isRevalidaciones ? 'revalidaciones' : 'logistica',
+          tipo_operacion: isRevalidaciones ? 'revalidaciones' :
+                          isLogistica ? 'logistica' :
+                          isClasificacion ? 'clasificacion' : 'revalidaciones',
           puerto: puertoId || null
         };
+
         try {
           await onSave(ticketData);
           successCount++;
@@ -369,25 +439,45 @@ const CaptureForm = ({ onSave, onCancel, role, userName }) => {
         }
       }
 
-      if (successCount > 0 && errorMessages.length === 0) {
-        // Todo bien
-      } else if (errorMessages.length > 0) {
+      if (errorMessages.length > 0) {
         setError(`Algunos pagos no se guardaron: ${errorMessages.join(', ')}`);
       }
+
     } catch (err) {
-      console.error(err);
-      setError('Error general al guardar');
+      console.error('Error al guardar:', err);
+      setError(err.response?.data?.detail || 'Error al crear los pagos');
     } finally {
       setSubmitting(false);
     }
   };
 
-  const ConceptCard = ({ concepto }) => {
+  // Seleccionar/deseleccionar todos
+  const seleccionarTodos = () => {
+    if (conceptosActivos === conceptosDisponibles.length) {
+      setConceptosSeleccionados({});
+    } else {
+      const todos = {};
+      conceptosDisponibles.forEach(c => {
+        todos[c.id] = {
+          nombre: c.nombre,
+          monto: '',
+          comentario: generarComentario(c.nombre)
+        };
+      });
+      setConceptosSeleccionados(todos);
+    }
+  };
+
+  // Renderizar tarjeta de concepto
+  const renderConceptCard = (concepto) => {
     const isSelected = !!conceptosSeleccionados[concepto.id];
     return (
       <div 
+        key={concepto.id}
         className={`rounded-lg border-2 transition-all ${
-          isSelected ? 'border-blue-500 bg-white shadow-md' : 'border-slate-200 bg-white hover:border-slate-300'
+          isSelected 
+            ? 'border-blue-500 bg-white shadow-md' 
+            : 'border-slate-200 bg-white hover:border-slate-300'
         }`}
       >
         <button
@@ -398,10 +488,13 @@ const CaptureForm = ({ onSave, onCancel, role, userName }) => {
           <span className={`text-xs font-bold ${isSelected ? 'text-blue-700' : 'text-slate-600'}`}>
             {concepto.nombre}
           </span>
-          <div className={`w-5 h-5 rounded flex items-center justify-center ${isSelected ? 'bg-blue-500 text-white' : 'bg-slate-200'}`}>
+          <div className={`w-5 h-5 rounded flex items-center justify-center ${
+            isSelected ? 'bg-blue-500 text-white' : 'bg-slate-200'
+          }`}>
             {isSelected && <Check size={14} />}
           </div>
         </button>
+        
         {isSelected && (
           <div className="px-3 pb-3">
             <div className="relative">
@@ -413,8 +506,7 @@ const CaptureForm = ({ onSave, onCancel, role, userName }) => {
                 min="0"
                 step="0.01"
                 placeholder="0.00"
-                className="w-full pl-5 p-1.5 border border-blue-300 rounded text-sm text-right outline-none focus:border-blue-500"
-                autoFocus
+                className="w-full pl-5 p-1.5 border border-blue-300 rounded text-sm text-right outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
               />
             </div>
             <p className="text-[9px] text-slate-400 mt-1 truncate" title={conceptosSeleccionados[concepto.id]?.comentario}>
@@ -426,146 +518,361 @@ const CaptureForm = ({ onSave, onCancel, role, userName }) => {
     );
   };
 
+  // Loading de catálogos
   if (catalogosLoading) {
-    return <div className="flex items-center justify-center p-12"><Loader2 size={32} className="animate-spin text-blue-600 mr-3" /> <span className="text-slate-600">Cargando catálogos...</span></div>;
+    return (
+      <div className="flex items-center justify-center p-12">
+        <Loader2 size={32} className="animate-spin text-blue-600 mr-3" />
+        <span className="text-slate-600">Cargando catálogos...</span>
+      </div>
+    );
   }
-
-  const conceptosActivos = Object.keys(conceptosSeleccionados).length;
-  const importeTotal = Object.values(conceptosSeleccionados).reduce((sum, c) => sum + (parseFloat(c.monto) || 0), 0);
 
   return (
     <div className="max-w-6xl mx-auto animate-fade-in">
       <div className="bg-white rounded-xl shadow-lg border border-slate-200 overflow-hidden">
-        
         {/* Header */}
         <div className="p-6 border-b border-slate-100 bg-slate-50">
           <h2 className="text-xl font-bold text-slate-800 flex items-center">
             <FileText className="mr-2 text-blue-600" /> Alta de pago
             <span className="ml-3 text-sm font-normal text-slate-500">
-              ({isRevalidaciones ? 'Revalidaciones' : 'Logística'})
+              ({isRevalidaciones ? 'Revalidaciones' : isLogistica ? 'Logística' : 'Admin'})
             </span>
           </h2>
           <p className="text-xs text-slate-500 mt-1">Ejecutivo: <b>{userName}</b></p>
         </div>
 
         <form onSubmit={handleSubmit} className="p-8 space-y-6">
-          {error && <div className="bg-red-50 text-red-600 p-4 rounded-lg flex items-center"><AlertCircle size={20} className="mr-2" />{error}</div>}
+          {/* Error message */}
+          {error && (
+            <div className="bg-red-50 text-red-600 p-4 rounded-lg flex items-center">
+              <AlertCircle size={20} className="mr-2 flex-shrink-0" />
+              <span>{error}</span>
+            </div>
+          )}
 
-          {/* Sección Datos Contenedor */}
+          {/* Sección: Datos del contenedor */}
           <div className="bg-slate-50 p-5 rounded-xl border border-slate-200">
-            <h3 className="text-xs font-bold text-slate-600 uppercase mb-4">Datos de Referencia</h3>
+            <h3 className="text-xs font-bold text-slate-600 uppercase mb-4">Datos del contenedor</h3>
+
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <div>
                 <label className="text-xs font-bold text-slate-600 mb-1 block">Empresa *</label>
-                <select name="empresa" value={formData.empresa} onChange={handleChange} required className="w-full p-2 border rounded text-sm bg-white">
+                <select
+                  name="empresa"
+                  value={formData.empresa}
+                  onChange={handleChange}
+                  required
+                  className="w-full p-2 border rounded text-sm bg-white outline-none focus:ring-2 focus:ring-blue-500"
+                >
                   <option value="">-- Seleccionar --</option>
-                  {empresas.filter(e => e.activo !== false).map(e => <option key={e.id} value={e.id}>{e.nombre}</option>)}
+                  {empresas.filter(e => e.activo !== false).map(e => (
+                    <option key={e.id} value={e.id}>{e.nombre}</option>
+                  ))}
                 </select>
               </div>
               <div>
                 <label className="text-xs font-bold text-slate-600 mb-1 block">Prefijo *</label>
-                <input name="prefijo" value={formData.prefijo} onChange={handleChange} required maxLength={10} placeholder="Ej: HGO" className="w-full p-2 border rounded text-sm uppercase" />
+                <input
+                  name="prefijo"
+                  value={formData.prefijo}
+                  onChange={handleChange}
+                  required
+                  maxLength={10}
+                  placeholder="Ej: HGO"
+                  className="w-full p-2 border rounded text-sm uppercase outline-none focus:ring-2 focus:ring-blue-500"
+                />
               </div>
-              {!isRevalidaciones && (
-                <div>
-                  <label className="text-xs font-bold text-slate-600 mb-1 block"># Contenedor *</label>
-                  <input name="contenedor" value={formData.contenedor} onChange={handleChange} onBlur={buscarDatosContenedor} required placeholder="ABCD1234567" className="w-full p-2 border rounded text-sm uppercase" />
+
+              {/* Contenedor solo para Logística */}
+              {(isLogistica || isAdmin) && (
+                <div className="relative">
+                  <label className="text-xs font-bold text-slate-600 mb-1 block"># Contenedor {isLogistica ? '*' : ''}</label>
+                  <input
+                    name="contenedor"
+                    value={formData.contenedor}
+                    onChange={handleChange}
+                    onBlur={buscarDatosContenedor}
+                    required={isLogistica}
+                    placeholder="ABCD1234567"
+                    className="w-full p-2 border rounded text-sm uppercase outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                  <div className="absolute right-3 top-8 text-slate-300 pointer-events-none">
+                    <Search size={14} />
+                  </div>
                 </div>
               )}
-              {!isLogistica && (
+
+              {/* BL Master */}
+              <div className="relative">
+                <label className="text-xs font-bold text-slate-600 mb-1 block">BL Master {isRevalidaciones ? '*' : ''}</label>
+                <input
+                  name="bl_master"
+                  value={formData.bl_master}
+                  onChange={handleChange}
+                  onBlur={buscarDatosBL}
+                  required={isRevalidaciones}
+                  placeholder="BL123456789"
+                  className="w-full p-2 border rounded text-sm uppercase outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                <div className="absolute right-3 top-8 text-slate-300 pointer-events-none">
+                  <Search size={14} />
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-slate-600 mb-1 block">Pedimento</label>
+                <input
+                  name="pedimento"
+                  value={formData.pedimento}
+                  onChange={handleChange}
+                  placeholder="Número de pedimento"
+                  className="w-full p-2 border rounded text-sm uppercase outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-slate-600 mb-1 block">ETA</label>
+                <input
+                  type="date"
+                  name="eta"
+                  value={formData.eta}
+                  onChange={handleChange}
+                  className="w-full p-2 border rounded text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-slate-600 mb-1 block">Días libres</label>
+                <input
+                  type="number"
+                  name="dias_libres"
+                  value={formData.dias_libres}
+                  onChange={handleChange}
+                  min={0}
+                  className="w-full p-2 border rounded text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              {/* Naviera (solo para Revalidaciones) */}
+              {isRevalidaciones && (
                 <div>
-                  <label className="text-xs font-bold text-slate-600 mb-1 block">BL Master *</label>
-                  <input name="bl_master" value={formData.bl_master} onChange={handleChange} onBlur={buscarDatosBL} required={!isLogistica} placeholder="BL123456" className="w-full p-2 border rounded text-sm uppercase" />
+                  <label className="text-xs font-bold text-slate-600 mb-1 block">Naviera</label>
+                  <select
+                    name="naviera"
+                    value={formData.naviera}
+                    onChange={handleChange}
+                    className="w-full p-2 border rounded text-sm bg-white outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="">-- Seleccionar --</option>
+                    {navieras.map(n => (
+                      <option key={n.id} value={n.id}>{n.nombre}</option>
+                    ))}
+                  </select>
                 </div>
               )}
             </div>
-            
-            <div className="mt-4 p-4 bg-slate-800 rounded-lg shadow-inner border border-slate-700 flex justify-between items-center">
-              <div className="text-yellow-400 font-mono text-lg font-bold">
-                 {formData.prefijo || '---'} {consecutivoEditable} 
-                 <span className="text-slate-500 mx-2">|</span>
-                 <span className="text-white text-sm bg-slate-700 px-2 py-1 rounded">CONCEPTO</span>
-                 <span className="text-slate-500 mx-2">|</span>
-                 <span className="text-blue-300">{isLogistica ? (formData.contenedor || '---') : (formData.bl_master || '---')}</span>
+
+            {/* Datos bancarios de naviera */}
+            {isRevalidaciones && navieraData.banco && (
+              <div className="mt-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                <p className="text-xs font-bold text-blue-700 mb-2">Datos bancarios de la naviera:</p>
+                <div className="grid grid-cols-3 gap-4 text-xs">
+                  <div><span className="text-slate-500">Banco:</span> <strong>{navieraData.banco}</strong></div>
+                  <div><span className="text-slate-500">Cuenta:</span> <strong>{navieraData.cuenta}</strong></div>
+                  <div><span className="text-slate-500">CLABE:</span> <strong>{navieraData.clabe}</strong></div>
+                </div>
               </div>
-              <div className="flex items-center gap-2">
-                 <span className="text-[10px] text-slate-400 uppercase">Consecutivo</span>
-                 <input type="text" value={consecutivoEditable} onChange={handleConsecutivoChange} className="w-16 bg-transparent text-white text-xl font-bold text-center border-b border-slate-500 outline-none" maxLength={5} />
+            )}
+          </div>
+
+          {/* Preview de referencia */}
+          <div className="bg-slate-800 p-4 rounded-xl text-white">
+            <div className="flex justify-between items-center">
+              <div>
+                <p className="text-[10px] text-slate-400 uppercase font-bold mb-1">Referencia generada</p>
+                <div className="text-lg font-mono font-bold flex items-center gap-2">
+                  <span className="text-yellow-400">{formData.prefijo || 'XXX'}</span>
+                  <span className="text-slate-600">|</span>
+                  <span className="text-white">{consecutivoEditable || '001'}</span>
+                  <span className="text-slate-600">|</span>
+                  <span className="text-blue-300">
+                    {isLogistica ? (formData.contenedor || '---') : (formData.bl_master || '---')}
+                  </span>
+                </div>
+              </div>
+              <div className="flex items-center gap-3 bg-slate-900 p-2 rounded border border-slate-600">
+                <span className="text-[10px] text-slate-400 uppercase font-bold">Consecutivo</span>
+                <input
+                  type="text"
+                  value={consecutivoEditable}
+                  onChange={handleConsecutivoChange}
+                  className="w-16 bg-transparent text-white text-xl font-bold text-center outline-none focus:text-yellow-400 border-b-2 border-slate-600 focus:border-yellow-400 font-mono"
+                  maxLength={5}
+                />
               </div>
             </div>
           </div>
 
-          {/* Sección Selección de Conceptos */}
+          {/* Sección: Selección de conceptos */}
           <div className="bg-blue-50 p-5 rounded-xl border border-blue-200">
             <div className="flex justify-between items-center mb-4">
-              <h3 className="text-xs font-bold text-blue-800 uppercase">Conceptos a registrar</h3>
-              <div className="relative">
-                 <Search className="absolute left-2 top-1.5 text-blue-400" size={14}/>
-                 <input type="text" placeholder="Filtrar..." className="pl-7 p-1 text-xs border rounded-full outline-none" value={conceptoSearch} onChange={(e) => setConceptoSearch(e.target.value)} />
+              <h3 className="text-xs font-bold text-blue-800 uppercase">
+                Conceptos a registrar ({conceptosActivos} seleccionados)
+              </h3>
+              <div className="flex items-center gap-3">
+                {(isLogistica || isAdmin) && (
+                  <div className="relative">
+                    <Search className="absolute left-2 top-1.5 text-blue-400" size={14}/>
+                    <input 
+                      type="text" 
+                      placeholder="Filtrar..." 
+                      className="pl-7 p-1 w-32 text-xs border rounded-full outline-none focus:ring-1 focus:ring-blue-400 bg-white" 
+                      value={conceptoSearch} 
+                      onChange={(e) => setConceptoSearch(e.target.value)} 
+                    />
+                  </div>
+                )}
+                <select
+                  name="divisa"
+                  value={formData.divisa}
+                  onChange={handleChange}
+                  className="text-xs p-1 border rounded font-bold text-blue-600 bg-white"
+                >
+                  <option value="MXN">MXN</option>
+                  <option value="USD">USD</option>
+                </select>
+                <button
+                  type="button"
+                  onClick={seleccionarTodos}
+                  className="text-xs text-blue-600 hover:text-blue-800 font-medium"
+                >
+                  {conceptosActivos === conceptosDisponibles.length ? 'Deseleccionar todos' : 'Seleccionar todos'}
+                </button>
               </div>
             </div>
-
-            {(isLogistica || isAdmin) ? (
-               <div className="space-y-6">
-                 {/* GRUPO LOGÍSTICA */}
-                 {logisticaSection.length > 0 && (
-                   <div>
-                     <h4 className="text-xs font-bold text-slate-500 flex items-center mb-2"><Package size={14} className="mr-1"/> SECCIÓN LOGÍSTICA</h4>
-                     <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                       {logisticaSection.map(c => <ConceptCard key={c.id} concepto={c} />)}
-                     </div>
-                   </div>
-                 )}
-
-                 {/* GRUPO TRANSPORTE */}
-                 {transporteSection.length > 0 && (
-                   <div>
-                     <h4 className="text-xs font-bold text-slate-500 flex items-center mb-2 mt-2"><Truck size={14} className="mr-1"/> SECCIÓN TRANSPORTE</h4>
-                     <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                       {transporteSection.map(c => <ConceptCard key={c.id} concepto={c} />)}
-                     </div>
-                   </div>
-                 )}
-
-                 {/* GRUPO CIERRE */}
-                 {cierreSection.length > 0 && (
-                   <div>
-                     <h4 className="text-xs font-bold text-slate-500 flex items-center mb-2 mt-2"><DollarSign size={14} className="mr-1"/> SECCIÓN CIERRE DE CUENTA</h4>
-                     <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                       {cierreSection.map(c => <ConceptCard key={c.id} concepto={c} />)}
-                     </div>
-                   </div>
-                 )}
-                 
-                 {otrosSection.length > 0 && (
-                   <div className="opacity-70 hover:opacity-100 transition-opacity">
-                      <h4 className="text-xs font-bold text-slate-400 mb-2 mt-2">OTROS</h4>
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                        {otrosSection.map(c => <ConceptCard key={c.id} concepto={c} />)}
-                      </div>
-                   </div>
-                 )}
-               </div>
-            ) : (
-               /* REVALIDACIONES */
-               <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                  {CONCEPTOS_REVALIDACIONES.map(c => <ConceptCard key={c.id} concepto={c} />)}
-               </div>
-            )}
             
+            {/* RENDERING DE GRID */}
+            {(isLogistica || isAdmin) ? (
+              <div className="space-y-6">
+                {/* REVALIDACIONES (solo Admin) */}
+                {isAdmin && revalidacionesSection.length > 0 && (
+                  <div>
+                    <h4 className="text-xs font-bold text-slate-500 mb-2 flex items-center gap-1">
+                      <FileText size={12}/> REVALIDACIONES
+                    </h4>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                      {revalidacionesSection.map(c => renderConceptCard(c))}
+                    </div>
+                  </div>
+                )}
+
+                {/* GRUPO LOGÍSTICA */}
+                {logisticaSection.length > 0 && (
+                  <div>
+                    <h4 className="text-xs font-bold text-slate-500 mb-2 flex items-center gap-1">
+                      <Package size={12}/> LOGÍSTICA
+                    </h4>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                      {logisticaSection.map(c => renderConceptCard(c))}
+                    </div>
+                  </div>
+                )}
+
+                {/* GRUPO TRANSPORTE */}
+                {transporteSection.length > 0 && (
+                  <div>
+                    <h4 className="text-xs font-bold text-slate-500 mb-2 mt-4 flex items-center gap-1">
+                      <Truck size={12}/> TRANSPORTE
+                    </h4>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                      {transporteSection.map(c => renderConceptCard(c))}
+                    </div>
+                  </div>
+                )}
+
+                {/* GRUPO CIERRE */}
+                {cierreSection.length > 0 && (
+                  <div>
+                    <h4 className="text-xs font-bold text-slate-500 mb-2 mt-4 flex items-center gap-1">
+                      <DollarSign size={12}/> CIERRE DE CUENTA
+                    </h4>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                      {cierreSection.map(c => renderConceptCard(c))}
+                    </div>
+                  </div>
+                )}
+
+                {/* OTROS */}
+                {otrosSection.length > 0 && (
+                  <div className="opacity-80">
+                    <h4 className="text-xs font-bold text-slate-400 mb-2 mt-4">OTROS</h4>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                      {otrosSection.map(c => renderConceptCard(c))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : (
+              /* REVALIDACIONES (Grid simple) */
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                {revalidacionesSection.map(c => renderConceptCard(c))}
+              </div>
+            )}
+
+            {/* Total calculado */}
             {conceptosActivos > 0 && (
-              <div className="mt-4 p-3 bg-emerald-100 rounded-lg border border-emerald-200 flex justify-between items-center">
-                <span className="text-sm font-bold text-emerald-800 uppercase">Total ({conceptosActivos} conceptos):</span>
-                <span className="text-xl font-bold text-emerald-800">${importeTotal.toLocaleString('es-MX', { minimumFractionDigits: 2 })} {formData.divisa}</span>
+              <div className="mt-6 p-3 bg-emerald-100 rounded-lg border border-emerald-200 flex justify-between items-center">
+                <span className="text-sm font-bold text-emerald-800 uppercase">
+                  Total ({conceptosActivos} concepto{conceptosActivos !== 1 ? 's' : ''}):
+                </span>
+                <span className="text-xl font-bold text-emerald-800">
+                  ${importeTotal.toLocaleString('es-MX', { minimumFractionDigits: 2 })} 
+                  <span className="text-xs font-normal text-emerald-600 ml-1">{formData.divisa}</span>
+                </span>
               </div>
             )}
           </div>
 
+          {/* Observaciones generales */}
+          <div>
+            <label className="text-xs font-bold text-slate-600 mb-1 block">Observaciones generales</label>
+            <textarea
+              name="observaciones"
+              value={formData.observaciones}
+              onChange={handleChange}
+              rows={2}
+              className="w-full p-2 border rounded text-sm outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="Notas adicionales que se agregarán a todos los conceptos..."
+            />
+          </div>
+
+          {/* Botones */}
           <div className="flex justify-end space-x-3 pt-4 border-t">
-            <button type="button" onClick={onCancel} disabled={submitting} className="px-4 py-2 border rounded text-slate-600 font-medium">Cancelar</button>
-            <button type="submit" disabled={submitting || conceptosActivos === 0} className="px-6 py-2 bg-blue-600 text-white rounded font-bold shadow-lg flex items-center">
-               {submitting ? <Loader2 size={16} className="animate-spin mr-2" /> : <Lock size={16} className="mr-2" />}
-               Dar de alta
+            <button
+              type="button"
+              onClick={onCancel}
+              disabled={submitting}
+              className="px-4 py-2 border rounded text-slate-600 hover:bg-slate-50 font-medium disabled:opacity-50"
+            >
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              disabled={submitting || conceptosActivos === 0}
+              className="px-6 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 flex items-center shadow-lg font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {submitting ? (
+                <>
+                  <Loader2 size={16} className="mr-2 animate-spin" />
+                  Guardando...
+                </>
+              ) : (
+                <>
+                  <Lock size={16} className="mr-2" />
+                  Dar de alta {conceptosActivos} pago{conceptosActivos !== 1 ? 's' : ''}
+                </>
+              )}
             </button>
           </div>
         </form>
