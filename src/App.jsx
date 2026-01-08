@@ -1,10 +1,10 @@
 // src/App.jsx
-import React, { useState, useEffect } from 'react'; // <--- 1. AGREGADO useEffect
+import React, { useState, useEffect } from 'react';
 import { 
   LayoutDashboard, Table as TableIcon, Plus, 
   ClipboardCheck, Calculator, ChevronRight, 
   ChevronLeft, Ship, User, LogOut, Loader2,
-  Package
+  Package, ShieldCheck // <--- 1. ASEGÚRATE DE TENER ESTE ICONO
 } from 'lucide-react';
 
 // Context
@@ -23,6 +23,7 @@ import CaptureForm from './views/CaptureForm';
 import OperationSetup from './views/OperationSetup'; 
 import AccountClosure from './views/AccountClosure';
 import QuoteGenerator from './views/QuoteGenerator';
+import AdminPanel from './views/AdminPanel'; // <--- 2. IMPORTACIÓN DEL PANEL
 
 // Modales
 import PaymentModal from './modals/PaymentModal';
@@ -32,16 +33,14 @@ import CloseModal from './modals/CloseModal';
 // Componentes
 import RoleBadge, { PuertoBadge } from './components/RoleBadge';
 
-// --- COMPONENTE INTERNO (Lógica de la App) ---
+// --- COMPONENTE INTERNO ---
 function AppContent() {
-  // 1. Auth & Permisos
   const { 
     isLoggedIn, loading: authLoading, logout, role, userName,
     puertoCodigo, puertoNombre, esGlobal, isAdmin, isPagos,
     canCreateContainers, isRevalidaciones, isLogistica, isClasificacion,
   } = useAuth();
   
-  // 2. Data Hooks
   const { 
     tickets, loading: ticketsLoading, dashboard,
     createTicket, updateTicket, getNextConsecutivo, refresh: refreshTickets 
@@ -50,34 +49,26 @@ function AppContent() {
   const { registrarPago, cerrarOperacion, loading: pagosLoading } = usePagos();
   const catalogos = useCatalogos();
 
-  // 3. UI State
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [activeTab, setActiveTab] = useState('dashboard');
   const [sabanaRefreshKey, setSabanaRefreshKey] = useState(0); 
 
-  // 4. Modal States
   const [paymentConfirmation, setPaymentConfirmation] = useState({ isOpen: false, item: null });
   const [editingItem, setEditingItem] = useState(null);
   const [closeModalOpen, setCloseModalOpen] = useState(false);
   const [itemToClose, setItemToClose] = useState(null);
   const [ticketsToClose, setTicketsToClose] = useState([]);  
 
-  // --- 5. FIX: REFRESH AUTOMÁTICO AL ENTRAR ---
-  // Esto asegura que al cargar la app por primera vez, se pidan los datos frescos
   useEffect(() => {
     if (isLoggedIn) {
       refreshTickets();
     }
-  }, [isLoggedIn]); // Se ejecuta cuando el usuario ya está logueado
+  }, [isLoggedIn]); 
 
-  // --- NAVEGACIÓN MANUAL (Dashboard -> Sábana) ---
   const handleDashboardNavigation = (tabName, filter) => {
-    console.log('Navegando desde Dashboard a:', tabName, 'Filtro:', filter);
     setActiveTab(tabName);
-    // Aquí podrías implementar un filtro global si lo necesitas en el futuro
   };
 
-  // Loading screen
   if (authLoading) {
     return (
       <div className="min-h-screen bg-slate-900 flex items-center justify-center">
@@ -93,8 +84,7 @@ function AppContent() {
     return <LoginView />;
   }
 
-  // === HANDLERS DE OPERACIONES ===
-  
+  // === HANDLERS ===
   const handleSave = async (newItem) => {
     const result = await createTicket(newItem);
     if (result.success) {
@@ -102,7 +92,7 @@ function AppContent() {
       refreshTickets();
       setSabanaRefreshKey(prev => prev + 1);
     } else {
-      alert('Error al crear: ' + JSON.stringify(result.error));
+      alert('Error: ' + JSON.stringify(result.error));
     }
   };
 
@@ -115,7 +105,7 @@ function AppContent() {
       refreshTickets();
       setSabanaRefreshKey(prev => prev + 1);
     } else {
-      alert('Error al editar: ' + JSON.stringify(result.error));
+      alert('Error: ' + JSON.stringify(result.error));
     }
   };
 
@@ -125,7 +115,7 @@ function AppContent() {
       refreshTickets();
       setSabanaRefreshKey(prev => prev + 1);
     } else {
-      alert('Error al registrar pago: ' + result.error);
+      alert('Error: ' + result.error);
     }
   };
 
@@ -168,36 +158,26 @@ function AppContent() {
   return (
     <div className="flex h-screen bg-slate-100 font-sans text-slate-800 relative">
       <PaymentModal 
-        isOpen={paymentConfirmation.isOpen} 
-        item={paymentConfirmation.item} 
+        isOpen={paymentConfirmation.isOpen} item={paymentConfirmation.item} 
         onClose={() => setPaymentConfirmation({ isOpen: false, item: null })} 
-        onConfirm={executePayment}
-        loading={pagosLoading}
+        onConfirm={executePayment} loading={pagosLoading}
       />
       <EditModal 
-        isOpen={!!editingItem} 
-        onClose={() => setEditingItem(null)} 
-        onSave={handleSaveEdit} 
-        item={editingItem} 
-        role={role} 
+        isOpen={!!editingItem} onClose={() => setEditingItem(null)} 
+        onSave={handleSaveEdit} item={editingItem} role={role} 
       />
       <CloseModal 
         isOpen={closeModalOpen} 
-        onClose={() => {
-          setCloseModalOpen(false);
-          setItemToClose(null);
-          setTicketsToClose([]);
-        }}
+        onClose={() => { setCloseModalOpen(false); setItemToClose(null); setTicketsToClose([]); }}
         onConfirm={async (ticketId) => {
           const result = await cerrarOperacion(ticketId);
           if (result.success) refreshTickets();
           return result;
         }}
-        item={itemToClose}
-        tickets={ticketsToClose}
-        loading={pagosLoading}
+        item={itemToClose} tickets={ticketsToClose} loading={pagosLoading}
       />
 
+      {/* --- SIDEBAR IZQUIERDA (SOLO BOTONES) --- */}
       <aside className={`${isSidebarCollapsed ? 'w-20' : 'w-64'} bg-slate-900 text-white flex-shrink-0 hidden md:flex flex-col transition-all duration-300 ease-in-out relative`}>
         <button 
           onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)} 
@@ -220,6 +200,10 @@ function AppContent() {
 
         <nav className="flex-1 p-4 overflow-y-auto overflow-x-hidden">
           <NavItem id="dashboard" icon={LayoutDashboard} label="Visión general" />
+          
+          {/* AQUÍ SOLO VA EL BOTÓN, NO EL PANEL */}
+          <NavItem id="admin" icon={ShieldCheck} label="Panel Maestro" visible={isAdmin} />
+
           <NavItem id="list" icon={TableIcon} label="Sábana operativa" visible={canViewSabana} />
           <NavItem id="setup" icon={Package} label="Alta operación" visible={isClasificacion || isAdmin} />
           <NavItem id="capture" icon={Plus} label="Alta de pago" visible={canCapture} />
@@ -229,90 +213,76 @@ function AppContent() {
 
         <div className="p-4 border-t border-slate-800">
           <div className={`flex items-center ${isSidebarCollapsed ? 'justify-center' : 'space-x-3'} mb-4`}>
-            <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-blue-500 to-purple-500 flex items-center justify-center text-xs font-bold flex-shrink-0">
-              <User size={20} />
-            </div>
-            {!isSidebarCollapsed && (
-              <div className="overflow-hidden">
-                <p className="text-sm font-medium whitespace-nowrap">Hola, {userName}</p>
-                <div className="flex gap-1 mt-1 flex-wrap">
-                  <RoleBadge role={role} />
-                  {!esGlobal && puertoCodigo && (
-                    <PuertoBadge codigo={puertoCodigo} nombre={puertoNombre} />
-                  )}
-                </div>
-              </div>
-            )}
+             <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-blue-500 to-purple-500 flex items-center justify-center text-xs font-bold flex-shrink-0">
+               <User size={20} />
+             </div>
+             {!isSidebarCollapsed && (
+               <div className="overflow-hidden">
+                 <p className="text-sm font-medium whitespace-nowrap">Hola, {userName}</p>
+                 <RoleBadge role={role} />
+               </div>
+             )}
           </div>
-          <button 
-            onClick={logout} 
-            className={`w-full flex items-center ${isSidebarCollapsed ? 'justify-center px-0' : 'justify-center px-4'} py-2 bg-slate-800 hover:bg-red-900/30 text-slate-400 hover:text-red-400 rounded-lg transition-colors text-xs font-bold`}
-          >
+          <button onClick={logout} className={`w-full flex items-center ${isSidebarCollapsed ? 'justify-center px-0' : 'justify-center px-4'} py-2 bg-slate-800 hover:bg-red-900/30 text-slate-400 hover:text-red-400 rounded-lg transition-colors text-xs font-bold`}>
             <LogOut size={14} className={`${isSidebarCollapsed ? '' : 'mr-2'}`} /> 
             {!isSidebarCollapsed && "Cerrar sesion"}
           </button>
         </div>
       </aside>
 
+      {/* --- ÁREA PRINCIPAL (AQUÍ VA EL CONTENIDO) --- */}
       <main className="flex-1 flex flex-col overflow-hidden transition-all duration-300">
         <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-6 shadow-sm z-10">
           <div className="text-xl font-bold text-slate-800 flex items-center gap-2">
             {activeTab === 'dashboard' && 'Visión general'}
+            {activeTab === 'admin' && 'Administración Global'}
             {activeTab === 'list' && 'Sábana operativa'}
             {activeTab === 'capture' && 'Alta de pago'}
             {activeTab === 'closure' && 'Cierre de cuenta'}
             {activeTab === 'setup' && 'Alta de operación (Clasificación)'}
             {activeTab === 'quotes' && 'Cotizador'}
+            
             <span className="hidden md:inline-flex ml-4 transform scale-90 origin-left gap-2">
               <RoleBadge role={role} />
-              {!esGlobal && puertoCodigo && (
-                <PuertoBadge codigo={puertoCodigo} nombre={puertoNombre} />
-              )}
+              {!esGlobal && puertoCodigo && <PuertoBadge codigo={puertoCodigo} nombre={puertoNombre} />}
             </span>
           </div>
           {ticketsLoading && (
             <div className="flex items-center text-sm text-slate-400">
-              <Loader2 size={16} className="animate-spin mr-2" />
-              Actualizando...
+              <Loader2 size={16} className="animate-spin mr-2" /> Actualizando...
             </div>
           )}
         </header>
         
         <div className="flex-1 overflow-auto p-4 md:p-8">
+          
           {activeTab === 'dashboard' && (
-            <DashboardView 
-              data={tickets} 
-              dashboard={dashboard} 
-              onNavigate={handleDashboardNavigation} 
-            />
+            <DashboardView data={tickets} dashboard={dashboard} onNavigate={handleDashboardNavigation} />
           )}
-          {activeTab === 'setup' && (isClasificacion || isAdmin) && (
-             <OperationSetup />
+
+          {/* ¡¡AQUÍ ES DONDE DEBE IR EL ADMIN PANEL!! (DENTRO DEL MAIN) */}
+          {activeTab === 'admin' && isAdmin && (
+             <AdminPanel />
           )}
+
+          {activeTab === 'setup' && (isClasificacion || isAdmin) && <OperationSetup />}
+          
           {activeTab === 'capture' && canCapture && (
             <CaptureForm 
-              onSave={handleSave} 
-              onCancel={() => setActiveTab('dashboard')} 
-              existingData={tickets} 
-              role={role} 
-              userName={userName}
-              catalogos={catalogos}
-              getNextConsecutivo={getNextConsecutivo}
+              onSave={handleSave} onCancel={() => setActiveTab('dashboard')} 
+              existingData={tickets} role={role} userName={userName}
+              catalogos={catalogos} getNextConsecutivo={getNextConsecutivo}
             />
           )}
+
           {activeTab === 'list' && canViewSabana && (
             <SabanaView
-              data={tickets}
-              onPayAll={handlePayAll}
-              onCloseOperation={handleCloseOperation}
-              onEdit={handleEditClick}
-              loading={ticketsLoading}
-              refreshKey={sabanaRefreshKey}
+              data={tickets} onPayAll={handlePayAll} onCloseOperation={handleCloseOperation}
+              onEdit={handleEditClick} loading={ticketsLoading} refreshKey={sabanaRefreshKey}
             />
           )}
-          {activeTab === 'closure' && (isAdmin || isPagos) && (
-            <AccountClosure data={tickets} />
-          )}
+
+          {activeTab === 'closure' && (isAdmin || isPagos) && <AccountClosure data={tickets} />}
           {activeTab === 'quotes' && <QuoteGenerator role={role} />}
         </div>
       </main>
@@ -320,7 +290,6 @@ function AppContent() {
   );
 }
 
-// --- COMPONENTE PADRE ---
 export default function App() {
   return (
     <AuthProvider>
