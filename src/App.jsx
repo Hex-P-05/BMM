@@ -202,7 +202,7 @@ function AppContent() {
           <NavItem id="dashboard" icon={LayoutDashboard} label="Visión general" />
           
           {/* AQUÍ SOLO VA EL BOTÓN, NO EL PANEL */}
-          <NavItem id="admin" icon={ShieldCheck} label="Panel Maestro" visible={isAdmin} />
+          <NavItem id="admin" icon={ShieldCheck} label="Panel maestro" visible={isAdmin} />
 
           <NavItem id="list" icon={TableIcon} label="Sábana operativa" visible={canViewSabana} />
           <NavItem id="setup" icon={Package} label="Alta operación" visible={isClasificacion || isAdmin} />
@@ -235,7 +235,7 @@ function AppContent() {
         <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-6 shadow-sm z-10">
           <div className="text-xl font-bold text-slate-800 flex items-center gap-2">
             {activeTab === 'dashboard' && 'Visión general'}
-            {activeTab === 'admin' && 'Administración Global'}
+            {activeTab === 'admin' && 'Administración global'}
             {activeTab === 'list' && 'Sábana operativa'}
             {activeTab === 'capture' && 'Alta de pago'}
             {activeTab === 'closure' && 'Cierre de cuenta'}

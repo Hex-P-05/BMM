@@ -307,7 +307,7 @@ const AdminPanel = () => {
 
       {/* 1. NAVEGACIÓN DE CATÁLOGOS (ARRIBA) */}
       <div>
-        <h2 className="text-lg font-bold text-slate-800 mb-4">Administración del Sistema</h2>
+        <h2 className="text-lg font-bold text-slate-800 mb-4">Administración del sistema</h2>
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3">
           {Object.entries(CATALOGOS_CONFIG).map(([key, config]) => {
             const Icon = config.icon;
