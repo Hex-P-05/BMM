@@ -36,29 +36,14 @@ const PaymentModal = ({ isOpen, item, onClose, onConfirm, loading }) => {
         <div className="p-6">
           {/* Resumen del cobro */}
           <div className="mb-6 bg-slate-50 p-4 rounded-xl border border-slate-100">
-            {/* Identificador de la operación */}
-            {(item.bl_master || item.contenedor) && (
-              <div className="mb-3 pb-3 border-b border-slate-200">
-                <p className="text-xs text-slate-400 uppercase font-bold mb-1">
-                  {item.bl_master ? 'BL' : 'Contenedor'}
-                </p>
-                <p className="font-mono font-bold text-blue-700">
-                  {item.bl_master || item.contenedor}
-                </p>
-              </div>
-            )}
-
             <p className="text-xs text-slate-500 uppercase font-bold mb-1">Concepto a liquidar</p>
             <p className="text-slate-800 font-medium text-lg mb-1">
-              {item.observaciones?.split(' - ')[0] || item.concepto_nombre || item.comentarios || 'Sin descripción'}
+              {item.concepto_nombre || item.observaciones || 'Sin descripción'}
             </p>
-            {item.comentarios && item.comentarios !== item.observaciones && (
-              <p className="text-xs text-slate-400 font-mono">{item.comentarios}</p>
-            )}
             <div className="flex justify-between items-end border-t border-slate-200 pt-2 mt-2">
                <span className="text-xs text-slate-400">Monto:</span>
                <span className="text-xl font-bold text-emerald-600">
-                 ${parseFloat(item.importe || 0).toLocaleString('es-MX', { minimumFractionDigits: 2 })} {item.divisa}
+                 ${item.importe?.toLocaleString('es-MX')} {item.divisa}
                </span>
             </div>
           </div>

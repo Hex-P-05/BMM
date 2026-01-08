@@ -1164,13 +1164,6 @@ class Ticket(models.Model):
         default=Estatus.PENDIENTE
     )
     fecha_pago = models.DateField('Fecha de pago', null=True, blank=True)
-    comprobante_pago = models.FileField(
-        'Comprobante de pago',
-        upload_to='comprobantes/tickets/%Y/%m/',
-        null=True,
-        blank=True,
-        help_text='PDF o imagen del comprobante de pago'
-    )
     eta = models.DateField('Fecha ETA', null=True, blank=True)
     dias_libres = models.PositiveIntegerField('Días libres', default=7)
     contador_ediciones = models.PositiveIntegerField('Contador de ediciones', default=0)
