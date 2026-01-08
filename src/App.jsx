@@ -1,5 +1,5 @@
 // src/App.jsx
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react'; // <--- 1. AGREGADO useEffect
 import { 
   LayoutDashboard, Table as TableIcon, Plus, 
   ClipboardCheck, Calculator, ChevronRight, 
@@ -8,7 +8,7 @@ import {
 } from 'lucide-react';
 
 // Context
-import { useAuth } from './context/AuthContext';
+import { AuthProvider, useAuth } from './context/AuthContext';
 
 // Hooks
 import { useTickets } from './hooks/useTickets';
@@ -20,7 +20,7 @@ import LoginView from './views/LoginView';
 import DashboardView from './views/DashboardView';
 import SabanaView from './views/SabanaView';
 import CaptureForm from './views/CaptureForm';
-import OperationSetup from './views/OperationSetup'; // <--- AGREGA ESTA LÍNEA
+import OperationSetup from './views/OperationSetup'; 
 import AccountClosure from './views/AccountClosure';
 import QuoteGenerator from './views/QuoteGenerator';
 
@@ -32,57 +32,50 @@ import CloseModal from './modals/CloseModal';
 // Componentes
 import RoleBadge, { PuertoBadge } from './components/RoleBadge';
 
+// --- COMPONENTE INTERNO (Lógica de la App) ---
 function AppContent() {
+  // 1. Auth & Permisos
   const { 
-    isLoggedIn, 
-    loading: authLoading, 
-    logout, 
-    role, 
-    userName,
-    puertoCodigo,
-    puertoNombre,
-    esGlobal,
-    isAdmin,
-    isPagos,
-    // Permisos
-    canCreateContainers,
-    isRevalidaciones,
-    isLogistica,
-    isClasificacion,
+    isLoggedIn, loading: authLoading, logout, role, userName,
+    puertoCodigo, puertoNombre, esGlobal, isAdmin, isPagos,
+    canCreateContainers, isRevalidaciones, isLogistica, isClasificacion,
   } = useAuth();
   
-  // Hooks de datos
+  // 2. Data Hooks
   const { 
-    tickets, 
-    loading: ticketsLoading, 
-    dashboard,
-    createTicket, 
-    updateTicket,
-    getNextConsecutivo,
-    refresh: refreshTickets 
+    tickets, loading: ticketsLoading, dashboard,
+    createTicket, updateTicket, getNextConsecutivo, refresh: refreshTickets 
   } = useTickets();
   
-  const { 
-    registrarPago, 
-    cerrarOperacion, 
-    loading: pagosLoading 
-  } = usePagos();
-  
+  const { registrarPago, cerrarOperacion, loading: pagosLoading } = usePagos();
   const catalogos = useCatalogos();
 
-  // UI State
+  // 3. UI State
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [activeTab, setActiveTab] = useState('dashboard');
-  // Estado para forzar refresh de SabanaView
-  const [sabanaRefreshKey, setSabanaRefreshKey] = useState(0);
+  const [sabanaRefreshKey, setSabanaRefreshKey] = useState(0); 
 
-  // Modal States
+  // 4. Modal States
   const [paymentConfirmation, setPaymentConfirmation] = useState({ isOpen: false, item: null });
   const [editingItem, setEditingItem] = useState(null);
   const [closeModalOpen, setCloseModalOpen] = useState(false);
   const [itemToClose, setItemToClose] = useState(null);
-  const [ticketsToClose, setTicketsToClose] = useState([]);  // <-- Agregar esta línea
+  const [ticketsToClose, setTicketsToClose] = useState([]);  
 
+  // --- 5. FIX: REFRESH AUTOMÁTICO AL ENTRAR ---
+  // Esto asegura que al cargar la app por primera vez, se pidan los datos frescos
+  useEffect(() => {
+    if (isLoggedIn) {
+      refreshTickets();
+    }
+  }, [isLoggedIn]); // Se ejecuta cuando el usuario ya está logueado
+
+  // --- NAVEGACIÓN MANUAL (Dashboard -> Sábana) ---
+  const handleDashboardNavigation = (tabName, filter) => {
+    console.log('Navegando desde Dashboard a:', tabName, 'Filtro:', filter);
+    setActiveTab(tabName);
+    // Aquí podrías implementar un filtro global si lo necesitas en el futuro
+  };
 
   // Loading screen
   if (authLoading) {
@@ -90,7 +83,7 @@ function AppContent() {
       <div className="min-h-screen bg-slate-900 flex items-center justify-center">
         <div className="text-center">
           <Loader2 size={48} className="text-blue-500 animate-spin mx-auto mb-4" />
-          <p className="text-slate-400">Cargando...</p>
+          <p className="text-slate-400">Cargando sistema...</p>
         </div>
       </div>
     );
@@ -100,16 +93,16 @@ function AppContent() {
     return <LoginView />;
   }
 
-  // === HANDLERS ===
+  // === HANDLERS DE OPERACIONES ===
+  
   const handleSave = async (newItem) => {
     const result = await createTicket(newItem);
     if (result.success) {
       setActiveTab('list');
       refreshTickets();
-      // Forzar refresh de SabanaView
       setSabanaRefreshKey(prev => prev + 1);
     } else {
-      alert('Error al crear el contenedor: ' + JSON.stringify(result.error));
+      alert('Error al crear: ' + JSON.stringify(result.error));
     }
   };
 
@@ -120,7 +113,6 @@ function AppContent() {
     if (result.success) {
       setEditingItem(null);
       refreshTickets();
-      // Forzar refresh de SabanaView
       setSabanaRefreshKey(prev => prev + 1);
     } else {
       alert('Error al editar: ' + JSON.stringify(result.error));
@@ -128,13 +120,9 @@ function AppContent() {
   };
 
   const handlePayAll = async (ticketId) => {
-    console.log('handlePayAll llamado con ticketId:', ticketId);
     const result = await registrarPago(ticketId, {});
-    console.log('Resultado del pago:', result);
     if (result.success) {
-      console.log('Pago exitoso, refrescando...');
       refreshTickets();
-      // Forzar refresh de SabanaView
       setSabanaRefreshKey(prev => prev + 1);
     } else {
       alert('Error al registrar pago: ' + result.error);
@@ -149,34 +137,14 @@ function AppContent() {
   };
 
   const handleCloseOperation = (item, groupTickets = []) => {
-    console.log('handleCloseOperation llamado');
-    console.log('item:', item);
-    console.log('groupTickets:', groupTickets);
     setItemToClose(item);
     setTicketsToClose(groupTickets.length > 0 ? groupTickets : [item]);
-    console.log('ticketsToClose será:', groupTickets.length > 0 ? groupTickets : [item]);
     setCloseModalOpen(true);
-};
-
-  const confirmClose = async () => {
-    if (!itemToClose) return;
-    const result = await cerrarOperacion(itemToClose.id, {
-      monto_final: itemToClose.importe,
-      desglose: {}
-    });
-    if (result.success) {
-      refreshTickets();
-      // Forzar refresh de SabanaView
-      setSabanaRefreshKey(prev => prev + 1);
-    } else {
-      alert('Error al cerrar operacion: ' + result.error);
-    }
-    setCloseModalOpen(false);
-    setItemToClose(null);
   };
 
   const canViewSabana = isAdmin || isPagos || isRevalidaciones || isLogistica || isClasificacion;
   const canCapture = isAdmin || isRevalidaciones || isLogistica;
+  
   const NavItem = ({ id, icon: Icon, label, visible = true }) => {
     if (!visible) return null;
     return (
@@ -222,9 +190,7 @@ function AppContent() {
         }}
         onConfirm={async (ticketId) => {
           const result = await cerrarOperacion(ticketId);
-          if (result.success) {
-            refreshTickets();
-          }
+          if (result.success) refreshTickets();
           return result;
         }}
         item={itemToClose}
@@ -255,14 +221,7 @@ function AppContent() {
         <nav className="flex-1 p-4 overflow-y-auto overflow-x-hidden">
           <NavItem id="dashboard" icon={LayoutDashboard} label="Visión general" />
           <NavItem id="list" icon={TableIcon} label="Sábana operativa" visible={canViewSabana} />
-          {/* --- NUEVO BOTÓN PARA CLASIFICACIÓN --- */}
-          <NavItem 
-            id="setup" 
-            icon={Package} // El ícono de cajita ya lo tienes importado arriba
-            label="Alta operación" 
-            visible={isClasificacion || isAdmin} // Solo Admin o Clasificación lo ven
-          />
-          {/* -------------------------------------- */}
+          <NavItem id="setup" icon={Package} label="Alta operación" visible={isClasificacion || isAdmin} />
           <NavItem id="capture" icon={Plus} label="Alta de pago" visible={canCapture} />
           <NavItem id="closure" icon={ClipboardCheck} label="Cierre de cuenta" visible={isAdmin || isPagos} />
           <NavItem id="quotes" icon={Calculator} label="Cotizador" />
@@ -302,9 +261,7 @@ function AppContent() {
             {activeTab === 'list' && 'Sábana operativa'}
             {activeTab === 'capture' && 'Alta de pago'}
             {activeTab === 'closure' && 'Cierre de cuenta'}
-            {/* --- TÍTULO NUEVO --- */}
             {activeTab === 'setup' && 'Alta de operación (Clasificación)'}
-            {/* -------------------- */}
             {activeTab === 'quotes' && 'Cotizador'}
             <span className="hidden md:inline-flex ml-4 transform scale-90 origin-left gap-2">
               <RoleBadge role={role} />
@@ -323,13 +280,15 @@ function AppContent() {
         
         <div className="flex-1 overflow-auto p-4 md:p-8">
           {activeTab === 'dashboard' && (
-            <DashboardView data={tickets} dashboard={dashboard} />
+            <DashboardView 
+              data={tickets} 
+              dashboard={dashboard} 
+              onNavigate={handleDashboardNavigation} 
+            />
           )}
-        {/* --- VISTA DE CLASIFICACIÓN --- */}
           {activeTab === 'setup' && (isClasificacion || isAdmin) && (
              <OperationSetup />
           )}
-          {/* ------------------------------ */}
           {activeTab === 'capture' && canCapture && (
             <CaptureForm 
               onSave={handleSave} 
@@ -361,6 +320,13 @@ function AppContent() {
   );
 }
 
+// --- COMPONENTE PADRE ---
 export default function App() {
-  return <AppContent />;
+  return (
+    <AuthProvider>
+      <div className="App min-h-screen bg-slate-50 text-slate-900 font-sans">
+         <AppContent />
+      </div>
+    </AuthProvider>
+  );
 }
