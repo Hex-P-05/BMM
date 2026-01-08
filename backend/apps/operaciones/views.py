@@ -487,10 +487,19 @@ class TicketViewSet(viewsets.ModelViewSet):
 
     def partial_update(self, request, *args, **kwargs):
         instance = self.get_object()
-        serializer = TicketUpdateSerializer(instance, data=request.data, partial=True)
+        serializer = TicketUpdateSerializer(
+            instance,
+            data=request.data,
+            partial=True,
+            context={'request': request}
+        )
         serializer.is_valid(raise_exception=True)
         serializer.save()
-        return Response(serializer.data)
+
+        # Devolver datos actualizados incluyendo la URL del comprobante
+        from apps.operaciones.serializers import TicketListSerializer
+        response_serializer = TicketListSerializer(instance)
+        return Response(response_serializer.data)
             
     def get_serializer_class(self):
         if self.action == 'create':

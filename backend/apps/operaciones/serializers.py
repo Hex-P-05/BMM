@@ -461,6 +461,13 @@ class TicketUpdateSerializer(serializers.ModelSerializer):
         user = request.user
         instance = self.instance
 
+        # Si el usuario es admin o tiene rol de pagos, permitir todo
+        if hasattr(user, 'es_admin') and user.es_admin:
+            return attrs
+        if hasattr(user, 'rol') and user.rol == 'pagos':
+            return attrs
+
+        # Para ejecutivos, aplicar restricciones
         if hasattr(user, 'es_ejecutivo') and user.es_ejecutivo and instance:
             if not instance.puede_ser_editado_por_ejecutivo:
                 raise serializers.ValidationError(
