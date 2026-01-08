@@ -1,33 +1,123 @@
 // src/modals/PaymentModal.jsx
-import React from 'react';
-import { AlertCircle, CheckCircle } from 'lucide-react';
+import React, { useState } from 'react';
+import { X, Upload, FileText, Loader2, DollarSign, Check } from 'lucide-react';
 
-const PaymentModal = ({ isOpen, onClose, onConfirm, item }) => {
+const PaymentModal = ({ isOpen, item, onClose, onConfirm, loading }) => {
+  const [file, setFile] = useState(null);
+
   if (!isOpen || !item) return null;
+
+  const handleFileChange = (e) => {
+    if (e.target.files && e.target.files[0]) {
+      setFile(e.target.files[0]);
+    }
+  };
+
+  const handleSubmit = () => {
+    // Enviamos el ID y el archivo (puede ser null si no subió nada)
+    onConfirm(item.id, file);
+    setFile(null);
+  };
+
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 animate-fade-in">
-      <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={onClose}></div>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md relative z-10 overflow-hidden m-4">
-        <div className="bg-yellow-50 p-6 border-b border-yellow-100 flex items-start space-x-4">
-          <div className="p-3 bg-yellow-100 text-yellow-600 rounded-full flex-shrink-0"><AlertCircle size={32} /></div>
-          <div><h3 className="text-lg font-bold text-slate-800">¿Confirmar pago?</h3><p className="text-sm text-slate-600 mt-1">Registrar pago en el sistema.</p></div>
+    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4 animate-in fade-in duration-200">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden transform scale-100">
+        
+        {/* Header */}
+        <div className="bg-emerald-600 px-6 py-4 flex justify-between items-center">
+          <h3 className="text-white font-bold text-lg flex items-center gap-2">
+            <DollarSign size={20} /> Registrar Pago
+          </h3>
+          <button onClick={onClose} className="text-emerald-100 hover:text-white hover:bg-emerald-700 rounded-full p-1 transition-colors">
+            <X size={20} />
+          </button>
         </div>
-        <div className="p-6 space-y-4">
-          <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
-            <div className="flex justify-between items-center mb-2"><span className="text-xs font-bold text-slate-400 uppercase">Monto a pagar</span><span className="text-xs font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded">{item.currency || 'MXN'}</span></div>
-            <p className="text-3xl font-bold text-slate-800">${item.amount.toLocaleString()}</p>
+
+        <div className="p-6">
+          {/* Resumen del cobro */}
+          <div className="mb-6 bg-slate-50 p-4 rounded-xl border border-slate-100">
+            <p className="text-xs text-slate-500 uppercase font-bold mb-1">Concepto a liquidar</p>
+            <p className="text-slate-800 font-medium text-lg mb-1">
+              {item.concepto_nombre || item.observaciones || 'Sin descripción'}
+            </p>
+            <div className="flex justify-between items-end border-t border-slate-200 pt-2 mt-2">
+               <span className="text-xs text-slate-400">Monto:</span>
+               <span className="text-xl font-bold text-emerald-600">
+                 ${item.importe?.toLocaleString('es-MX')} {item.divisa}
+               </span>
+            </div>
           </div>
-          <div className="space-y-2 text-sm">
-            <div className="flex justify-between border-b border-slate-100 pb-2"><span className="text-slate-500">Beneficiario:</span><span className="font-medium text-slate-800">{item.provider || item.proveedor}</span></div>
-            <div className="flex justify-between border-b border-slate-100 pb-2"><span className="text-slate-500">Cliente/Empresa:</span><span className="font-medium text-slate-800">{item.empresa || item.client}</span></div>
+
+          {/* Área de carga de archivo */}
+          <div className="space-y-3">
+            <label className="block text-sm font-bold text-slate-700">
+              Adjuntar Comprobante (Opcional)
+            </label>
+            
+            <div className={`border-2 border-dashed rounded-xl p-6 flex flex-col items-center justify-center text-center transition-colors relative 
+              ${file ? 'border-emerald-400 bg-emerald-50' : 'border-slate-300 hover:border-emerald-400 hover:bg-slate-50'}`}>
+              
+              <input 
+                type="file" 
+                id="comprobante-upload" 
+                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                accept=".pdf,.jpg,.jpeg,.png"
+                onChange={handleFileChange}
+              />
+              
+              {!file ? (
+                <>
+                  <div className="w-12 h-12 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mb-3">
+                    <Upload size={24} />
+                  </div>
+                  <span className="text-sm font-medium text-slate-600">Clic para subir PDF o Imagen</span>
+                  <span className="text-xs text-slate-400 mt-1">Máx 5MB</span>
+                </>
+              ) : (
+                <div className="flex items-center gap-3 w-full z-10">
+                  <div className="w-10 h-10 bg-emerald-100 text-emerald-600 rounded-lg flex items-center justify-center flex-shrink-0">
+                    <FileText size={20} />
+                  </div>
+                  <div className="flex-1 text-left overflow-hidden">
+                    <p className="text-sm font-bold text-slate-700 truncate">{file.name}</p>
+                    <p className="text-xs text-emerald-600">
+                      {(file.size / 1024).toFixed(0)} KB - Listo para subir
+                    </p>
+                  </div>
+                  <button 
+                    onClick={(e) => { e.preventDefault(); setFile(null); }} 
+                    className="p-1 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded"
+                    title="Quitar archivo"
+                  >
+                    <X size={18} />
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
-        </div>
-        <div className="p-6 bg-slate-50 border-t border-slate-100 flex space-x-3">
-          <button onClick={onClose} className="flex-1 px-4 py-3 bg-white border border-slate-300 text-slate-700 font-bold rounded-xl hover:bg-slate-50 transition-colors">Cancelar</button>
-          <button onClick={onConfirm} className="flex-1 px-4 py-3 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 shadow-lg shadow-blue-200 transition-all flex justify-center items-center"><CheckCircle size={20} className="mr-2" /> Confirmar</button>
+
+          {/* Botones de acción */}
+          <div className="mt-8 flex gap-3">
+            <button 
+              onClick={onClose} 
+              disabled={loading}
+              className="flex-1 py-3 border border-slate-200 rounded-xl text-slate-600 font-bold hover:bg-slate-50 transition-colors"
+            >
+              Cancelar
+            </button>
+            <button 
+              onClick={handleSubmit}
+              disabled={loading}
+              className="flex-1 py-3 bg-emerald-600 text-white rounded-xl font-bold shadow-md hover:bg-emerald-700 hover:shadow-lg transition-all flex justify-center items-center gap-2 disabled:opacity-70"
+            >
+              {loading ? <Loader2 size={18} className="animate-spin" /> : <Check size={18} />}
+              Confirmar Pago
+            </button>
+          </div>
         </div>
       </div>
     </div>
   );
 };
+
 export default PaymentModal;

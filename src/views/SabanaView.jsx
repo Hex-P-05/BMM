@@ -4,14 +4,13 @@ import { useAuth } from '../context/AuthContext';
 import ListView from './ListView';
 import { Ship, Truck, FileCheck, Filter, MapPin, RefreshCw } from 'lucide-react';
 import api from '../api/axios';
+import PaymentModal from '../modals/PaymentModal'; // <--- 1. IMPORTAR MODAL
 
 const SabanaView = ({
-  // No usamos la prop 'data' de App para evitar conflictos,
-  // cargamos todo aquí para controlar las pestañas.
+  // onPayAll original del padre (se usa como fallback o para refrescar globales)
   onPayAll,
   onCloseOperation,
   onEdit,
-  // Prop para forzar refresh desde afuera (cuando se crea una operación)
   refreshKey = 0,
 }) => {
   const {
@@ -25,11 +24,10 @@ const SabanaView = ({
     puertoCodigo,
   } = useAuth();
 
-  // Determinar tab inicial según rol
   const getInitialTab = () => {
     if (isLogistica) return 'logistica';
     if (isClasificacion) return 'clasificacion';
-    return 'revalidaciones'; // Por defecto siempre cae aquí
+    return 'revalidaciones';
   };
 
   const [data, setData] = useState([]);
@@ -37,29 +35,22 @@ const SabanaView = ({
   const [activeTab, setActiveTab] = useState(getInitialTab);
   const [filteredPuerto, setFilteredPuerto] = useState('todos');
   
-  // Ref para evitar doble fetch solo en el mismo tab
+  // --- 2. ESTADO PARA EL MODAL DE PAGO ---
+  const [paymentModal, setPaymentModal] = useState({ isOpen: false, item: null });
+  const [paymentLoading, setPaymentLoading] = useState(false);
+
   const fetchingRef = useRef(false);
 
   const fetchTickets = async (tab, puerto, force = false) => {
-    // Si ya está buscando y no es forzado, salimos
     if (fetchingRef.current && !force) return;
-    
     fetchingRef.current = true;
     setLoading(true);
     
     try {
       const params = new URLSearchParams();
+      if (tab !== 'todos') params.append('tipo_operacion', tab);
+      if (esGlobal && puerto !== 'todos') params.append('puerto', puerto);
       
-      // Solo filtrar por tipo si NO es "todos"
-      if (tab !== 'todos') {
-        params.append('tipo_operacion', tab);
-      }
-      
-      if (esGlobal && puerto !== 'todos') {
-        params.append('puerto', puerto);
-      }
-      
-      console.log('Fetching:', `/api/operaciones/tickets/?${params.toString()}`);
       const response = await api.get(`/operaciones/tickets/?${params.toString()}`);
       const tickets = response.data.results || response.data;
       setData(tickets);
@@ -72,46 +63,81 @@ const SabanaView = ({
     }
   };
 
-  // 1. EFECTO MAESTRO: Detecta cuando el rol termina de cargar
-  // Si entras como Logística, primero carga Revalidaciones (default).
-  // Este efecto detecta el cambio a Logística y corrige el rumbo automáticamente.
   useEffect(() => {
     const correctTab = getInitialTab();
-
-    // Si el tab actual no coincide con el rol real del usuario (y no es Admin/Pagos que pueden ver todo)
     if (correctTab !== activeTab && !isAdmin && !isPagos) {
-      console.log(`Corrigiendo Tab: de ${activeTab} a ${correctTab}`);
       setActiveTab(correctTab);
-      // Forzamos el fetch inmediatamente
       fetchTickets(correctTab, filteredPuerto, true);
     } else {
-      // Carga inicial normal
       fetchTickets(activeTab, filteredPuerto);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isRevalidaciones, isLogistica, isClasificacion, puertoCodigo]);
 
-  // 2. EFECTO DE REFRESH: Cuando refreshKey cambia, refrescamos los datos
-  // Esto permite que App.jsx fuerce un refresh después de crear operaciones/pagos
   useEffect(() => {
     if (refreshKey > 0) {
-      console.log('SabanaView: Refresh forzado desde App');
       fetchTickets(activeTab, filteredPuerto, true);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [refreshKey]); 
 
-
-  // Cuando cambia el tab manualmente
   const handleTabChange = (newTab) => {
     setActiveTab(newTab);
-    // Forzamos fetch al cambiar de tab
     fetchTickets(newTab, filteredPuerto, true);
   };
 
   const handlePuertoChange = (newPuerto) => {
     setFilteredPuerto(newPuerto);
     fetchTickets(activeTab, newPuerto, true);
+  };
+
+  // --- 3. NUEVA LÓGICA: ABRIR MODAL AL DAR CLIC EN "PAGAR" ---
+  const handleOpenPaymentModal = (ticketId) => {
+    // Buscamos el ticket completo en la data local para mostrar info en el modal
+    const ticket = data.find(t => t.id === ticketId);
+    if (ticket) {
+      setPaymentModal({ isOpen: true, item: ticket });
+    }
+  };
+
+  // --- 4. NUEVA LÓGICA: EJECUTAR PAGO CON ARCHIVO (FormData) ---
+  const handleExecutePayment = async (ticketId, file) => {
+    setPaymentLoading(true);
+    try {
+      // Usamos FormData para enviar campos + archivo
+      const payload = new FormData();
+      payload.append('estatus', 'pagado');
+      payload.append('fecha_pago', new Date().toISOString().split('T')[0]);
+      
+      if (file) {
+        payload.append('comprobante_pago', file);
+      }
+
+      // Llamada directa a la API (PATCH)
+      const response = await api.patch(`/operaciones/tickets/${ticketId}/`, payload);
+      
+      if (response.data) {
+        // Actualizar la tabla localmente sin recargar todo
+        setData(prevData => prevData.map(ticket => 
+          ticket.id === ticketId 
+            ? { 
+                ...ticket, 
+                estatus: 'pagado',
+                // Si el backend devuelve el objeto actualizado con la URL del archivo, la guardamos
+                comprobante_pago: response.data.comprobante_pago || ticket.comprobante_pago 
+              }
+            : ticket
+        ));
+        
+        // Cerrar modal
+        setPaymentModal({ isOpen: false, item: null });
+      }
+    } catch (error) {
+      console.error('Error registrando pago:', error);
+      alert('Error al registrar el pago. Verifique la consola.');
+    } finally {
+      setPaymentLoading(false);
+    }
   };
 
   const tabs = [
@@ -131,6 +157,7 @@ const SabanaView = ({
 
   return (
     <div className="space-y-4">
+      {/* --- HEADER DE FILTROS (Sin cambios) --- */}
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           
@@ -210,7 +237,6 @@ const SabanaView = ({
           )}
         </div>
         
-        {/* Info bar opcional */}
         {canSwitchSabanas && (
           <div className="mt-4 pt-4 border-t border-slate-100">
             <div className="flex items-center gap-2 text-sm text-slate-500">
@@ -229,21 +255,12 @@ const SabanaView = ({
       </div>
 
       <ListView
-        // === LA CLAVE ===
-        // Al poner el key con el nombre del tab, obligamos a React a borrar 
-        // la tabla vieja y pintar una nueva cuando cambia de Revalidaciones a Logística.
-        // Esto asegura que las columnas se recalculen desde cero.
         key={activeTab} 
-        
         data={data}
-        onPayAll={async (ticketId) => {
-          await onPayAll(ticketId);
-          setData(prevData => prevData.map(ticket => 
-            ticket.id === ticketId 
-              ? { ...ticket, estatus: 'pagado' }
-              : ticket
-          ));
-        }}
+        // --- 5. INTERCEPTAMOS EL ONPAYALL ---
+        // En lugar de llamar a la prop del padre, abrimos nuestro modal local
+        onPayAll={handleOpenPaymentModal} 
+        
         onCloseOperation={async (ticketPrincipal, ticketsDelGrupo) => {
           await onCloseOperation(ticketPrincipal, ticketsDelGrupo);
           
@@ -265,6 +282,15 @@ const SabanaView = ({
         role={role}
         onEdit={onEdit}
         loading={loading}
+      />
+
+      {/* --- 6. RENDERIZAMOS EL MODAL DE PAGO --- */}
+      <PaymentModal 
+        isOpen={paymentModal.isOpen}
+        item={paymentModal.item}
+        onClose={() => setPaymentModal({ isOpen: false, item: null })}
+        onConfirm={handleExecutePayment}
+        loading={paymentLoading}
       />
     </div>
   );

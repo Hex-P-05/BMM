@@ -350,8 +350,6 @@ const ListView = ({ data = [], onPayItem, onPayAll, onCloseOperation, role, onEd
                   {/* Fila principal del grupo */}
                   <tr className={`hover:bg-slate-50 border-b border-slate-100 transition-colors ${expandedRow === group.identifier ? 'bg-blue-50/30' : ''}`}>
                     
-                    {/* --- ELIMINADO EL TD DEL SEMÁFORO QUE ESTABA AQUÍ --- */}
-
                     {/* Columna 1: Flecha (ahora es la primera) */}
                     <td className="p-4 text-center cursor-pointer" onClick={() => toggleRow(group.identifier)}>
                       {expandedRow === group.identifier 
@@ -479,6 +477,17 @@ const ListView = ({ data = [], onPayItem, onPayAll, onCloseOperation, role, onEd
                         >
                           <Edit size={16}/>
                         </button>
+                        {/* SNIPPET PARA ListView.jsx */}
+                          {item.comprobante_pago && (
+                            <a 
+                              href={item.comprobante_pago} 
+                              target="_blank" 
+                              rel="noopener noreferrer"
+                              className="ml-2 text-blue-600 hover:text-blue-800 underline text-xs"
+                            >
+                              Ver PDF
+                            </a>
+                          )}
                       </td>
                     )}
                   </tr>

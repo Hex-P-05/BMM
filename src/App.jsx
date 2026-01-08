@@ -119,11 +119,36 @@ function AppContent() {
     }
   };
 
-  const executePayment = async () => {
-    const { item } = paymentConfirmation;
-    if (!item) return;
-    await handlePayAll(item.id);
-    setPaymentConfirmation({ isOpen: false, item: null });
+  // Esta función se pasa al prop 'onConfirm' del PaymentModal
+  const executePayment = async (ticketId, file) => {
+    try {
+      // 1. Crear FormData (necesario para enviar archivos)
+      const payload = new FormData();
+      
+      // Datos base del pago
+      payload.append('estatus', 'pagado');
+      payload.append('fecha_pago', new Date().toISOString().split('T')[0]); // Fecha de hoy
+      
+      // 2. Si el usuario seleccionó archivo, lo agregamos
+      if (file) {
+        payload.append('comprobante_pago', file);
+      }
+
+      // 3. Llamada a la API (asegúrate que tu hook/api acepte el segundo argumento como body)
+      // NOTA: Si usas axios directamente, él detecta el FormData automáticamente.
+      const result = await api.patch(`/operaciones/tickets/${ticketId}/`, payload);
+      
+      // 4. Actualizar vista
+      if (result.data) {
+        // Refrescar la tabla (llamar a tu función de recarga)
+        refreshTickets(); 
+        setPaymentConfirmation({ isOpen: false, item: null }); // Cerrar modal
+        alert('Pago registrado con éxito');
+      }
+    } catch (error) {
+      console.error('Error registrando pago:', error);
+      alert('Error al registrar el pago.');
+    }
   };
 
   const handleCloseOperation = (item, groupTickets = []) => {
