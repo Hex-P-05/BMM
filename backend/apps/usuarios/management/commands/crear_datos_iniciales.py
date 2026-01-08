@@ -45,8 +45,12 @@ class Command(BaseCommand):
             {'email': 'vanessa@aduanasoft.com', 'nombre': 'VANESSA', 'rol': 'logistica', 'password': 'ops123', 'puerto': 'MZO'},
             {'email': 'mareyci@aduanasoft.com', 'nombre': 'MAREYCI', 'rol': 'logistica', 'password': 'ops123', 'puerto': 'LZC'},
 
-            # Pagos (sin puerto - ve todo)
+            # Pagos global (sin puerto - ve todo)
             {'email': 'pagos@aduanasoft.com', 'nombre': 'Tesorería', 'rol': 'pagos', 'password': 'pagos123', 'puerto': None},
+
+            # Pagos por puerto (cada puerto tiene su propio usuario de pagos)
+            {'email': 'pagos.mzo@aduanasoft.com', 'nombre': 'PAGOS MANZANILLO', 'rol': 'pagos', 'password': 'pagos123', 'puerto': 'MZO'},
+            {'email': 'pagos.lzc@aduanasoft.com', 'nombre': 'PAGOS LAZARO CARDENAS', 'rol': 'pagos', 'password': 'pagos123', 'puerto': 'LZC'},
 
             # Clasificación (da de alta contenedores)
             {'email': 'clasif@aduanasoft.com', 'nombre': 'CLASIFICACION', 'rol': 'clasificacion', 'password': 'clasif123', 'puerto': 'MZO'},
@@ -205,10 +209,12 @@ class Command(BaseCommand):
         
         self.stdout.write(self.style.SUCCESS('\n¡Datos iniciales creados exitosamente!'))
         self.stdout.write('\nUsuarios de prueba:')
-        self.stdout.write('  Admin:           admin@aduanasoft.com / admin123  (Global)')
-        self.stdout.write('  Revalidaciones:  joan@aduanasoft.com / ops123     (MZO)')
-        self.stdout.write('  Revalidaciones:  marisol@aduanasoft.com / ops123  (LZC)')
-        self.stdout.write('  Logística:       vanessa@aduanasoft.com / ops123  (MZO)')
-        self.stdout.write('  Logística:       mareyci@aduanasoft.com / ops123  (LZC)')
-        self.stdout.write('  Pagos:           pagos@aduanasoft.com / pagos123  (Global)')
-        self.stdout.write('  Clasificación:   clasif@aduanasoft.com / clasif123 (MZO)')
+        self.stdout.write('  Admin:           admin@aduanasoft.com / admin123       (Global)')
+        self.stdout.write('  Revalidaciones:  joan@aduanasoft.com / ops123          (MZO)')
+        self.stdout.write('  Revalidaciones:  marisol@aduanasoft.com / ops123       (LZC)')
+        self.stdout.write('  Logística:       vanessa@aduanasoft.com / ops123       (MZO)')
+        self.stdout.write('  Logística:       mareyci@aduanasoft.com / ops123       (LZC)')
+        self.stdout.write('  Pagos:           pagos@aduanasoft.com / pagos123       (Global)')
+        self.stdout.write('  Pagos:           pagos.mzo@aduanasoft.com / pagos123   (MZO)')
+        self.stdout.write('  Pagos:           pagos.lzc@aduanasoft.com / pagos123   (LZC)')
+        self.stdout.write('  Clasificación:   clasif@aduanasoft.com / clasif123     (MZO)')

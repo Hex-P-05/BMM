@@ -87,16 +87,19 @@ export const AuthProvider = ({ children }) => {
   // =====================
   // PUERTO ASIGNADO
   // =====================
-  // Admin y Pagos no tienen puerto (ven todo)
+  // Admin siempre ve todo (sin filtro de puerto)
+  // Pagos sin puerto asignado ve todo
+  // Pagos con puerto asignado solo ve su puerto
   // Revalidaciones, Logística y Clasificación tienen puerto asignado
   const puertoAsignado = user?.puerto_asignado || null;
   const puertoId = puertoAsignado?.id || user?.puerto_asignado_id || null;
   const puertoNombre = puertoAsignado?.nombre || null;
   const puertoCodigo = puertoAsignado?.codigo || null;
-  
+
   // ¿Usuario tiene puerto asignado? (para filtrar operaciones)
   const tienePuerto = !!puertoId;
-  const esGlobal = isAdmin || isPagos; // Estos ven todo, sin filtro de puerto
+  // Admin siempre es global, Pagos solo es global si NO tiene puerto asignado
+  const esGlobal = isAdmin || (isPagos && !tienePuerto);
 
   // =====================
   // PERMISOS

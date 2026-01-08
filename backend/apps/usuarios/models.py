@@ -24,14 +24,20 @@ class Usuario(AbstractUser):
     Usuario personalizado con roles según documento de requerimientos actualizado:
 
     ROLES (4 roles + 1 admin):
-    - Admin: Acceso total a todos los módulos
-    - Revalidaciones: Trabaja con navieras, usa BL como ID, paga demoras
-    - Logística: Trabaja con terminales, usa # contenedor como ID, paga almacenajes
-    - Pagos: Registra pagos, puede pagar almacenajes (junto con logística)
-    - Clasificación: Da de alta datos iniciales, requiere visto bueno del dirigente
+    - Admin: Acceso total a todos los módulos (siempre global)
+    - Revalidaciones: Trabaja con navieras, usa BL como ID, paga demoras (asignado a puerto)
+    - Logística: Trabaja con terminales, usa # contenedor como ID, paga almacenajes (asignado a puerto)
+    - Pagos: Registra pagos, puede pagar almacenajes (puede ser global o asignado a puerto)
+    - Clasificación: Da de alta datos iniciales, requiere visto bueno del dirigente (asignado a puerto)
 
     Cada rol tiene su propia sábana operativa y no pueden ver la del otro.
     El ejecutivo se asigna dependiendo de los tres departamentos.
+
+    PUERTOS:
+    - Admin: siempre ve todos los puertos
+    - Pagos sin puerto_asignado: ve todos los puertos (global)
+    - Pagos con puerto_asignado: solo ve su puerto
+    - Revalidaciones, Logística, Clasificación: solo ven su puerto asignado
     """
 
     class Rol(models.TextChoices):
@@ -266,10 +272,18 @@ class Usuario(AbstractUser):
     def puede_ver_operacion_por_puerto(self, operacion_puerto_id):
         """
         Verifica si el usuario puede ver una operación según su puerto asignado.
-        Admin y Pagos ven todos los puertos.
+        Admin siempre ve todos los puertos.
+        Pagos sin puerto asignado ve todos los puertos.
+        Pagos con puerto asignado solo ve su puerto.
+        Otros roles con puerto asignado solo ven su puerto.
         """
-        if self.es_admin or self.es_pagos:
+        if self.es_admin:
             return True
+        # Pagos con puerto asignado solo ve su puerto
+        if self.es_pagos:
+            if not self.puerto_asignado_id:
+                return True  # Pagos sin puerto ve todo
+            return self.puerto_asignado_id == operacion_puerto_id
         if not self.puerto_asignado_id:
             return True  # Sin puerto asignado, ve todo
         return self.puerto_asignado_id == operacion_puerto_id
@@ -277,10 +291,18 @@ class Usuario(AbstractUser):
     def filtrar_por_puerto(self, queryset, campo_puerto='contenedor__puerto'):
         """
         Filtra un queryset según el puerto asignado del usuario.
-        Admin y Pagos ven todos los puertos.
+        Admin siempre ve todos los puertos.
+        Pagos sin puerto asignado ve todos los puertos.
+        Pagos con puerto asignado solo ve su puerto.
         """
-        if self.es_admin or self.es_pagos:
+        if self.es_admin:
             return queryset
+        # Pagos con puerto asignado solo ve su puerto
+        if self.es_pagos:
+            if not self.puerto_asignado_id:
+                return queryset  # Pagos sin puerto ve todo
+            filtro = {campo_puerto: self.puerto_asignado_id}
+            return queryset.filter(**filtro)
         if not self.puerto_asignado_id:
             return queryset
         filtro = {campo_puerto: self.puerto_asignado_id}
