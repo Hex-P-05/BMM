@@ -123,10 +123,10 @@ const DashboardView = ({ data = [], loading, onRefresh, onNavigate }) => {
   }, [listaOperaciones]);
 
   const pieData = [
-    { name: 'En Tránsito', value: stats.transito, color: CHART_COLORS.transito },
-    { name: 'Tiempo Libre', value: stats.ok, color: CHART_COLORS.ok },
-    { name: 'En Riesgo', value: stats.warning, color: CHART_COLORS.warning },
-    { name: 'Con Cargos', value: stats.danger, color: CHART_COLORS.danger },
+    { name: 'En tránsito', value: stats.transito, color: CHART_COLORS.transito },
+    { name: 'Tiempo libre', value: stats.ok, color: CHART_COLORS.ok },
+    { name: 'En riesgo', value: stats.warning, color: CHART_COLORS.warning },
+    { name: 'Con cargo', value: stats.danger, color: CHART_COLORS.danger },
   ].filter(d => d.value > 0);
 
   // -----------------------------------------------------------------------
@@ -176,13 +176,13 @@ const DashboardView = ({ data = [], loading, onRefresh, onNavigate }) => {
       {/* Gráficas Principales */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
-          <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2"><Ship size={20} className="text-slate-400"/> Estatus de la Flota</h3>
+          <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2"><Ship size={20} className="text-slate-400"/> Estatus de la flota</h3>
           {pieData.length > 0 ? (
             <div className="h-64"><ResponsiveContainer width="100%" height="100%"><PieChart><Pie data={pieData} innerRadius={60} outerRadius={80} paddingAngle={5} dataKey="value">{pieData.map((entry, index) => <Cell key={`cell-${index}`} fill={entry.color} />)}</Pie><Tooltip formatter={(value) => [value, 'Contenedores']} /><Legend verticalAlign="bottom" iconType="circle" formatter={(value) => <span className="text-xs font-bold text-slate-600">{value}</span>} /></PieChart></ResponsiveContainer></div>
           ) : (<div className="h-64 flex items-center justify-center bg-slate-50 rounded text-slate-400">Sin datos activos</div>)}
         </div>
         <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 lg:col-span-2">
-          <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2"><TrendingUp size={20} className="text-blue-600" /> Carga Activa por Cliente</h3>
+          <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2"><TrendingUp size={20} className="text-blue-600" /> Carga activa por cliente</h3>
           {chartEmpresas.length > 0 ? (
             <div className="h-64"><ResponsiveContainer width="100%" height="100%"><BarChart data={chartEmpresas} layout="vertical" margin={{ left: 20 }}><CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} /><XAxis type="number" hide /><YAxis dataKey="name" type="category" width={100} tick={{ fontSize: 11, fontWeight: 'bold', fill: '#64748b' }} /><Tooltip cursor={{fill: '#f1f5f9'}} contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} /><Bar dataKey="cantidad" fill="#3b82f6" radius={[0, 4, 4, 0]} barSize={20} /></BarChart></ResponsiveContainer></div>
           ) : (<div className="h-64 flex items-center justify-center bg-slate-50 rounded text-slate-400">{loading ? <Loader2 className="animate-spin"/> : 'Sin datos'}</div>)}

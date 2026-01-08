@@ -686,33 +686,64 @@ const CaptureForm = ({ onSave, onCancel, role, userName }) => {
             )}
           </div>
 
-          {/* Preview de referencia */}
-          <div className="bg-slate-800 p-4 rounded-xl text-white">
-            <div className="flex justify-between items-center">
-              <div>
-                <p className="text-[10px] text-slate-400 uppercase font-bold mb-1">Referencia generada</p>
-                <div className="text-lg font-mono font-bold flex items-center gap-2">
-                  <span className="text-yellow-400">{formData.prefijo || 'XXX'}</span>
-                  <span className="text-slate-600">|</span>
-                  <span className="text-white">{consecutivoEditable || '001'}</span>
-                  <span className="text-slate-600">|</span>
+          {/* Preview de Referencia (ESTILO OSCURO) */}
+            <div className="mt-4 p-4 bg-slate-800 rounded-lg shadow-inner border border-slate-700 flex flex-col md:flex-row justify-between items-center gap-4">
+              
+              {/* LADO IZQUIERDO: VISUALIZACIÓN DE LA REFERENCIA */}
+              <div className="flex-1 overflow-hidden w-full">
+                <span className="text-[10px] text-slate-400 uppercase tracking-wider mb-1 block flex items-center gap-2">
+                  Referencia Base
+                  {conceptosActivos > 1 && (
+                    <span className="bg-blue-600 text-white text-[9px] px-1.5 rounded-full">
+                      Multi-conceptos
+                    </span>
+                  )}
+                </span>
+                
+                <div className="font-mono text-sm md:text-lg font-bold text-yellow-400 tracking-wide flex flex-wrap items-center gap-x-2">
+                  {/* 1. PREFIJO */}
+                  <span className="text-yellow-400">{formData.prefijo || '---'}</span>
+                  
+                  {/* 2. CONSECUTIVO */}
+                  <span className="text-yellow-200">{consecutivoEditable}</span>
+                  
+                  <span className="text-slate-600 font-light">|</span>
+
+                  {/* 3. CONCEPTO */}
+                  <span className="text-white bg-slate-700/50 px-2 py-0.5 rounded text-xs md:text-sm uppercase truncate max-w-[200px] border border-slate-600">
+                    {(() => {
+                      const keys = Object.keys(conceptosSeleccionados);
+                      if (keys.length === 0) return "CONCEPTO";
+                      if (keys.length === 1) return conceptosSeleccionados[keys[0]].nombre;
+                      return `VARIOS (${keys.length})`;
+                    })()}
+                  </span>
+
+                  <span className="text-slate-600 font-light">|</span>
+
+                  {/* 4. IDENTIFICADOR */}
                   <span className="text-blue-300">
                     {isLogistica ? (formData.contenedor || '---') : (formData.bl_master || '---')}
                   </span>
                 </div>
+                
+                <p className="text-[10px] text-slate-500 mt-1 font-mono">
+                  Formato: Prefijo + Consecutivo + Concepto + Identificador
+                </p>
               </div>
-              <div className="flex items-center gap-3 bg-slate-900 p-2 rounded border border-slate-600">
-                <span className="text-[10px] text-slate-400 uppercase font-bold">Consecutivo</span>
-                <input
-                  type="text"
-                  value={consecutivoEditable}
-                  onChange={handleConsecutivoChange}
-                  className="w-16 bg-transparent text-white text-xl font-bold text-center outline-none focus:text-yellow-400 border-b-2 border-slate-600 focus:border-yellow-400 font-mono"
-                  maxLength={5}
-                />
+
+              {/* LADO DERECHO: EDICIÓN MANUAL DEL CONSECUTIVO */}
+              <div className="flex items-center gap-3 bg-slate-900 px-3 py-1 rounded border border-slate-600">
+                 <span className="text-[10px] text-slate-400 uppercase font-bold tracking-wider">Consecutivo</span>
+                 <input 
+                   type="text" 
+                   value={consecutivoEditable} 
+                   onChange={handleConsecutivoChange} 
+                   className="w-16 bg-transparent text-white text-xl font-bold text-center border-b-2 border-slate-500 focus:border-yellow-400 outline-none transition-colors font-mono" 
+                   maxLength={5} 
+                 />
               </div>
             </div>
-          </div>
 
           {/* Sección: Selección de conceptos */}
           <div className="bg-blue-50 p-5 rounded-xl border border-blue-200">
