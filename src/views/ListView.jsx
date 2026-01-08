@@ -22,6 +22,20 @@ const ListView = ({ data = [], onPayItem, onPayAll, onCloseOperation, role, onEd
     const groups = {};
     
     data.forEach(ticket => {
+      // -----------------------------------------------------------------------
+      // FILTRO ESPECÍFICO: Ocultar "Apertura de Expediente" (Dummy)
+      // Criterio: Rol Clasificación + Concepto ID 1 + Importe $0
+      // -----------------------------------------------------------------------
+      if (ticket.tipo_operacion === 'clasificacion') {
+        const esConceptoDummy = ticket.concepto == 1; // Compara con "1" o 1
+        const esMontoCero = parseFloat(ticket.importe || 0) === 0;
+
+        if (esConceptoDummy && esMontoCero) {
+          return; // Es el registro dummy de apertura, lo ocultamos.
+        }
+      }
+      // -----------------------------------------------------------------------
+
       // Determinar el identificador principal
       const isLogistica = ticket.tipo_operacion === 'logistica';
       
@@ -128,6 +142,11 @@ const ListView = ({ data = [], onPayItem, onPayAll, onCloseOperation, role, onEd
   const getVisibleTickets = (tickets) => {
     if (canSeeAllConceptos) return tickets;
     return tickets.filter(t => {
+      // AQUÍ: Si el rol es admin/pagos ven todo.
+      // Si el usuario es de un rol específico, solo ve sus tickets.
+      // NOTA: Si quieres que Logística pueda ver los pagos extras de clasificación
+      // asociados a su contenedor, mantén esta lógica abierta o ajústala.
+      // Por defecto aquí filtramos estrictamente por tipo de operación del rol.
       if (role === 'revalidaciones') return t.tipo_operacion === 'revalidaciones';
       if (role === 'logistica') return t.tipo_operacion === 'logistica';
       if (role === 'clasificacion') return t.tipo_operacion === 'clasificacion';
@@ -166,7 +185,6 @@ const ListView = ({ data = [], onPayItem, onPayAll, onCloseOperation, role, onEd
   };
 
   // --- LÓGICA MAESTRA DE SEMÁFORO (FINAL v2) ---
-  // Modificado: Se agrega 'estatus' para detener el semáforo si está cerrado
   const calcularSemaforo = (eta, tipoOperacion, estatus) => {
     // 0. Si está cerrado, SEMÁFORO DETENIDO (Gris y sin contador)
     if (estatus === 'cerrado') {
@@ -352,7 +370,6 @@ const ListView = ({ data = [], onPayItem, onPayAll, onCloseOperation, role, onEd
                     <td className="p-4 text-center">
                       {(() => {
                         const esLogistica = group.isLogistica || role === 'logistica';
-                        // AQUÍ PASAMOS group.estatus PARA VER SI ESTÁ CERRADO
                         const info = calcularSemaforo(group.eta, esLogistica ? 'logistica' : 'revalidaciones', group.estatus);
                         
                         return (
@@ -368,7 +385,6 @@ const ListView = ({ data = [], onPayItem, onPayAll, onCloseOperation, role, onEd
                               info.color.includes('emerald') ? 'text-emerald-600' : 'text-slate-500'
                             }`}>
                               {info.dias} {
-                                // Lógica de texto ajustada: Si está cerrado no muestra sufijo
                                 info.texto === 'Cerrado' ? '' :
                                 info.color.includes('red') ? 'días ex' : 
                                 info.texto === 'Libre' || info.texto === 'Días libres' ? 'días rest' : 
@@ -383,7 +399,6 @@ const ListView = ({ data = [], onPayItem, onPayAll, onCloseOperation, role, onEd
                     <td className="p-4 text-center">
                       {(() => {
                         const esLogistica = group.isLogistica || role === 'logistica';
-                        // Si está cerrado, también podemos optar por no mostrar días de multa (opcional, aquí lo dejo igual pero podrías poner '-' si quisieras)
                         const diasExtra = calcularDiasPenalty(group.eta, esLogistica ? 'logistica' : 'revalidaciones');
                         
                         return (
