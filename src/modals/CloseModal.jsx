@@ -11,11 +11,6 @@ const CloseModal = ({ isOpen, onClose, onConfirm, item, tickets = [], loading = 
   // Si no se pasan tickets, usar el item como único ticket (compatibilidad)
   const ticketList = tickets.length > 0 ? tickets : [item];
 
-  console.log('CloseModal - item:', item);
-  console.log('CloseModal - tickets prop:', tickets);
-  console.log('CloseModal - ticketList:', ticketList);
-
-
   // Calcular total de todos los tickets
   const totalImporte = ticketList.reduce((sum, t) => sum + (parseFloat(t.importe) || 0), 0);
   
@@ -26,25 +21,21 @@ const CloseModal = ({ isOpen, onClose, onConfirm, item, tickets = [], loading = 
   const identifier = item.bl_master || item.contenedor || 'Operación';
 
   const handleConfirmClose = async () => {
-    console.log('handleConfirmClose iniciado');
     setIsClosing(true);
     try {
       // Cerrar todos los tickets del grupo
       for (const ticket of ticketList) {
-        console.log('Cerrando ticket:', ticket.id);
         if (onConfirm) {
-          const result = await onConfirm(ticket.id);
-          console.log('Resultado:', result);
+          await onConfirm(ticket.id);
         }
       }
-      console.log('Todos los tickets cerrados, llamando onClose');
       onClose();
     } catch (err) {
       console.error('Error cerrando operación:', err);
     } finally {
       setIsClosing(false);
     }
-};
+  };
 
   const handleCloseAndDownload = async () => {
     // Primero cerrar
@@ -87,22 +78,23 @@ const CloseModal = ({ isOpen, onClose, onConfirm, item, tickets = [], loading = 
                     className="flex justify-between items-center border-b border-slate-100 pb-2"
                   >
                     <div className="flex-1">
-                      <span className="text-sm font-medium text-slate-700">
-                        {ticket.observaciones?.split(' - ')[0] || ticket.observaciones || 'Concepto'}
+                      {/* CORRECCIÓN AQUÍ: Se eliminó el .split(' - ')[0] para mostrar todo */}
+                      <span className="text-sm font-medium text-slate-700 block">
+                        {ticket.observaciones || 'Concepto'}
                       </span>
                       {ticket.proveedor_nombre && (
-                        <span className="text-xs text-slate-400 ml-2">
-                          → {ticket.proveedor_nombre}
+                        <span className="text-xs text-slate-400 block mt-0.5">
+                          Proveedor: {ticket.proveedor_nombre}
                         </span>
                       )}
                     </div>
-                    <div className="text-right">
-                      <span className="font-bold text-slate-800">
+                    <div className="text-right mx-4">
+                      <span className="font-bold text-slate-800 block">
                         ${parseFloat(ticket.importe || 0).toLocaleString('es-MX', { minimumFractionDigits: 2 })}
                       </span>
-                      <span className="text-xs text-slate-400 ml-1">{ticket.divisa}</span>
+                      <span className="text-xs text-slate-400">{ticket.divisa}</span>
                     </div>
-                    <div className="ml-3">
+                    <div>
                       <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
                         ticket.estatus === 'cerrado' ? 'bg-slate-200 text-slate-600' :
                         ticket.estatus === 'pagado' ? 'bg-green-100 text-green-700' :

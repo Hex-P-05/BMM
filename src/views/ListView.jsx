@@ -1,4 +1,3 @@
-// src/views/ListView.jsx
 import React, { useState, useMemo } from 'react';
 import { ChevronUp, ChevronDown, Edit, Lock, FileText, Search, DollarSign } from 'lucide-react';
 import StatusBadge from '../components/StatusBadge';
@@ -9,8 +8,7 @@ const ListView = ({ data = [], onPayItem, onPayAll, onCloseOperation, role, onEd
   const [searchTerm, setSearchTerm] = useState('');
   const [expandedRow, setExpandedRow] = useState(null);
   const [viewMode, setViewMode] = useState('full');
-  const [selectedIds, setSelectedIds] = useState([]);
-
+  
   // Permisos por rol
   const canPay = role === 'admin' || role === 'pagos';
   const canEditAll = role === 'admin';
@@ -20,7 +18,6 @@ const ListView = ({ data = [], onPayItem, onPayAll, onCloseOperation, role, onEd
   const canSeeAllConceptos = role === 'admin' || role === 'pagos';
 
   // Agrupar tickets por identificador (bl_master para revalidaciones, contenedor para logística)
-  // CORRECCIÓN: Ahora agrupamos también por CONSECUTIVO para respetar la lógica del cliente
   const groupedData = useMemo(() => {
     const groups = {};
     
@@ -28,29 +25,24 @@ const ListView = ({ data = [], onPayItem, onPayAll, onCloseOperation, role, onEd
       // Determinar el identificador principal
       const isLogistica = ticket.tipo_operacion === 'logistica';
       
-      // Lógica de agrupación:
-      // 1. Usamos el Contenedor (Logística) o BL (Revalidación) como eje principal.
-      // 2. Si el cliente quiere ver "XAO 1" separado de "XAO 2", agregamos el consecutivo a la llave.
-      
       const baseId = isLogistica 
         ? (ticket.contenedor || ticket.bl_master || 'SIN-ID')
         : (ticket.bl_master || ticket.contenedor || 'SIN-ID');
       
       // IMPORTANTE: Agrupamos por ID + CONSECUTIVO para que XAO 1 no se mezcle con XAO 2
-      // Si prefieres ver todo el contenedor junto, quita `ticket.consecutivo` de aquí.
       const uniqueGroupKey = `${baseId}-${ticket.prefijo}-${ticket.consecutivo}`;
 
       if (!groups[uniqueGroupKey]) {
         groups[uniqueGroupKey] = {
-          uniqueKey: uniqueGroupKey, // Llave técnica para React
-          identifier: baseId,         // Lo que mostramos visualmente (HOLA123)
-          consecutivo: ticket.consecutivo, // Para mostrar "XAO 1"
+          uniqueKey: uniqueGroupKey, 
+          identifier: baseId,         
+          consecutivo: ticket.consecutivo, 
           prefijo: ticket.prefijo,
           
           isLogistica,
           tickets: [],
           
-          // Datos "Cabecera" (Tomamos del primer ticket, asumiendo que son iguales en el grupo)
+          // Datos "Cabecera" 
           empresa: ticket.empresa_nombre || '',
           empresa_id: ticket.empresa,
           bl_master: ticket.bl_master,
@@ -77,13 +69,11 @@ const ListView = ({ data = [], onPayItem, onPayAll, onCloseOperation, role, onEd
       groups[uniqueGroupKey].totalImporte += parseFloat(ticket.importe) || 0;
       
       // Actualizar semáforo al peor caso
-      // Agregamos 'azul' con prioridad baja o media según prefieras. 
-      // Aquí lo pongo bajo el verde porque es informativo, no urgente.
       const semaforoPriority = { 
         'vencido': 5, 
         'rojo': 4, 
         'amarillo': 3, 
-        'azul': 2,    // <--- NUEVO (Informativo, más relevante que verde simple)
+        'azul': 2,    
         'verde': 1 
       };
       
@@ -91,10 +81,7 @@ const ListView = ({ data = [], onPayItem, onPayAll, onCloseOperation, role, onEd
         groups[uniqueGroupKey].semaforo = ticket.semaforo;
       }
       
-      // Lógica de estatus del grupo:
-      // Si todos están pagados -> Pagado
-      // Si uno está pendiente -> Pendiente
-      // Si está cerrado -> Cerrado
+      // Lógica de estatus del grupo
       const currentStatus = groups[uniqueGroupKey].estatus;
       if (ticket.estatus === 'cerrado') {
           groups[uniqueGroupKey].estatus = 'cerrado';
@@ -106,7 +93,7 @@ const ListView = ({ data = [], onPayItem, onPayAll, onCloseOperation, role, onEd
       
     });
     
-    // Segunda pasada para definir estatus final de grupos mixtos (algunos pagados, otros no)
+    // Segunda pasada para definir estatus final de grupos mixtos
     Object.values(groups).forEach(g => {
         if (g.tickets.some(t => t.estatus === 'pendiente') && g.estatus !== 'cerrado') {
             g.estatus = 'pendiente';
@@ -117,8 +104,6 @@ const ListView = ({ data = [], onPayItem, onPayAll, onCloseOperation, role, onEd
 
     return Object.values(groups);
   }, [data]);
-
- 
 
   // Filtro de búsqueda
   const filteredGroups = useMemo(() => {
@@ -142,7 +127,6 @@ const ListView = ({ data = [], onPayItem, onPayAll, onCloseOperation, role, onEd
   // Filtrar conceptos visibles según rol
   const getVisibleTickets = (tickets) => {
     if (canSeeAllConceptos) return tickets;
-    // Otros roles solo ven sus propios tickets
     return tickets.filter(t => {
       if (role === 'revalidaciones') return t.tipo_operacion === 'revalidaciones';
       if (role === 'logistica') return t.tipo_operacion === 'logistica';
@@ -151,11 +135,10 @@ const ListView = ({ data = [], onPayItem, onPayAll, onCloseOperation, role, onEd
     });
   };
 
-// Calcular días exactos de multa (Demora o Almacenaje)
+  // Calcular días exactos de multa (Demora o Almacenaje)
   const calcularDiasPenalty = (eta, tipoOperacion) => {
     if (!eta) return 0;
 
-    // Parseo de fecha (Igual que en el semáforo)
     let fechaEta;
     const etaStr = eta.toString();
     if (etaStr.includes('/')) {
@@ -171,26 +154,27 @@ const ListView = ({ data = [], onPayItem, onPayAll, onCloseOperation, role, onEd
     const diffMs = hoy - fechaEta;
     const diasTranscurridos = Math.floor(diffMs / (1000 * 60 * 60 * 24));
 
-    // Si aún no llega, 0 días
     if (diasTranscurridos < 0) return 0;
 
-    // Reglas de cobro:
     if (tipoOperacion === 'logistica') {
-        // Logística: 7 días libres. El día 8 ya cobra (1 día extra).
+        // Logística: 7 días libres.
         return diasTranscurridos > 7 ? diasTranscurridos - 7 : 0;
     } else {
-        // Revalidación: 21 días límite. El día 22 ya cobra.
+        // Revalidación: 21 días límite.
         return diasTranscurridos > 21 ? diasTranscurridos - 21 : 0;
     }
   };
 
-  // --- NUEVA LÓGICA DE SEMÁFORO ---
   // --- LÓGICA MAESTRA DE SEMÁFORO (FINAL v2) ---
-  const calcularSemaforo = (eta, tipoOperacion) => {
-    // 1. Validaciones
+  // Modificado: Se agrega 'estatus' para detener el semáforo si está cerrado
+  const calcularSemaforo = (eta, tipoOperacion, estatus) => {
+    // 0. Si está cerrado, SEMÁFORO DETENIDO (Gris y sin contador)
+    if (estatus === 'cerrado') {
+        return { color: 'bg-slate-200', texto: 'Cerrado', dias: '-' };
+    }
+
     if (!eta) return { color: 'bg-slate-300', texto: '-', dias: 0 };
 
-    // 2. Limpieza de Fecha
     let fechaEta;
     const etaStr = eta.toString();
     if (etaStr.includes('/')) {
@@ -202,52 +186,37 @@ const ListView = ({ data = [], onPayItem, onPayAll, onCloseOperation, role, onEd
 
     if (isNaN(fechaEta.getTime())) return { color: 'bg-slate-300', texto: 'Error', dias: 0 };
 
-    // 3. Días transcurridos (Hoy - ETA)
     const hoy = new Date();
     hoy.setHours(0,0,0,0);
     const diffMs = hoy - fechaEta;
     const diasTranscurridos = Math.floor(diffMs / (1000 * 60 * 60 * 24)); 
 
-    // =========================================================
-    // CASO A: LOGÍSTICA (7 Días libres | Verde -> Amarillo -> Rojo)
-    // =========================================================
+    // CASO A: LOGÍSTICA
     if (tipoOperacion === 'logistica') {
-       // --- 1. Antes de llegar: Azul ---
        if (diasTranscurridos < 0) {
            return { color: 'bg-sky-500', texto: 'En tránsito', dias: Math.abs(diasTranscurridos) };
        }
        
-       // --- 2. Ya llegó (Cuenta de días libres restantes) ---
        const diasLibresTotales = 7;
        const restantes = diasLibresTotales - diasTranscurridos;
 
-       // Verde: 0 a 3 días después de ETA (Te quedan 7, 6, 5 o 4 días)
        if (diasTranscurridos <= 3) {
            return { color: 'bg-emerald-500', texto: 'Días libres', dias: restantes };
        }
-       
-       // Amarillo: 4 a 6 días después de ETA (Te quedan 3, 2 o 1 día)
        if (diasTranscurridos <= 6) {
            return { color: 'bg-yellow-400', texto: 'Por vencer', dias: restantes };
        }
-
-       // Rojo: 7 días o más (Se acabaron los 7 libres, empieza el cobro)
-       // día 7 = 1 día de almacenaje
        return { color: 'bg-red-600', texto: 'Almacenaje', dias: Math.abs(restantes) }; 
     }
 
-    // =========================================================
-    // CASO B: REVALIDACIÓN (Ciclo de 21 Días)
-    // =========================================================
+    // CASO B: REVALIDACIÓN
     else {
-        // Azul: Antes de llegar
         if (diasTranscurridos < 0) {
             const diasParaLlegar = Math.abs(diasTranscurridos);
             if (diasParaLlegar <= 10) return { color: 'bg-sky-500', texto: 'Por arribar', dias: diasParaLlegar };
             return { color: 'bg-slate-400', texto: 'En camino', dias: diasParaLlegar };
         }
 
-        // Cuenta regresiva hacia el límite de 21 días
         const LIMITE_TOTAL = 21; 
         const diasRestantesParaLimite = LIMITE_TOTAL - diasTranscurridos;
 
@@ -259,11 +228,9 @@ const ListView = ({ data = [], onPayItem, onPayAll, onCloseOperation, role, onEd
             return { color: 'bg-yellow-400', texto: 'Alerta', dias: diasRestantesParaLimite };
         }
 
-        // Verde (0-6 días)
         return { color: 'bg-emerald-500', texto: 'Libre', dias: diasRestantesParaLimite };
     }
   };
-
 
   if (loading) {
     return (
@@ -273,7 +240,7 @@ const ListView = ({ data = [], onPayItem, onPayAll, onCloseOperation, role, onEd
       </div>
     );
   }
- //////////////////////////////////// COLUMNAS Y FILAS PRINCIPALES ////////////////////////////////////////////
+
   return (
     <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
       {/* Header */}
@@ -311,9 +278,7 @@ const ListView = ({ data = [], onPayItem, onPayAll, onCloseOperation, role, onEd
         <table className="w-full">
           <thead>
             <tr className="text-xs font-bold text-slate-500 uppercase tracking-wider border-b border-slate-200">
-              {/* Solo dejamos una columna para la flecha de expandir */}
               <th className="p-4 w-12 bg-slate-50"></th>
-              
               {!isSimpleView && <th className="p-4 bg-slate-50 text-left">EJ</th>}
               <th className="p-4 bg-slate-50 text-left">Empresa</th>
               <th className="p-4 bg-slate-50 text-left min-w-[200px]">Identificador</th>
@@ -321,18 +286,14 @@ const ListView = ({ data = [], onPayItem, onPayAll, onCloseOperation, role, onEd
               <th className="p-4 bg-slate-50 text-left">BL / Contenedor</th>
               <th className="p-4 bg-slate-50 text-left">Pedimento</th>  
               <th className="p-4 bg-slate-50 text-center">ETA</th>
-              {/* Título dinámico según el rol */}
               <th className="p-4 bg-slate-50 text-center font-bold">
                 {role === 'logistica' ? 'Días libres almacenaje' : 
                 role === 'revalidaciones' ? 'Días libres demora' : 
                 'Estatus Operativo'}
               </th>             
-              {/* --- NUEVA COLUMNA DE DÍAS EXTRA --- */}
               <th className="p-4 bg-slate-50 text-center text-red-600 font-bold">
-                {/* El título cambia según el rol */}
                 {role === 'logistica' ? 'Días Alm.' : 'Días Dem.'}
               </th>
-              {/* ----------------------------------- */}
                <th className="p-4 bg-slate-50 text-center">Conceptos</th>
               <th className="p-4 bg-slate-50 text-right min-w-[120px]">Total</th>
               <th className="p-4 bg-slate-50 text-center">Estado</th>
@@ -346,11 +307,8 @@ const ListView = ({ data = [], onPayItem, onPayAll, onCloseOperation, role, onEd
               const visibleTickets = getVisibleTickets(group.tickets);
               
               return (
-                <React.Fragment key={group.identifier}>
-                  {/* Fila principal del grupo */}
+                <React.Fragment key={group.uniqueKey}>
                   <tr className={`hover:bg-slate-50 border-b border-slate-100 transition-colors ${expandedRow === group.identifier ? 'bg-blue-50/30' : ''}`}>
-                    
-                    {/* Columna 1: Flecha (ahora es la primera) */}
                     <td className="p-4 text-center cursor-pointer" onClick={() => toggleRow(group.identifier)}>
                       {expandedRow === group.identifier 
                         ? <ChevronUp size={18} className="text-blue-500"/> 
@@ -358,31 +316,26 @@ const ListView = ({ data = [], onPayItem, onPayAll, onCloseOperation, role, onEd
                       }
                     </td>
 
-                    {/* Columna: EJ (Oculta en simple) */}
                     {!isSimpleView && (
                       <td className="p-4 font-bold text-slate-400 text-xs">
                         {group.ejecutivo?.split(' ')[0]?.toUpperCase() || '-'}
                       </td>
                     )}
 
-                    {/* Columna: Empresa */}
                     <td className="p-4 font-bold text-slate-700">{group.empresa}</td>
 
-                    {/* Columna: Identificador */}
                     <td className="p-4">
                       <span className="inline-block px-2 py-1 bg-yellow-50 border border-yellow-200 rounded text-xs font-mono font-bold text-slate-700 shadow-sm">
-                        {group.prefijo} {group.tickets[0]?.consecutivo || ''} {group.identifier}
+                        {group.prefijo} {group.consecutivo || ''} {group.identifier}
                       </span>
                     </td>
 
-                    {/* Columna: Fecha Alta (Oculta en simple) */}
                     {!isSimpleView && (
                       <td className="p-4 text-center text-xs text-slate-500">
                         {formatDate(group.tickets[0]?.fecha_alta)}
                       </td>
                     )}
 
-                    {/* Columna: BL / Contenedor */}
                     <td className="p-4 font-mono text-xs">
                       <div>{group.bl_master || '-'}</div>
                       {group.contenedor && group.contenedor !== group.bl_master && (
@@ -390,49 +343,47 @@ const ListView = ({ data = [], onPayItem, onPayAll, onCloseOperation, role, onEd
                       )}
                     </td>
 
-                    {/* Columna: Pedimento */}
                     <td className="p-4 text-xs">{group.pedimento || '-'}</td>
 
-                   {/* --- COLUMNA 1: ETA (FECHA) --- */}
                     <td className="p-4 text-center text-xs font-bold text-slate-700">
-                      {/* Si hay fecha la mostramos, si no, un guión */}
                       {group.eta ? formatDate(group.eta) : '-'}
                     </td>
 
-                    {/* --- COLUMNA 2: SEMÁFORO INTELIGENTE --- */}
                     <td className="p-4 text-center">
                       {(() => {
-                        // 1. Calculamos el estado para esta fila específica
                         const esLogistica = group.isLogistica || role === 'logistica';
-                        const info = calcularSemaforo(group.eta, esLogistica ? 'logistica' : 'revalidaciones');
+                        // AQUÍ PASAMOS group.estatus PARA VER SI ESTÁ CERRADO
+                        const info = calcularSemaforo(group.eta, esLogistica ? 'logistica' : 'revalidaciones', group.estatus);
                         
                         return (
                           <div className="flex flex-col items-center justify-center gap-1">
-                            {/* Bolita de color */}
                             <div 
                               className={`w-4 h-4 rounded-full shadow-sm border-2 border-white ${info.color}`} 
                               title={info.texto}
                             ></div>
-                            
-                            {/* Texto: Muestra días restantes o días de exceso si es rojo */}
                             <span className={`text-[10px] font-bold tracking-wide ${
                               info.color.includes('red') ? 'text-red-600' : 
                               info.color.includes('orange') ? 'text-orange-600' :
                               info.color.includes('yellow') ? 'text-yellow-600' :
                               info.color.includes('emerald') ? 'text-emerald-600' : 'text-slate-500'
                             }`}>
-                              {info.dias} {info.color.includes('red') ? 'días ex' : 
-                                           info.texto === 'Libre' || info.texto === 'Días libres' ? 'días rest' : 
-                                           info.texto === 'Por arribar' ? 'días para' : 'días'}
+                              {info.dias} {
+                                // Lógica de texto ajustada: Si está cerrado no muestra sufijo
+                                info.texto === 'Cerrado' ? '' :
+                                info.color.includes('red') ? 'días ex' : 
+                                info.texto === 'Libre' || info.texto === 'Días libres' ? 'días rest' : 
+                                info.texto === 'Por arribar' ? 'días para' : 'días'
+                              }
                             </span>
                           </div>
                         );
                       })()}
                     </td>
-                    {/* --- NUEVA CELDA: CONTADOR DE DÍAS EXTRA --- */}
+                    
                     <td className="p-4 text-center">
                       {(() => {
                         const esLogistica = group.isLogistica || role === 'logistica';
+                        // Si está cerrado, también podemos optar por no mostrar días de multa (opcional, aquí lo dejo igual pero podrías poner '-' si quisieras)
                         const diasExtra = calcularDiasPenalty(group.eta, esLogistica ? 'logistica' : 'revalidaciones');
                         
                         return (
@@ -442,21 +393,17 @@ const ListView = ({ data = [], onPayItem, onPayAll, onCloseOperation, role, onEd
                         );
                       })()}
                     </td>
-                    {/* ------------------------------------------- */}
                     
-                    {/* Columna: Conteo Conceptos */}
                     <td className="p-4 text-center">
                       <span className="inline-flex items-center justify-center w-6 h-6 bg-blue-100 text-blue-700 rounded-full text-xs font-bold">
                         {visibleTickets.length}
                       </span>
                     </td>
 
-                    {/* Columna: Total */}
                     <td className="p-4 text-right font-bold text-slate-800">
                       ${group.totalImporte.toLocaleString('es-MX', { minimumFractionDigits: 2 })}
                     </td>
 
-                    {/* Columna: Estado */}
                     <td className="p-4 text-center">
                       <span className={`px-2 py-1 rounded-full text-xs font-bold ${
                         groupIsClosed ? 'bg-slate-200 text-slate-600' :
@@ -467,7 +414,6 @@ const ListView = ({ data = [], onPayItem, onPayAll, onCloseOperation, role, onEd
                       </span>
                     </td>
 
-                    {/* Columna: Acciones */}
                     {!isSimpleView && canEdit && (
                       <td className="p-4 text-center">
                         <button 
@@ -477,22 +423,10 @@ const ListView = ({ data = [], onPayItem, onPayAll, onCloseOperation, role, onEd
                         >
                           <Edit size={16}/>
                         </button>
-                        {/* SNIPPET PARA ListView.jsx */}
-                          {item.comprobante_pago && (
-                            <a 
-                              href={item.comprobante_pago} 
-                              target="_blank" 
-                              rel="noopener noreferrer"
-                              className="ml-2 text-blue-600 hover:text-blue-800 underline text-xs"
-                            >
-                              Ver PDF
-                            </a>
-                          )}
                       </td>
                     )}
                   </tr>
 
-                  {/* Fila expandida con desglose */}
                   {expandedRow === group.identifier && (
                     <tr className="bg-slate-50">
                       <td colSpan={isSimpleView ? 10 : 12} className="p-0 border-b-2 border-slate-200">
@@ -502,7 +436,6 @@ const ListView = ({ data = [], onPayItem, onPayAll, onCloseOperation, role, onEd
                             Desglose de pagos ({visibleTickets.length} conceptos)
                           </h4>
                           
-                          {/* Tabla de conceptos */}
                           <div className="bg-white rounded-lg border border-slate-200 overflow-hidden mb-4">
                             <table className="w-full text-xs">
                               <thead>
@@ -578,12 +511,10 @@ const ListView = ({ data = [], onPayItem, onPayAll, onCloseOperation, role, onEd
                             </table>
                           </div>
 
-                          {/* Acciones del grupo */}
                           <div className="flex justify-end gap-3">
                             {canPay && !groupIsPaid && !groupIsClosed && visibleTickets.some(t => t.estatus === 'pendiente') && (
                               <button 
                                 onClick={() => {
-                                  // Pagar todos los tickets pendientes del grupo
                                   visibleTickets.filter(t => t.estatus === 'pendiente').forEach(t => {
                                     onPayAll && onPayAll(t.id);
                                   });
@@ -600,10 +531,9 @@ const ListView = ({ data = [], onPayItem, onPayAll, onCloseOperation, role, onEd
                             ) : canClose && (
                               <button 
                                 onClick={() => {
-                                  console.log('Cerrando grupo:', group);
-                                  console.log('Tickets del grupo:', group.tickets);
                                   onCloseOperation && onCloseOperation(group.tickets[0], group.tickets);
-                                }}              className="px-4 py-2 bg-slate-800 text-white font-bold rounded shadow hover:bg-slate-900 text-xs flex items-center"
+                                }}              
+                                className="px-4 py-2 bg-slate-800 text-white font-bold rounded shadow hover:bg-slate-900 text-xs flex items-center"
                               >
                                 <Lock size={12} className="mr-2"/> Cerrar operación
                               </button>
@@ -625,7 +555,6 @@ const ListView = ({ data = [], onPayItem, onPayAll, onCloseOperation, role, onEd
           </tbody>
         </table>
 
-        {/* Empty state */}
         {filteredGroups.length === 0 && (
           <div className="flex flex-col items-center justify-center py-12 text-slate-400">
             <Search size={48} className="mb-4 opacity-50" />
