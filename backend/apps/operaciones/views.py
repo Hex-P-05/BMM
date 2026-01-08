@@ -417,7 +417,7 @@ class TicketViewSet(viewsets.ModelViewSet):
     def list(self, request, *args, **kwargs):
         from apps.operaciones.models import Ticket
         from rest_framework import serializers
-        
+
         class SimpleTicketSerializer(serializers.ModelSerializer):
             empresa_nombre = serializers.CharField(source='empresa.nombre', read_only=True, default='')
             ejecutivo_nombre = serializers.CharField(source='ejecutivo.nombre', read_only=True, default='')
@@ -425,7 +425,8 @@ class TicketViewSet(viewsets.ModelViewSet):
             semaforo = serializers.CharField(read_only=True)
             dias_restantes = serializers.IntegerField(read_only=True)
             estatus_display = serializers.CharField(source='get_estatus_display', read_only=True)
-            
+            comprobante_pago = serializers.FileField(read_only=True)
+
             class Meta:
                 model = Ticket
                 fields = [
@@ -436,7 +437,8 @@ class TicketViewSet(viewsets.ModelViewSet):
                     'semaforo', 'dias_restantes', 'observaciones',
                     'fecha_creacion', 'fecha_actualizacion', 'contador_ediciones',
                     'concepto', 'proveedor', 'fecha_pago',
-                    'tipo_operacion', 'puerto', 'puerto_codigo'
+                    'tipo_operacion', 'puerto', 'puerto_codigo',
+                    'comprobante_pago'
                 ]
         
         user = request.user
