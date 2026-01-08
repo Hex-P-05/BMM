@@ -336,7 +336,7 @@ class TicketListSerializer(serializers.ModelSerializer):
     semaforo = serializers.CharField(read_only=True)
     dias_restantes = serializers.IntegerField(read_only=True)
     estatus_display = serializers.CharField(source='get_estatus_display', read_only=True)
-    comprobante_pago = serializers.FileField(read_only=True)
+    comprobante_pago = serializers.SerializerMethodField()
 
     class Meta:
         model = Ticket
@@ -356,6 +356,14 @@ class TicketListSerializer(serializers.ModelSerializer):
             'fecha_creacion', 'fecha_actualizacion',
             'comprobante_pago'
         ]
+
+    def get_comprobante_pago(self, obj):
+        if obj.comprobante_pago:
+            request = self.context.get('request')
+            if request:
+                return request.build_absolute_uri(obj.comprobante_pago.url)
+            return obj.comprobante_pago.url
+        return None
 
     def get_concepto_nombre(self, obj):
         return obj.concepto.nombre if obj.concepto else None

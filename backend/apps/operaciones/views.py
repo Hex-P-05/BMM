@@ -425,7 +425,7 @@ class TicketViewSet(viewsets.ModelViewSet):
             semaforo = serializers.CharField(read_only=True)
             dias_restantes = serializers.IntegerField(read_only=True)
             estatus_display = serializers.CharField(source='get_estatus_display', read_only=True)
-            comprobante_pago = serializers.FileField(read_only=True)
+            comprobante_pago = serializers.SerializerMethodField()
 
             class Meta:
                 model = Ticket
@@ -440,6 +440,14 @@ class TicketViewSet(viewsets.ModelViewSet):
                     'tipo_operacion', 'puerto', 'puerto_codigo',
                     'comprobante_pago'
                 ]
+
+            def get_comprobante_pago(self, obj):
+                if obj.comprobante_pago:
+                    request = self.context.get('request')
+                    if request:
+                        return request.build_absolute_uri(obj.comprobante_pago.url)
+                    return obj.comprobante_pago.url
+                return None
         
         user = request.user
         tickets = Ticket.objects.select_related('ejecutivo', 'empresa', 'puerto').all()
@@ -476,8 +484,8 @@ class TicketViewSet(viewsets.ModelViewSet):
         if not user.es_admin and not user.es_pagos and user.puerto_asignado:
             if not bl_master and not contenedor:  # Solo filtrar si NO está buscando específicamente
                 tickets = tickets.filter(puerto=user.puerto_asignado)
-        
-        serializer = SimpleTicketSerializer(tickets, many=True)
+
+        serializer = SimpleTicketSerializer(tickets, many=True, context={'request': request})
         return Response(serializer.data)
     
     def retrieve(self, request, *args, **kwargs):
@@ -496,9 +504,12 @@ class TicketViewSet(viewsets.ModelViewSet):
         serializer.is_valid(raise_exception=True)
         serializer.save()
 
+        # Refrescar la instancia desde la DB para obtener la URL del archivo guardado
+        instance.refresh_from_db()
+
         # Devolver datos actualizados incluyendo la URL del comprobante
         from apps.operaciones.serializers import TicketListSerializer
-        response_serializer = TicketListSerializer(instance)
+        response_serializer = TicketListSerializer(instance, context={'request': request})
         return Response(response_serializer.data)
             
     def get_serializer_class(self):
