@@ -207,20 +207,23 @@ class OperacionRevalidacionCreateSerializer(serializers.ModelSerializer):
 
 class ClasificacionSerializer(serializers.ModelSerializer):
     contenedor_numero = serializers.CharField(source='contenedor.numero', read_only=True)
-    clasificado_por_nombre = serializers.CharField(source='clasificado_por.nombre', read_only=True)
-    aprobado_por_nombre = serializers.CharField(source='aprobado_por.nombre', read_only=True)
+    ejecutivo_nombre = serializers.CharField(source='ejecutivo.nombre', read_only=True)
+    visto_bueno_por_nombre = serializers.CharField(source='visto_bueno_por.nombre', read_only=True)
+    estatus_display = serializers.CharField(source='get_estatus_display', read_only=True)
 
     class Meta:
         model = Clasificacion
         fields = [
             'id', 'contenedor', 'contenedor_numero',
-            'clasificado_por', 'clasificado_por_nombre',
-            'descripcion_mercancia', 'fraccion_arancelaria',
-            'requiere_visto_bueno', 'visto_bueno_otorgado',
-            'aprobado_por', 'aprobado_por_nombre', 'fecha_aprobacion',
-            'observaciones', 'fecha_creacion'
+            'ejecutivo', 'ejecutivo_nombre',
+            'agente_aduanal', 'comercializadora',
+            'prefijo', 'consecutivo', 'factura', 'bl', 'eta',
+            'estatus', 'estatus_display',
+            'visto_bueno', 'visto_bueno_por', 'visto_bueno_por_nombre',
+            'visto_bueno_fecha', 'comentarios_rechazo',
+            'fecha_creacion', 'fecha_actualizacion'
         ]
-        read_only_fields = ['id', 'fecha_creacion']
+        read_only_fields = ['id', 'fecha_creacion', 'fecha_actualizacion']
 
 
 # ============ DOCUMENTO ============
@@ -233,8 +236,8 @@ class DocumentoSerializer(serializers.ModelSerializer):
     class Meta:
         model = Documento
         fields = [
-            'id', 'contenedor', 'contenedor_numero',
-            'tipo', 'tipo_display', 'numero', 'archivo', 'notas',
+            'id', 'clasificacion', 'contenedor', 'contenedor_numero',
+            'tipo', 'tipo_display', 'archivo', 'nombre_archivo', 'descripcion',
             'subido_por', 'subido_por_nombre', 'fecha_subida'
         ]
         read_only_fields = ['id', 'fecha_subida']
@@ -244,15 +247,22 @@ class DocumentoSerializer(serializers.ModelSerializer):
 
 class DemoraSerializer(serializers.ModelSerializer):
     contenedor_numero = serializers.CharField(source='contenedor.numero', read_only=True)
+    naviera_nombre = serializers.CharField(source='naviera.nombre', read_only=True)
+    estatus_display = serializers.CharField(source='get_estatus_display', read_only=True)
+    divisa_display = serializers.CharField(source='get_divisa_display', read_only=True)
 
     class Meta:
         model = Demora
         fields = [
             'id', 'contenedor', 'contenedor_numero',
-            'fecha_inicio', 'fecha_fin', 'dias', 'tarifa_diaria',
-            'costo_calculado', 'pagada', 'fecha_pago', 'observaciones'
+            'naviera', 'naviera_nombre',
+            'fecha_inicio_demora', 'fecha_corte',
+            'dias_demora', 'costo_diario', 'costo_total',
+            'divisa', 'divisa_display',
+            'estatus', 'estatus_display',
+            'observaciones', 'fecha_creacion', 'fecha_actualizacion'
         ]
-        read_only_fields = ['id', 'dias', 'costo_calculado']
+        read_only_fields = ['id', 'fecha_creacion', 'fecha_actualizacion']
 
 
 # ============ GARANTIA ============

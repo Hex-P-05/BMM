@@ -287,12 +287,12 @@ class ClasificacionViewSet(viewsets.ModelViewSet):
     """
     queryset = Clasificacion.objects.select_related(
         'contenedor', 'contenedor__puerto',
-        'clasificado_por', 'aprobado_por'
+        'ejecutivo', 'visto_bueno_por'
     ).all()
     permission_classes = [IsAuthenticated]
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
-    filterset_fields = ['visto_bueno_otorgado', 'requiere_visto_bueno', "bl"]
-    search_fields = ['contenedor__numero', 'descripcion_mercancia']
+    filterset_fields = ['visto_bueno', 'estatus', 'bl']
+    search_fields = ['contenedor__numero', 'bl', 'factura']
     ordering = ['-fecha_creacion']
 
     def get_queryset(self):
@@ -327,7 +327,7 @@ class ClasificacionViewSet(viewsets.ModelViewSet):
         if not user.puede_dar_alta_clasificacion:
             raise PermissionDenied('No tienes permiso para crear clasificaciones')
 
-        clasificacion = serializer.save(clasificado_por=user)
+        clasificacion = serializer.save(ejecutivo=user)
 
         registrar_accion(
             usuario=user,
@@ -349,10 +349,11 @@ class ClasificacionViewSet(viewsets.ModelViewSet):
             )
 
         clasificacion = self.get_object()
-        clasificacion.visto_bueno_otorgado = True
-        clasificacion.aprobado_por = user
+        clasificacion.visto_bueno = True
+        clasificacion.visto_bueno_por = user
         from django.utils import timezone
-        clasificacion.fecha_aprobacion = timezone.now()
+        clasificacion.visto_bueno_fecha = timezone.now()
+        clasificacion.estatus = Clasificacion.Estatus.APROBADO
         clasificacion.save()
 
         registrar_accion(
