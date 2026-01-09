@@ -16,7 +16,7 @@ export const AuthProvider = ({ children }) => {
       
       if (token) {
         try {
-          const response = await api.get('/usuarios/me/');
+          const response = await api.get('usuarios/me/');
           setUser(response.data);
           console.log('Usuario data:', response.data);  // <-- Agregar esto
           setIsLoggedIn(true);
@@ -35,16 +35,16 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (email, password) => {
     try {
-      const authResponse = await api.post('/auth/login/', { 
+      const authResponse = await api.post('auth/login/', {
         email,
-        password 
+        password
       });
 
       const { access, refresh } = authResponse.data;
       localStorage.setItem('access_token', access);
       localStorage.setItem('refresh_token', refresh);
 
-      const userResponse = await api.get('/usuarios/me/');
+      const userResponse = await api.get('usuarios/me/');
       setUser(userResponse.data);
       setIsLoggedIn(true);
 

@@ -3,15 +3,17 @@ import { useState, useEffect, useCallback } from 'react';
 import api from '../api/axios';
 
 // Mapeo de catálogos a endpoints del backend
+// NOTA: Los endpoints NO deben comenzar con '/' para que axios los concatene
+// correctamente con la baseURL '/api'
 const CATALOG_ENDPOINTS = {
-  empresas: '/catalogos/empresas/',
-  clientes: '/catalogos/clientes/',
-  proveedores: '/catalogos/proveedores/',
-  navieras: '/catalogos/navieras/',
-  puertos: '/catalogos/puertos/',
-  terminales: '/catalogos/terminales/',
-  agentes: '/catalogos/agentes/',
-  trabajadores: '/usuarios/'
+  empresas: 'catalogos/empresas/',
+  clientes: 'catalogos/clientes/',
+  proveedores: 'catalogos/proveedores/',
+  navieras: 'catalogos/navieras/',
+  puertos: 'catalogos/puertos/',
+  terminales: 'catalogos/terminales/',
+  agentes: 'catalogos/agentes/',
+  trabajadores: 'usuarios/'
 };
 
 export const useAdminCatalogos = () => {

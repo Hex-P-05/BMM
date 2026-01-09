@@ -25,7 +25,7 @@ export const useContenedores = () => {
 
     try {
       const params = new URLSearchParams(filters).toString();
-      const url = params ? `/operaciones/contenedores/?${params}` : '/operaciones/contenedores/';
+      const url = params ? `operaciones/contenedores/?${params}` : 'operaciones/contenedores/';
       const response = await api.get(url);
 
       const data = response.data.results || response.data;
@@ -41,7 +41,7 @@ export const useContenedores = () => {
 
   const createContenedor = async (data) => {
     try {
-      const response = await api.post('/operaciones/contenedores/', data);
+      const response = await api.post('operaciones/contenedores/', data);
       setContenedores(prev => [response.data, ...prev]);
       return { success: true, data: response.data };
     } catch (err) {
@@ -55,7 +55,7 @@ export const useContenedores = () => {
 
   const fetchContenedoresDashboard = useCallback(async () => {
     try {
-      const response = await api.get('/operaciones/contenedores/dashboard/');
+      const response = await api.get('operaciones/contenedores/dashboard/');
       setDashboard(response.data);
     } catch (err) {
       console.error('Error fetching dashboard:', err);
@@ -67,7 +67,7 @@ export const useContenedores = () => {
   const fetchOperacionesLogistica = useCallback(async (filters = {}) => {
     try {
       const params = new URLSearchParams(filters).toString();
-      const url = params ? `/operaciones/logistica/?${params}` : '/operaciones/logistica/';
+      const url = params ? `operaciones/logistica/?${params}` : 'operaciones/logistica/';
       const response = await api.get(url);
 
       const data = response.data.results || response.data;
@@ -87,7 +87,7 @@ export const useContenedores = () => {
 
   const createOperacionLogistica = async (data) => {
     try {
-      const response = await api.post('/operaciones/logistica/', data);
+      const response = await api.post('operaciones/logistica/', data);
       setOperacionesLogistica(prev => [response.data, ...prev]);
       return { success: true, data: response.data };
     } catch (err) {
@@ -101,7 +101,7 @@ export const useContenedores = () => {
 
   const getNextConsecutivoLogistica = async (prefijo) => {
     try {
-      const response = await api.get(`/operaciones/logistica/siguiente_consecutivo/?prefijo=${prefijo}`);
+      const response = await api.get(`operaciones/logistica/siguiente_consecutivo/?prefijo=${prefijo}`);
       return response.data.siguiente_consecutivo;
     } catch (err) {
       console.error('Error getting consecutivo logistica:', err);
@@ -114,7 +114,7 @@ export const useContenedores = () => {
   const fetchOperacionesRevalidacion = useCallback(async (filters = {}) => {
     try {
       const params = new URLSearchParams(filters).toString();
-      const url = params ? `/operaciones/revalidaciones/?${params}` : '/operaciones/revalidaciones/';
+      const url = params ? `operaciones/revalidaciones/?${params}` : 'operaciones/revalidaciones/';
       const response = await api.get(url);
 
       const data = response.data.results || response.data;
@@ -134,7 +134,7 @@ export const useContenedores = () => {
 
   const createOperacionRevalidacion = async (data) => {
     try {
-      const response = await api.post('/operaciones/revalidaciones/', data);
+      const response = await api.post('operaciones/revalidaciones/', data);
       setOperacionesRevalidacion(prev => [response.data, ...prev]);
       return { success: true, data: response.data };
     } catch (err) {
@@ -148,7 +148,7 @@ export const useContenedores = () => {
 
   const getNextConsecutivoRevalidacion = async (prefijo) => {
     try {
-      const response = await api.get(`/operaciones/revalidaciones/siguiente_consecutivo/?prefijo=${prefijo}`);
+      const response = await api.get(`operaciones/revalidaciones/siguiente_consecutivo/?prefijo=${prefijo}`);
       return response.data.siguiente_consecutivo;
     } catch (err) {
       console.error('Error getting consecutivo revalidacion:', err);
@@ -161,7 +161,7 @@ export const useContenedores = () => {
   const fetchClasificaciones = useCallback(async (filters = {}) => {
     try {
       const params = new URLSearchParams(filters).toString();
-      const url = params ? `/operaciones/clasificaciones/?${params}` : '/operaciones/clasificaciones/';
+      const url = params ? `operaciones/clasificaciones/?${params}` : 'operaciones/clasificaciones/';
       const response = await api.get(url);
 
       const data = response.data.results || response.data;
@@ -181,7 +181,7 @@ export const useContenedores = () => {
 
   const createClasificacion = async (data) => {
     try {
-      const response = await api.post('/operaciones/clasificaciones/', data);
+      const response = await api.post('operaciones/clasificaciones/', data);
       setClasificaciones(prev => [response.data, ...prev]);
       return { success: true, data: response.data };
     } catch (err) {
@@ -195,7 +195,7 @@ export const useContenedores = () => {
 
   const darVistoBueno = async (clasificacionId) => {
     try {
-      const response = await api.post(`/operaciones/clasificaciones/${clasificacionId}/dar_visto_bueno/`);
+      const response = await api.post(`operaciones/clasificaciones/${clasificacionId}/dar_visto_bueno/`);
       await fetchClasificaciones();
       return { success: true, data: response.data };
     } catch (err) {

@@ -26,12 +26,12 @@ export const useCatalogos = () => {
         puertosRes,
         terminalesRes
       ] = await Promise.all([
-        api.get('/catalogos/empresas/'),
-        api.get('/catalogos/conceptos/'),
-        api.get('/catalogos/proveedores/'),
-        api.get('/catalogos/navieras/'),
-        api.get('/catalogos/puertos/'),
-        api.get('/catalogos/terminales/')
+        api.get('catalogos/empresas/'),
+        api.get('catalogos/conceptos/'),
+        api.get('catalogos/proveedores/'),
+        api.get('catalogos/navieras/'),
+        api.get('catalogos/puertos/'),
+        api.get('catalogos/terminales/')
       ]);
 
       // Django REST Framework puede paginar o no

@@ -17,7 +17,7 @@ export const useTickets = () => {
 
     try {
       const params = new URLSearchParams(filters).toString();
-      const url = params ? `/operaciones/tickets/?${params}` : '/operaciones/tickets/';
+      const url = params ? `operaciones/tickets/?${params}` : 'operaciones/tickets/';
       const response = await api.get(url);
 
       // Django REST Framework pagina los resultados
@@ -35,7 +35,7 @@ export const useTickets = () => {
   // Fetch de datos del dashboard
   const fetchDashboard = useCallback(async () => {
     try {
-      const response = await api.get('/operaciones/tickets/dashboard/');
+      const response = await api.get('operaciones/tickets/dashboard/');
       setDashboard(response.data);
     } catch (err) {
       console.error('Error fetching dashboard:', err);
@@ -45,7 +45,7 @@ export const useTickets = () => {
   // Crear contenedor
   const createTicket = async (ticketData) => {
     try {
-      const response = await api.post('/operaciones/tickets/', ticketData);
+      const response = await api.post('operaciones/tickets/', ticketData);
       setTickets(prev => [response.data, ...prev]);
       return { success: true, data: response.data };
     } catch (err) {
@@ -60,7 +60,7 @@ export const useTickets = () => {
   // Editar contenedor
   const updateTicket = async (id, ticketData) => {
     try {
-      const response = await api.patch(`/operaciones/tickets/${id}/`, ticketData);
+      const response = await api.patch(`operaciones/tickets/${id}/`, ticketData);
       setTickets(prev => prev.map(t => t.id === id ? response.data : t));
       return { success: true, data: response.data };
     } catch (err) {
@@ -75,7 +75,7 @@ export const useTickets = () => {
   // Editar ETA (endpoint específico para Revalidaciones)
   const updateEta = async (id, etaData) => {
     try {
-      const response = await api.post(`/operaciones/tickets/${id}/editar_eta/`, etaData);
+      const response = await api.post(`operaciones/tickets/${id}/editar_eta/`, etaData);
       await fetchTickets(); // Refrescar lista
       return { success: true, data: response.data };
     } catch (err) {
@@ -90,7 +90,7 @@ export const useTickets = () => {
   // Obtener siguiente consecutivo
   const getNextConsecutivo = async (prefijo) => {
     try {
-      const response = await api.get(`/operaciones/tickets/siguiente_consecutivo/?prefijo=${prefijo}`);
+      const response = await api.get(`operaciones/tickets/siguiente_consecutivo/?prefijo=${prefijo}`);
       return response.data.siguiente_consecutivo;
     } catch (err) {
       console.error('Error getting consecutivo:', err);

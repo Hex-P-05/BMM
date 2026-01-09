@@ -33,8 +33,8 @@ const OperationSetup = () => {
     const fetchCatalogs = async () => {
       try {
         const [empRes, navRes] = await Promise.all([
-          api.get('/catalogos/empresas/'),
-          api.get('/catalogos/navieras/')
+          api.get('catalogos/empresas/'),
+          api.get('catalogos/navieras/')
         ]);
         setEmpresas(empRes.data.results || empRes.data);
         setNavieras(navRes.data.results || navRes.data);
@@ -50,7 +50,7 @@ const OperationSetup = () => {
     const fetchConsecutivo = async () => {
       if (formData.prefijo && formData.prefijo.length >= 2) {
         try {
-          const response = await api.get(`/operaciones/tickets/siguiente_consecutivo/?prefijo=${formData.prefijo.toUpperCase()}`);
+          const response = await api.get(`operaciones/tickets/siguiente_consecutivo/?prefijo=${formData.prefijo.toUpperCase()}`);
           // El backend devuelve { siguiente_consecutivo: 123 }
           const nextVal = response.data.siguiente_consecutivo || 1;
           setConsecutivoEditable(String(nextVal).padStart(3, '0'));
@@ -108,7 +108,7 @@ const OperationSetup = () => {
         puerto: puertoId,  // <-- Agregar esto
       };
 
-      await api.post('/operaciones/tickets/', payload);
+      await api.post('operaciones/tickets/', payload);
 
       setNotification({ type: 'success', message: `¡Operación ${formData.prefijo}-${consecutivoEditable} creada exitosamente!` });
       
