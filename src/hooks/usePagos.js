@@ -6,23 +6,39 @@ export const usePagos = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  // Registrar pago completo de un ticket (simplificado)
-  const registrarPago = useCallback(async (ticketId, pagoData = {}) => {
+  // Registrar pago completo de un ticket con soporte para comprobante
+  const registrarPago = useCallback(async (ticketId, pagoData = {}, comprobante = null) => {
     setLoading(true);
     setError(null);
 
     try {
-      // Simplemente actualizar el estatus del ticket a "pagado"
-      const response = await api.patch(`/operaciones/tickets/${ticketId}/`, {
-        estatus: 'pagado',
-        fecha_pago: pagoData.fecha_pago || new Date().toISOString().split('T')[0]
-      });
+      let response;
+
+      // Si hay archivo comprobante, usar FormData
+      if (comprobante) {
+        const formData = new FormData();
+        formData.append('estatus', 'pagado');
+        formData.append('fecha_pago', pagoData.fecha_pago || new Date().toISOString().split('T')[0]);
+        formData.append('comprobante_pago', comprobante);
+
+        response = await api.patch(`/operaciones/tickets/${ticketId}/`, formData, {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+          },
+        });
+      } else {
+        // Sin archivo, enviar JSON normal
+        response = await api.patch(`/operaciones/tickets/${ticketId}/`, {
+          estatus: 'pagado',
+          fecha_pago: pagoData.fecha_pago || new Date().toISOString().split('T')[0]
+        });
+      }
 
       return { success: true, data: response.data };
 
     } catch (err) {
       console.error('Error registrando pago:', err);
-      
+
       let errorMsg = 'Error al registrar el pago';
       if (err.response?.data) {
         const data = err.response.data;
@@ -34,7 +50,7 @@ export const usePagos = () => {
           errorMsg = JSON.stringify(data);
         }
       }
-      
+
       setError(errorMsg);
       return { success: false, error: errorMsg };
 
