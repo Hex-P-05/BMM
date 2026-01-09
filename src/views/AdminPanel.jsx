@@ -98,19 +98,31 @@ const CATALOGOS_CONFIG = {
     icon: Briefcase,
     fields: [
       { key: 'email', label: 'Email', type: 'email', required: true },
-      { key: 'first_name', label: 'Nombre', type: 'text' },
-      { key: 'last_name', label: 'Apellido', type: 'text' },
+      { key: 'nombre', label: 'Nombre Completo', type: 'text', required: true },
+
       { key: 'rol', label: 'Rol', type: 'select', options: [
+
         { value: 'admin', label: 'Admin' },
+
         { value: 'revalidaciones', label: 'Revalidaciones' },
+
         { value: 'logistica', label: 'Logística' },
+
         { value: 'pagos', label: 'Pagos' },
+
         { value: 'clasificacion', label: 'Clasificación' }
+
       ]},
+
+      { key: 'puerto_asignado', label: 'Puerto Asignado', type: 'select_relation', source: 'puertos', valueKey: 'id', labelKey: 'nombre' },
+
       { key: 'activo', label: 'Activo', type: 'checkbox', default: true }
+
     ],
+
     extraCreateFields: [
-      { key: 'password', label: 'Contraseña', type: 'password', required: true }
+
+      { key: 'password', label: 'Contraseña (mín. 6 caracteres)', type: 'password', required: true }
     ]
   }
 };
