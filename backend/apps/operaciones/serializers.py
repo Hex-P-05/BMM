@@ -8,7 +8,7 @@ from apps.catalogos.serializers import (
     ClienteSerializer, NavieraCuentaSerializer, PuertoSerializer,
     TerminalSerializer, NavieraSerializer
 )
-from apps.catalogos.models import Concepto, Proveedor
+from apps.catalogos.models import Concepto, Proveedor, Naviera, NavieraCuenta
 
 
 # ============ CONTENEDOR ============
@@ -329,10 +329,15 @@ class TicketListSerializer(serializers.ModelSerializer):
     ejecutivo_nombre = serializers.CharField(source='ejecutivo.nombre', read_only=True, default='')
     empresa_nombre = serializers.CharField(source='empresa.nombre', read_only=True, default='')
     concepto_nombre = serializers.SerializerMethodField()
+    # Datos de proveedor o naviera según tipo de operación
     proveedor_nombre = serializers.SerializerMethodField()
     proveedor_banco = serializers.SerializerMethodField()
     proveedor_cuenta = serializers.SerializerMethodField()
     proveedor_clabe = serializers.SerializerMethodField()
+    # Campos adicionales de naviera
+    naviera_nombre = serializers.CharField(source='naviera.nombre', read_only=True, default='')
+    naviera_cuenta_info = NavieraCuentaSerializer(source='naviera_cuenta', read_only=True)
+    puerto_codigo = serializers.CharField(source='puerto.codigo', read_only=True, default='')
     semaforo = serializers.CharField(read_only=True)
     dias_restantes = serializers.IntegerField(read_only=True)
     estatus_display = serializers.CharField(source='get_estatus_display', read_only=True)
@@ -348,26 +353,41 @@ class TicketListSerializer(serializers.ModelSerializer):
             'bl_master', 'pedimento', 'factura',
             'proveedor', 'proveedor_nombre', 'proveedor_banco',
             'proveedor_cuenta', 'proveedor_clabe',
+            'naviera', 'naviera_nombre', 'naviera_cuenta', 'naviera_cuenta_info',
             'importe', 'divisa',
             'estatus', 'estatus_display', 'fecha_pago',
             'eta', 'dias_libres', 'dias_restantes', 'semaforo',
             'contador_ediciones', 'observaciones',
+            'tipo_operacion', 'puerto', 'puerto_codigo',
             'fecha_creacion', 'fecha_actualizacion'
         ]
 
     def get_concepto_nombre(self, obj):
         return obj.concepto.nombre if obj.concepto else None
-    
+
     def get_proveedor_nombre(self, obj):
+        """Devolver nombre del proveedor o beneficiario de naviera según tipo de operación"""
+        if obj.tipo_operacion == 'revalidaciones' and obj.naviera_cuenta:
+            return obj.naviera_cuenta.beneficiario
         return obj.proveedor.nombre if obj.proveedor else None
-    
+
     def get_proveedor_banco(self, obj):
+        """Devolver banco del proveedor o de la cuenta naviera según tipo de operación"""
+        if obj.tipo_operacion == 'revalidaciones' and obj.naviera_cuenta:
+            return obj.naviera_cuenta.banco
         return obj.proveedor.banco if obj.proveedor else None
-    
+
     def get_proveedor_cuenta(self, obj):
+        """Devolver cuenta del proveedor o de la naviera según tipo de operación"""
+        if obj.tipo_operacion == 'revalidaciones' and obj.naviera_cuenta:
+            return obj.naviera_cuenta.cuenta
         return obj.proveedor.cuenta if obj.proveedor else None
-    
+
     def get_proveedor_clabe(self, obj):
+        """Devolver CLABE del proveedor o de la naviera según tipo de operación"""
+        if obj.tipo_operacion == 'revalidaciones' and obj.naviera_cuenta:
+            # Para naviera, devolver CLABE o ABA/SWIFT si no hay CLABE
+            return obj.naviera_cuenta.clabe or obj.naviera_cuenta.aba_swift
         return obj.proveedor.clabe if obj.proveedor else None
 
 
@@ -410,7 +430,19 @@ class TicketCreateSerializer(serializers.ModelSerializer):
         required=False,
         allow_null=True
     )
-    
+
+    # Campos de naviera para revalidaciones
+    naviera = serializers.PrimaryKeyRelatedField(
+        queryset=Naviera.objects.all(),
+        required=False,
+        allow_null=True
+    )
+    naviera_cuenta = serializers.PrimaryKeyRelatedField(
+        queryset=NavieraCuenta.objects.all(),
+        required=False,
+        allow_null=True
+    )
+
     contenedor = serializers.CharField(required=False, allow_blank=True, default='')
     # Permitir enviar consecutivo explícito para evitar incremento por cada concepto
     consecutivo = serializers.IntegerField(required=False, allow_null=True)
@@ -420,6 +452,7 @@ class TicketCreateSerializer(serializers.ModelSerializer):
         fields = [
             'empresa', 'fecha_alta', 'concepto', 'prefijo', 'contenedor',
             'bl_master', 'pedimento', 'factura', 'proveedor',
+            'naviera', 'naviera_cuenta',
             'importe', 'divisa', 'eta', 'dias_libres', 'observaciones',
             'tipo_operacion', 'puerto', 'consecutivo'
         ]

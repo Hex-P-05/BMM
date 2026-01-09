@@ -107,8 +107,18 @@ const CaptureForm = ({ onSave, onCancel, role, userName }) => {
   // Estado para conceptos seleccionados y sus montos
   const [conceptosSeleccionados, setConceptosSeleccionados] = useState({});
   
-  // Estado para datos de naviera (para mostrar datos bancarios)
-  const [navieraData, setNavieraData] = useState({ banco: '', cuenta: '', clabe: '' });
+  // Estado para datos de naviera (para mostrar datos bancarios según concepto)
+  const [navieraData, setNavieraData] = useState({
+    banco: '',
+    cuenta: '',
+    clabe: '',
+    aba_swift: '',
+    beneficiario: '',
+    tipo_concepto: ''
+  });
+
+  // Estado para naviera seleccionada completa (con cuentas y montos fijos)
+  const [navieraSeleccionada, setNavieraSeleccionada] = useState(null);
   
   const [previewConsecutivo, setPreviewConsecutivo] = useState('001');
   const [consecutivoEditable, setConsecutivoEditable] = useState('');
@@ -178,6 +188,75 @@ const CaptureForm = ({ onSave, onCancel, role, userName }) => {
   // Contar conceptos seleccionados
   const conceptosActivos = Object.keys(conceptosSeleccionados).length;
 
+  // Función para buscar la cuenta bancaria según el concepto
+  const buscarCuentaPorConcepto = (naviera, conceptoNombre) => {
+    if (!naviera || !naviera.cuentas || !conceptoNombre) return null;
+
+    // Normalizar el nombre del concepto para comparación
+    const conceptoNormalizado = conceptoNombre.toUpperCase().trim();
+
+    // Buscar cuenta que contenga el concepto en su tipo_concepto
+    const cuentaEncontrada = naviera.cuentas.find(cuenta => {
+      const tiposConcepto = cuenta.tipo_concepto.toUpperCase().split(',').map(t => t.trim());
+      return tiposConcepto.some(tipo =>
+        tipo.includes(conceptoNormalizado) || conceptoNormalizado.includes(tipo)
+      );
+    });
+
+    // Si no encontramos match exacto, usar la primera cuenta disponible
+    return cuentaEncontrada || naviera.cuentas[0] || null;
+  };
+
+  // Función para buscar monto fijo por naviera y concepto
+  const buscarMontoFijo = (naviera, conceptoNombre) => {
+    if (!naviera || !naviera.montos_fijos || !conceptoNombre) return null;
+
+    const conceptoNormalizado = conceptoNombre.toUpperCase().trim();
+
+    const montoEncontrado = naviera.montos_fijos.find(mf =>
+      mf.concepto_nombre.toUpperCase().trim() === conceptoNormalizado
+    );
+
+    return montoEncontrado || null;
+  };
+
+  // Función para actualizar datos bancarios cuando cambia naviera o concepto
+  const actualizarDatosBancarios = (naviera, conceptosSeleccionadosActuales) => {
+    if (!naviera || !naviera.cuentas || naviera.cuentas.length === 0) {
+      setNavieraData({ banco: '', cuenta: '', clabe: '', aba_swift: '', beneficiario: '', tipo_concepto: '' });
+      return;
+    }
+
+    // Obtener el primer concepto seleccionado para determinar la cuenta
+    const conceptosKeys = Object.keys(conceptosSeleccionadosActuales);
+    if (conceptosKeys.length > 0) {
+      const primerConcepto = conceptosSeleccionadosActuales[conceptosKeys[0]];
+      const cuenta = buscarCuentaPorConcepto(naviera, primerConcepto.nombre);
+      if (cuenta) {
+        setNavieraData({
+          banco: cuenta.banco || '',
+          cuenta: cuenta.cuenta || '',
+          clabe: cuenta.clabe || '',
+          aba_swift: cuenta.aba_swift || '',
+          beneficiario: cuenta.beneficiario || '',
+          tipo_concepto: cuenta.tipo_concepto || ''
+        });
+        return;
+      }
+    }
+
+    // Si no hay conceptos seleccionados, usar la primera cuenta
+    const primeraCuenta = naviera.cuentas[0];
+    setNavieraData({
+      banco: primeraCuenta.banco || '',
+      cuenta: primeraCuenta.cuenta || '',
+      clabe: primeraCuenta.clabe || '',
+      aba_swift: primeraCuenta.aba_swift || '',
+      beneficiario: primeraCuenta.beneficiario || '',
+      tipo_concepto: primeraCuenta.tipo_concepto || ''
+    });
+  };
+
   // Obtener siguiente consecutivo
   useEffect(() => {
     const fetchConsecutivo = async () => {
@@ -235,13 +314,9 @@ const CaptureForm = ({ onSave, onCancel, role, userName }) => {
 
         if (previo.naviera) {
           const nav = navieras?.find(n => n.id === parseInt(previo.naviera));
-          if (nav && nav.cuentas && nav.cuentas.length > 0) {
-            const cuenta = nav.cuentas[0];
-            setNavieraData({
-              banco: cuenta.banco || '',
-              cuenta: cuenta.cuenta || '',
-              clabe: cuenta.clabe || ''
-            });
+          if (nav) {
+            setNavieraSeleccionada(nav);
+            actualizarDatosBancarios(nav, conceptosSeleccionados);
           }
         }
 
@@ -286,13 +361,9 @@ const CaptureForm = ({ onSave, onCancel, role, userName }) => {
 
         if (clasificacion.naviera) {
           const nav = navieras?.find(n => n.id === parseInt(clasificacion.naviera));
-          if (nav && nav.cuentas && nav.cuentas.length > 0) {
-            const cuenta = nav.cuentas[0];
-            setNavieraData({
-              banco: cuenta.banco || '',
-              cuenta: cuenta.cuenta || '',
-              clabe: cuenta.clabe || ''
-            });
+          if (nav) {
+            setNavieraSeleccionada(nav);
+            actualizarDatosBancarios(nav, conceptosSeleccionados);
           }
         }
 
@@ -327,16 +398,42 @@ const CaptureForm = ({ onSave, onCancel, role, userName }) => {
     setConceptosSeleccionados(prev => {
       if (prev[conceptoId]) {
         const { [conceptoId]: removed, ...rest } = prev;
+        // Actualizar datos bancarios con los conceptos restantes
+        if (navieraSeleccionada) {
+          setTimeout(() => actualizarDatosBancarios(navieraSeleccionada, rest), 0);
+        }
         return rest;
       } else {
-        return {
-          ...prev,
-          [conceptoId]: {
-            nombre: conceptoNombre,
-            monto: '',
-            comentario: generarComentario(conceptoNombre)
+        // Buscar si hay monto fijo para este concepto
+        let montoInicial = '';
+        let esFijo = false;
+
+        if (navieraSeleccionada) {
+          const montoFijo = buscarMontoFijo(navieraSeleccionada, conceptoNombre);
+          if (montoFijo) {
+            montoInicial = montoFijo.monto.toString();
+            esFijo = true;
           }
+        }
+
+        const nuevoConcepto = {
+          nombre: conceptoNombre,
+          monto: montoInicial,
+          esFijo: esFijo,
+          comentario: generarComentario(conceptoNombre)
         };
+
+        const nuevosConceptos = {
+          ...prev,
+          [conceptoId]: nuevoConcepto
+        };
+
+        // Actualizar datos bancarios con el nuevo concepto
+        if (navieraSeleccionada) {
+          setTimeout(() => actualizarDatosBancarios(navieraSeleccionada, nuevosConceptos), 0);
+        }
+
+        return nuevosConceptos;
       }
     });
   };
@@ -379,15 +476,31 @@ const CaptureForm = ({ onSave, onCancel, role, userName }) => {
 
     if (name === 'naviera') {
       const nav = navieras?.find(n => n.id === parseInt(value));
-      if (nav && nav.cuentas && nav.cuentas.length > 0) {
-        const cuenta = nav.cuentas[0];
-        setNavieraData({
-          banco: cuenta.banco || '',
-          cuenta: cuenta.cuenta || '',
-          clabe: cuenta.clabe || ''
-        });
+      setNavieraSeleccionada(nav || null);
+
+      if (nav) {
+        // Actualizar datos bancarios según conceptos ya seleccionados
+        actualizarDatosBancarios(nav, conceptosSeleccionados);
+
+        // Auto-llenar montos fijos para conceptos ya seleccionados
+        if (nav.montos_fijos && nav.montos_fijos.length > 0) {
+          setConceptosSeleccionados(prev => {
+            const updated = { ...prev };
+            for (const [id, concepto] of Object.entries(updated)) {
+              const montoFijo = buscarMontoFijo(nav, concepto.nombre);
+              if (montoFijo && !concepto.monto) {
+                updated[id] = {
+                  ...concepto,
+                  monto: montoFijo.monto.toString(),
+                  esFijo: true
+                };
+              }
+            }
+            return updated;
+          });
+        }
       } else {
-        setNavieraData({ banco: '', cuenta: '', clabe: '' });
+        setNavieraData({ banco: '', cuenta: '', clabe: '', aba_swift: '', beneficiario: '', tipo_concepto: '' });
       }
     }
 
@@ -412,6 +525,15 @@ const CaptureForm = ({ onSave, onCancel, role, userName }) => {
       const consecutivoNumerico = parseInt(consecutivoEditable) || 1;
 
       for (const [conceptoId, concepto] of Object.entries(conceptosSeleccionados)) {
+        // Para revalidaciones, buscar la cuenta de naviera adecuada para este concepto
+        let navieraCuentaId = null;
+        if (isRevalidaciones && navieraSeleccionada && navieraSeleccionada.cuentas) {
+          const cuentaEncontrada = buscarCuentaPorConcepto(navieraSeleccionada, concepto.nombre);
+          if (cuentaEncontrada) {
+            navieraCuentaId = cuentaEncontrada.id;
+          }
+        }
+
         const ticketData = {
           empresa: parseInt(formData.empresa),
           fecha_alta: formData.fecha_alta,
@@ -428,7 +550,10 @@ const CaptureForm = ({ onSave, onCancel, role, userName }) => {
           tipo_operacion: isRevalidaciones ? 'revalidaciones' :
                           isLogistica ? 'logistica' :
                           isClasificacion ? 'clasificacion' : 'revalidaciones',
-          puerto: puertoId || null
+          puerto: puertoId || null,
+          // Campos de naviera para revalidaciones
+          naviera: isRevalidaciones && formData.naviera ? parseInt(formData.naviera) : null,
+          naviera_cuenta: navieraCuentaId
         };
 
         try {
@@ -471,13 +596,23 @@ const CaptureForm = ({ onSave, onCancel, role, userName }) => {
   // Renderizar tarjeta de concepto
   const renderConceptCard = (concepto) => {
     const isSelected = !!conceptosSeleccionados[concepto.id];
+    const conceptoData = conceptosSeleccionados[concepto.id];
+    const tieneMontoFijo = conceptoData?.esFijo;
+
+    // Verificar si hay monto fijo disponible para este concepto (aunque no esté seleccionado)
+    const montoFijoDisponible = navieraSeleccionada ? buscarMontoFijo(navieraSeleccionada, concepto.nombre) : null;
+
     return (
-      <div 
+      <div
         key={concepto.id}
         className={`rounded-lg border-2 transition-all ${
-          isSelected 
-            ? 'border-blue-500 bg-white shadow-md' 
-            : 'border-slate-200 bg-white hover:border-slate-300'
+          isSelected
+            ? tieneMontoFijo
+              ? 'border-emerald-500 bg-emerald-50 shadow-md'
+              : 'border-blue-500 bg-white shadow-md'
+            : montoFijoDisponible
+              ? 'border-emerald-200 bg-emerald-50/30 hover:border-emerald-300'
+              : 'border-slate-200 bg-white hover:border-slate-300'
         }`}
       >
         <button
@@ -485,32 +620,54 @@ const CaptureForm = ({ onSave, onCancel, role, userName }) => {
           onClick={() => toggleConcepto(concepto.id, concepto.nombre)}
           className="w-full p-3 flex items-center justify-between"
         >
-          <span className={`text-xs font-bold ${isSelected ? 'text-blue-700' : 'text-slate-600'}`}>
-            {concepto.nombre}
-          </span>
+          <div className="flex items-center gap-2">
+            <span className={`text-xs font-bold ${
+              isSelected
+                ? tieneMontoFijo ? 'text-emerald-700' : 'text-blue-700'
+                : montoFijoDisponible ? 'text-emerald-600' : 'text-slate-600'
+            }`}>
+              {concepto.nombre}
+            </span>
+            {montoFijoDisponible && !isSelected && (
+              <span className="text-[9px] bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded-full font-medium">
+                ${montoFijoDisponible.monto}
+              </span>
+            )}
+          </div>
           <div className={`w-5 h-5 rounded flex items-center justify-center ${
-            isSelected ? 'bg-blue-500 text-white' : 'bg-slate-200'
+            isSelected
+              ? tieneMontoFijo ? 'bg-emerald-500 text-white' : 'bg-blue-500 text-white'
+              : 'bg-slate-200'
           }`}>
             {isSelected && <Check size={14} />}
           </div>
         </button>
-        
+
         {isSelected && (
           <div className="px-3 pb-3">
             <div className="relative">
               <span className="absolute left-2 top-1.5 text-xs text-slate-400">$</span>
               <input
                 type="number"
-                value={conceptosSeleccionados[concepto.id]?.monto || ''}
+                value={conceptoData?.monto || ''}
                 onChange={(e) => updateConceptoMonto(concepto.id, e.target.value)}
                 min="0"
                 step="0.01"
                 placeholder="0.00"
-                className="w-full pl-5 p-1.5 border border-blue-300 rounded text-sm text-right outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                className={`w-full pl-5 p-1.5 border rounded text-sm text-right outline-none focus:ring-1 ${
+                  tieneMontoFijo
+                    ? 'border-emerald-300 bg-emerald-50 focus:border-emerald-500 focus:ring-emerald-500'
+                    : 'border-blue-300 focus:border-blue-500 focus:ring-blue-500'
+                }`}
               />
+              {tieneMontoFijo && (
+                <span className="absolute right-2 top-1.5 text-[9px] text-emerald-600 font-bold">
+                  FIJO
+                </span>
+              )}
             </div>
-            <p className="text-[9px] text-slate-400 mt-1 truncate" title={conceptosSeleccionados[concepto.id]?.comentario}>
-              {conceptosSeleccionados[concepto.id]?.comentario}
+            <p className="text-[9px] text-slate-400 mt-1 truncate" title={conceptoData?.comentario}>
+              {conceptoData?.comentario}
             </p>
           </div>
         )}
@@ -676,11 +833,43 @@ const CaptureForm = ({ onSave, onCancel, role, userName }) => {
             {/* Datos bancarios de naviera */}
             {isRevalidaciones && navieraData.banco && (
               <div className="mt-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
-                <p className="text-xs font-bold text-blue-700 mb-2">Datos bancarios de la naviera:</p>
-                <div className="grid grid-cols-3 gap-4 text-xs">
-                  <div><span className="text-slate-500">Banco:</span> <strong>{navieraData.banco}</strong></div>
-                  <div><span className="text-slate-500">Cuenta:</span> <strong>{navieraData.cuenta}</strong></div>
-                  <div><span className="text-slate-500">CLABE:</span> <strong>{navieraData.clabe}</strong></div>
+                <div className="flex justify-between items-start mb-2">
+                  <p className="text-xs font-bold text-blue-700">Datos bancarios de la naviera:</p>
+                  {navieraData.tipo_concepto && (
+                    <span className="text-[10px] bg-blue-200 text-blue-800 px-2 py-0.5 rounded-full">
+                      {navieraData.tipo_concepto}
+                    </span>
+                  )}
+                </div>
+                {navieraData.beneficiario && (
+                  <div className="mb-2 pb-2 border-b border-blue-200">
+                    <span className="text-[10px] text-slate-500">Beneficiario:</span>
+                    <p className="text-xs font-bold text-slate-700">{navieraData.beneficiario}</p>
+                  </div>
+                )}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
+                  <div>
+                    <span className="text-slate-500 block text-[10px]">Banco:</span>
+                    <strong className="text-slate-700">{navieraData.banco}</strong>
+                  </div>
+                  {navieraData.cuenta && (
+                    <div>
+                      <span className="text-slate-500 block text-[10px]">Cuenta:</span>
+                      <strong className="text-slate-700">{navieraData.cuenta}</strong>
+                    </div>
+                  )}
+                  {navieraData.clabe && (
+                    <div>
+                      <span className="text-slate-500 block text-[10px]">CLABE:</span>
+                      <strong className="text-slate-700">{navieraData.clabe}</strong>
+                    </div>
+                  )}
+                  {navieraData.aba_swift && (
+                    <div>
+                      <span className="text-slate-500 block text-[10px]">ABA/SWIFT:</span>
+                      <strong className="text-slate-700">{navieraData.aba_swift}</strong>
+                    </div>
+                  )}
                 </div>
               </div>
             )}

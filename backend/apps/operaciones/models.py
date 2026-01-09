@@ -1195,6 +1195,26 @@ class Ticket(models.Model):
         verbose_name='Puerto'
     )
 
+    # Campos para revalidaciones - datos de naviera
+    naviera = models.ForeignKey(
+        'catalogos.Naviera',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='tickets',
+        verbose_name='Naviera',
+        help_text='Naviera para operaciones de revalidación'
+    )
+    naviera_cuenta = models.ForeignKey(
+        'catalogos.NavieraCuenta',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='tickets',
+        verbose_name='Cuenta de naviera',
+        help_text='Cuenta bancaria de la naviera para este concepto'
+    )
+
     class Meta:
         db_table = 'tickets'
         verbose_name = 'Ticket (Legacy)'

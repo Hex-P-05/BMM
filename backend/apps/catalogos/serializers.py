@@ -1,7 +1,8 @@
 from rest_framework import serializers
 from .models import (
     Empresa, Concepto, Proveedor, Naviera, Puerto, Terminal,
-    Cliente, AgenteAduanal, Comercializadora, NavieraCuenta, Aduana
+    Cliente, AgenteAduanal, Comercializadora, NavieraCuenta, Aduana,
+    MontoFijoRevalidacion
 )
 
 
@@ -90,13 +91,24 @@ class NavieraCuentaSerializer(serializers.ModelSerializer):
         read_only_fields = ['id']
 
 
+class MontoFijoRevalidacionSerializer(serializers.ModelSerializer):
+    """Serializer para montos fijos por naviera/concepto"""
+    naviera_nombre = serializers.CharField(source='naviera.nombre', read_only=True)
+
+    class Meta:
+        model = MontoFijoRevalidacion
+        fields = ['id', 'naviera', 'naviera_nombre', 'concepto_nombre', 'monto', 'moneda', 'activo']
+        read_only_fields = ['id']
+
+
 class NavieraConCuentasSerializer(serializers.ModelSerializer):
-    """Serializer para naviera con todas sus cuentas bancarias"""
+    """Serializer para naviera con todas sus cuentas bancarias y montos fijos"""
     cuentas = NavieraCuentaSerializer(many=True, read_only=True)
+    montos_fijos = MontoFijoRevalidacionSerializer(many=True, read_only=True)
 
     class Meta:
         model = Naviera
-        fields = ['id', 'nombre', 'codigo', 'activo', 'cuentas']
+        fields = ['id', 'nombre', 'codigo', 'activo', 'cuentas', 'montos_fijos']
         read_only_fields = ['id']
 
 
