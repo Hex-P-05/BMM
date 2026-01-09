@@ -27,11 +27,11 @@ const ListView = ({ data = [], onPayItem, onPayAll, onCloseOperation, role, onEd
       // Criterio: Rol Clasificación + Concepto ID 1 + Importe $0
       // -----------------------------------------------------------------------
       if (ticket.tipo_operacion === 'clasificacion') {
-        const esConceptoDummy = ticket.concepto == 1; // Compara con "1" o 1
+        const esConceptoDummy = ticket.concepto == 1; 
         const esMontoCero = parseFloat(ticket.importe || 0) === 0;
 
         if (esConceptoDummy && esMontoCero) {
-          return; // Es el registro dummy de apertura, lo ocultamos.
+          return; 
         }
       }
       // -----------------------------------------------------------------------
@@ -43,7 +43,7 @@ const ListView = ({ data = [], onPayItem, onPayAll, onCloseOperation, role, onEd
         ? (ticket.contenedor || ticket.bl_master || 'SIN-ID')
         : (ticket.bl_master || ticket.contenedor || 'SIN-ID');
       
-      // IMPORTANTE: Agrupamos por ID + CONSECUTIVO para que XAO 1 no se mezcle con XAO 2
+      // Agrupamos por ID + CONSECUTIVO + PREFIJO
       const uniqueGroupKey = `${baseId}-${ticket.prefijo}-${ticket.consecutivo}`;
 
       if (!groups[uniqueGroupKey]) {
@@ -142,11 +142,6 @@ const ListView = ({ data = [], onPayItem, onPayAll, onCloseOperation, role, onEd
   const getVisibleTickets = (tickets) => {
     if (canSeeAllConceptos) return tickets;
     return tickets.filter(t => {
-      // AQUÍ: Si el rol es admin/pagos ven todo.
-      // Si el usuario es de un rol específico, solo ve sus tickets.
-      // NOTA: Si quieres que Logística pueda ver los pagos extras de clasificación
-      // asociados a su contenedor, mantén esta lógica abierta o ajústala.
-      // Por defecto aquí filtramos estrictamente por tipo de operación del rol.
       if (role === 'revalidaciones') return t.tipo_operacion === 'revalidaciones';
       if (role === 'logistica') return t.tipo_operacion === 'logistica';
       if (role === 'clasificacion') return t.tipo_operacion === 'clasificacion';
@@ -154,10 +149,9 @@ const ListView = ({ data = [], onPayItem, onPayAll, onCloseOperation, role, onEd
     });
   };
 
-  // Calcular días exactos de multa (Demora o Almacenaje)
+  // Calcular días exactos de multa
   const calcularDiasPenalty = (eta, tipoOperacion) => {
     if (!eta) return 0;
-
     let fechaEta;
     const etaStr = eta.toString();
     if (etaStr.includes('/')) {
@@ -176,21 +170,17 @@ const ListView = ({ data = [], onPayItem, onPayAll, onCloseOperation, role, onEd
     if (diasTranscurridos < 0) return 0;
 
     if (tipoOperacion === 'logistica') {
-        // Logística: 7 días libres.
         return diasTranscurridos > 7 ? diasTranscurridos - 7 : 0;
     } else {
-        // Revalidación: 21 días límite.
         return diasTranscurridos > 21 ? diasTranscurridos - 21 : 0;
     }
   };
 
-  // --- LÓGICA MAESTRA DE SEMÁFORO (FINAL v2) ---
+  // Semáforo
   const calcularSemaforo = (eta, tipoOperacion, estatus) => {
-    // 0. Si está cerrado, SEMÁFORO DETENIDO (Gris y sin contador)
     if (estatus === 'cerrado') {
         return { color: 'bg-slate-200', texto: 'Cerrado', dias: '-' };
     }
-
     if (!eta) return { color: 'bg-slate-300', texto: '-', dias: 0 };
 
     let fechaEta;
@@ -209,15 +199,12 @@ const ListView = ({ data = [], onPayItem, onPayAll, onCloseOperation, role, onEd
     const diffMs = hoy - fechaEta;
     const diasTranscurridos = Math.floor(diffMs / (1000 * 60 * 60 * 24)); 
 
-    // CASO A: LOGÍSTICA
     if (tipoOperacion === 'logistica') {
        if (diasTranscurridos < 0) {
            return { color: 'bg-sky-500', texto: 'En tránsito', dias: Math.abs(diasTranscurridos) };
        }
-       
        const diasLibresTotales = 7;
        const restantes = diasLibresTotales - diasTranscurridos;
-
        if (diasTranscurridos <= 3) {
            return { color: 'bg-emerald-500', texto: 'Días libres', dias: restantes };
        }
@@ -225,19 +212,14 @@ const ListView = ({ data = [], onPayItem, onPayAll, onCloseOperation, role, onEd
            return { color: 'bg-yellow-400', texto: 'Por vencer', dias: restantes };
        }
        return { color: 'bg-red-600', texto: 'Almacenaje', dias: Math.abs(restantes) }; 
-    }
-
-    // CASO B: REVALIDACIÓN
-    else {
+    } else {
         if (diasTranscurridos < 0) {
             const diasParaLlegar = Math.abs(diasTranscurridos);
             if (diasParaLlegar <= 10) return { color: 'bg-sky-500', texto: 'Por arribar', dias: diasParaLlegar };
             return { color: 'bg-slate-400', texto: 'En camino', dias: diasParaLlegar };
         }
-
         const LIMITE_TOTAL = 21; 
         const diasRestantesParaLimite = LIMITE_TOTAL - diasTranscurridos;
-
         if (diasTranscurridos > 21) {
             return { color: 'bg-red-600', texto: 'Demora', dias: diasTranscurridos - 21 };
         } else if (diasTranscurridos >= 15) {
@@ -245,9 +227,20 @@ const ListView = ({ data = [], onPayItem, onPayAll, onCloseOperation, role, onEd
         } else if (diasTranscurridos >= 7) {
             return { color: 'bg-yellow-400', texto: 'Alerta', dias: diasRestantesParaLimite };
         }
-
         return { color: 'bg-emerald-500', texto: 'Libre', dias: diasRestantesParaLimite };
     }
+  };
+
+  // --- CÁLCULO DINÁMICO DE COLUMNAS PARA EL COLSPAN ---
+  // Base: 11 columnas
+  // Simple: 11
+  // Full: 11 + 2 (EJ, Fecha) = 13
+  // Full + Edit: 13 + 1 (Acciones) = 14
+  const getColSpan = () => {
+    let cols = 11; 
+    if (!isSimpleView) cols += 2; 
+    if (!isSimpleView && canEdit) cols += 1;
+    return cols;
   };
 
   if (loading) {
@@ -444,7 +437,8 @@ const ListView = ({ data = [], onPayItem, onPayAll, onCloseOperation, role, onEd
 
                   {expandedRow === group.identifier && (
                     <tr className="bg-slate-50">
-                      <td colSpan={isSimpleView ? 10 : 12} className="p-0 border-b-2 border-slate-200">
+                      {/* --- CORRECCIÓN DE COLSPAN --- */}
+                      <td colSpan={getColSpan()} className="p-0 border-b-2 border-slate-200">
                         <div className="p-6">
                           <h4 className="text-xs font-bold text-slate-500 uppercase mb-4 flex items-center gap-2">
                             <DollarSign size={14} />
