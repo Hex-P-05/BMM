@@ -355,7 +355,7 @@ class TicketListSerializer(serializers.ModelSerializer):
             'proveedor_cuenta', 'proveedor_clabe',
             'naviera', 'naviera_nombre', 'naviera_cuenta', 'naviera_cuenta_info',
             'importe', 'divisa',
-            'estatus', 'estatus_display', 'fecha_pago',
+            'estatus', 'estatus_display', 'fecha_pago', 'comprobante_pago',
             'eta', 'dias_libres', 'dias_restantes', 'semaforo',
             'contador_ediciones', 'observaciones',
             'tipo_operacion', 'puerto', 'puerto_codigo',
@@ -471,15 +471,17 @@ class TicketCreateSerializer(serializers.ModelSerializer):
 
 
 class TicketUpdateSerializer(serializers.ModelSerializer):
-    
+
     """Serializer para actualizar tickets - LEGACY"""
+    comprobante_pago = serializers.FileField(required=False, allow_null=True)
+
     class Meta:
         model = Ticket
         fields = [
             'empresa', 'fecha_alta', 'concepto', 'prefijo', 'contenedor',
             'bl_master', 'pedimento', 'factura', 'proveedor',
             'importe', 'divisa', 'eta', 'dias_libres', 'observaciones',
-            'estatus', 'fecha_pago'  # <-- Agregar estos
+            'estatus', 'fecha_pago', 'comprobante_pago'
         ]
 
     def validate(self, attrs):
