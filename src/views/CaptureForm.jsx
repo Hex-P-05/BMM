@@ -97,6 +97,7 @@ const CaptureForm = ({ onSave, onCancel, role, userName }) => {
     contenedor: '',
     bl_master: '',
     naviera: '',
+    proveedor: '', // Proveedor para logística
     pedimento: '',
     eta: '',
     dias_libres: 7,
@@ -553,7 +554,9 @@ const CaptureForm = ({ onSave, onCancel, role, userName }) => {
           puerto: puertoId || null,
           // Campos de naviera para revalidaciones
           naviera: isRevalidaciones && formData.naviera ? parseInt(formData.naviera) : null,
-          naviera_cuenta: navieraCuentaId
+          naviera_cuenta: navieraCuentaId,
+          // Campo de proveedor para logística
+          proveedor: (isLogistica || isAdmin) && formData.proveedor ? parseInt(formData.proveedor) : null
         };
 
         try {
@@ -828,7 +831,60 @@ const CaptureForm = ({ onSave, onCancel, role, userName }) => {
                   </select>
                 </div>
               )}
+
+              {/* Proveedor (para Logística y Admin) */}
+              {(isLogistica || isAdmin) && (
+                <div>
+                  <label className="text-xs font-bold text-slate-600 mb-1 block">Proveedor</label>
+                  <select
+                    name="proveedor"
+                    value={formData.proveedor}
+                    onChange={handleChange}
+                    className="w-full p-2 border rounded text-sm bg-white outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="">-- Seleccionar --</option>
+                    {proveedores.filter(p => p.activo !== false).map(p => (
+                      <option key={p.id} value={p.id}>{p.nombre}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
             </div>
+
+            {/* Datos bancarios del proveedor (para Logística) */}
+            {(isLogistica || isAdmin) && formData.proveedor && (() => {
+              const proveedorSeleccionado = proveedores.find(p => p.id === parseInt(formData.proveedor));
+              if (!proveedorSeleccionado) return null;
+              return (
+                <div className="mt-4 p-3 bg-green-50 rounded-lg border border-green-200">
+                  <p className="text-xs font-bold text-green-700 mb-2">Datos bancarios del proveedor:</p>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
+                    <div>
+                      <span className="text-slate-500 block text-[10px]">Proveedor:</span>
+                      <strong className="text-slate-700">{proveedorSeleccionado.nombre}</strong>
+                    </div>
+                    {proveedorSeleccionado.banco && (
+                      <div>
+                        <span className="text-slate-500 block text-[10px]">Banco:</span>
+                        <strong className="text-slate-700">{proveedorSeleccionado.banco}</strong>
+                      </div>
+                    )}
+                    {proveedorSeleccionado.cuenta && (
+                      <div>
+                        <span className="text-slate-500 block text-[10px]">Cuenta:</span>
+                        <strong className="text-slate-700">{proveedorSeleccionado.cuenta}</strong>
+                      </div>
+                    )}
+                    {proveedorSeleccionado.clabe && (
+                      <div>
+                        <span className="text-slate-500 block text-[10px]">CLABE:</span>
+                        <strong className="text-slate-700">{proveedorSeleccionado.clabe}</strong>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })()}
 
             {/* Datos bancarios de naviera */}
             {isRevalidaciones && navieraData.banco && (
