@@ -43,6 +43,8 @@ api.interceptors.response.use(
         
         try {
           // Intentar refresh del token
+          // Nota: Usamos axios directamente con la ruta completa porque esta
+          // llamada está fuera del interceptor de 'api'
           const response = await axios.post('/api/auth/refresh/', {
             refresh: refreshToken
           });
