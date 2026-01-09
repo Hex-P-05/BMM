@@ -3,6 +3,7 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.exceptions import PermissionDenied
+from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.filters import SearchFilter, OrderingFilter
 from django.db.models import Sum, Count, Q
@@ -380,6 +381,8 @@ class TicketViewSet(viewsets.ModelViewSet):
     Usar ContenedorViewSet, OperacionLogisticaViewSet y OperacionRevalidacionViewSet
     para nuevas funcionalidades.
     """
+    # Parsers para aceptar archivos (multipart/form-data)
+    parser_classes = [MultiPartParser, FormParser, JSONParser]
 
     # En views.py, dentro de class TicketViewSet:
 
@@ -435,7 +438,7 @@ class TicketViewSet(viewsets.ModelViewSet):
                     'eta', 'dias_libres', 'divisa', 'pedimento', 'factura',
                     'semaforo', 'dias_restantes', 'observaciones',
                     'fecha_creacion', 'fecha_actualizacion', 'contador_ediciones',
-                    'concepto', 'proveedor', 'fecha_pago',
+                    'concepto', 'proveedor', 'fecha_pago', 'comprobante_pago',
                     'tipo_operacion', 'puerto', 'puerto_codigo'
                 ]
         

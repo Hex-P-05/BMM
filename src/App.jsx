@@ -109,45 +109,28 @@ function AppContent() {
     }
   };
 
-  const handlePayAll = async (ticketId) => {
-    const result = await registrarPago(ticketId, {});
-    if (result.success) {
-      refreshTickets();
-      setSabanaRefreshKey(prev => prev + 1);
+  // Abrir modal de pago para un ticket específico
+  const handlePayAll = (ticketId) => {
+    // Buscar el ticket completo en los datos
+    const ticket = tickets.find(t => t.id === ticketId);
+    if (ticket) {
+      setPaymentConfirmation({ isOpen: true, item: ticket });
     } else {
-      alert('Error: ' + result.error);
+      alert('Error: No se encontró el ticket');
     }
   };
 
   // Esta función se pasa al prop 'onConfirm' del PaymentModal
+  // Ahora usa registrarPago del hook con soporte para archivo
   const executePayment = async (ticketId, file) => {
-    try {
-      // 1. Crear FormData (necesario para enviar archivos)
-      const payload = new FormData();
-      
-      // Datos base del pago
-      payload.append('estatus', 'pagado');
-      payload.append('fecha_pago', new Date().toISOString().split('T')[0]); // Fecha de hoy
-      
-      // 2. Si el usuario seleccionó archivo, lo agregamos
-      if (file) {
-        payload.append('comprobante_pago', file);
-      }
+    const result = await registrarPago(ticketId, {}, file);
 
-      // 3. Llamada a la API (asegúrate que tu hook/api acepte el segundo argumento como body)
-      // NOTA: Si usas axios directamente, él detecta el FormData automáticamente.
-      const result = await api.patch(`/operaciones/tickets/${ticketId}/`, payload);
-      
-      // 4. Actualizar vista
-      if (result.data) {
-        // Refrescar la tabla (llamar a tu función de recarga)
-        refreshTickets(); 
-        setPaymentConfirmation({ isOpen: false, item: null }); // Cerrar modal
-        alert('Pago registrado con éxito');
-      }
-    } catch (error) {
-      console.error('Error registrando pago:', error);
-      alert('Error al registrar el pago.');
+    if (result.success) {
+      refreshTickets();
+      setSabanaRefreshKey(prev => prev + 1);
+      setPaymentConfirmation({ isOpen: false, item: null });
+    } else {
+      alert('Error: ' + result.error);
     }
   };
 
