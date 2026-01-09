@@ -78,9 +78,9 @@ class ProveedorViewSet(CatalogoBaseViewSet):
 
 
 class NavieraViewSet(CatalogoBaseViewSet):
-    # Prefetch las cuentas para evitar N+1 queries
-    queryset = Naviera.objects.prefetch_related('cuentas').all()
-    # Usar serializer con cuentas incluidas para beneficiarios por concepto
+    # Prefetch las cuentas y montos fijos para evitar N+1 queries
+    queryset = Naviera.objects.prefetch_related('cuentas', 'montos_fijos').all()
+    # Usar serializer con cuentas y montos fijos incluidos
     serializer_class = NavieraConCuentasSerializer
     search_fields = ['nombre', 'codigo']
     filterset_fields = ['activo']

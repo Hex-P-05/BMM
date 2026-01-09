@@ -402,7 +402,7 @@ class TicketViewSet(viewsets.ModelViewSet):
         return queryset
     pagination_class = None
     queryset = Ticket.objects.select_related(
-        'ejecutivo', 'empresa', 'concepto', 'proveedor'
+        'ejecutivo', 'empresa', 'concepto', 'proveedor', 'naviera', 'naviera_cuenta', 'puerto'
     ).all()
     permission_classes = [IsAuthenticated]
     #filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]

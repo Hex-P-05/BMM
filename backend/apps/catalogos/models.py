@@ -297,6 +297,51 @@ class Concepto(models.Model):
         return f"{self.nombre} ({self.get_tipo_rol_display()})"
 
 
+class MontoFijoRevalidacion(models.Model):
+    """
+    Montos fijos por naviera y concepto para revalidación.
+    Estos montos se auto-llenan en el formulario de alta de pagos.
+
+    Ejemplo:
+    - MAERSK + GARANTÍA = $1,000 USD
+    - COSCO + CAMBIO A.A = $46 USD
+    - EVERGREEN + CAMBIO A.A = $82 USD
+    """
+    naviera = models.ForeignKey(
+        Naviera,
+        on_delete=models.CASCADE,
+        related_name='montos_fijos',
+        verbose_name='Naviera'
+    )
+    concepto_nombre = models.CharField(
+        'Nombre del concepto',
+        max_length=100,
+        help_text='Nombre exacto del concepto (ej: GARANTÍA, CAMBIO A.A)'
+    )
+    monto = models.DecimalField(
+        'Monto fijo',
+        max_digits=12,
+        decimal_places=2
+    )
+    moneda = models.CharField(
+        'Moneda',
+        max_length=3,
+        choices=[('MXN', 'Pesos'), ('USD', 'Dólares')],
+        default='USD'
+    )
+    activo = models.BooleanField('Activo', default=True)
+
+    class Meta:
+        db_table = 'cat_montos_fijos_revalidacion'
+        verbose_name = 'Monto fijo de revalidación'
+        verbose_name_plural = 'Montos fijos de revalidación'
+        unique_together = ['naviera', 'concepto_nombre']
+        ordering = ['naviera', 'concepto_nombre']
+
+    def __str__(self):
+        return f"{self.naviera.nombre} - {self.concepto_nombre}: ${self.monto} {self.moneda}"
+
+
 class Proveedor(models.Model):
     """
     Catálogo de proveedores con datos bancarios para logística.
