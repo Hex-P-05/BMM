@@ -375,29 +375,58 @@ class TicketListSerializer(serializers.ModelSerializer):
     def get_concepto_nombre(self, obj):
         return obj.concepto.nombre if obj.concepto else None
 
+    # --- LÓGICA DE FALLBACK PARA DATOS BANCARIOS ---
+
+    def get_cuenta_naviera_fallback(self, obj):
+        """
+        Intenta obtener una cuenta bancaria válida buscando en orden:
+        1. Cuenta específica asignada al ticket.
+        2. Primera cuenta vinculada a la Naviera.
+        """
+        if obj.naviera_cuenta:
+            return obj.naviera_cuenta
+        
+        if obj.naviera:
+            try:
+                # Intenta usar related_name personalizado 'cuentas'
+                return obj.naviera.cuentas.first()
+            except AttributeError:
+                # Si falla, usa el default de Django 'navieracuenta_set'
+                return obj.naviera.navieracuenta_set.first()
+        return None
+
     def get_proveedor_nombre(self, obj):
-        """Devolver nombre del proveedor o beneficiario de naviera según tipo de operación"""
-        if obj.tipo_operacion == 'revalidaciones' and obj.naviera_cuenta:
-            return obj.naviera_cuenta.beneficiario
+        if obj.tipo_operacion == 'revalidaciones':
+            cuenta = self.get_cuenta_naviera_fallback(obj)
+            if cuenta: 
+                return cuenta.beneficiario
+            if obj.naviera: 
+                return obj.naviera.nombre
+        
         return obj.proveedor.nombre if obj.proveedor else None
 
     def get_proveedor_banco(self, obj):
-        """Devolver banco del proveedor o de la cuenta naviera según tipo de operación"""
-        if obj.tipo_operacion == 'revalidaciones' and obj.naviera_cuenta:
-            return obj.naviera_cuenta.banco
+        if obj.tipo_operacion == 'revalidaciones':
+            cuenta = self.get_cuenta_naviera_fallback(obj)
+            if cuenta: 
+                return cuenta.banco
+        
         return obj.proveedor.banco if obj.proveedor else None
 
     def get_proveedor_cuenta(self, obj):
-        """Devolver cuenta del proveedor o de la naviera según tipo de operación"""
-        if obj.tipo_operacion == 'revalidaciones' and obj.naviera_cuenta:
-            return obj.naviera_cuenta.cuenta
+        if obj.tipo_operacion == 'revalidaciones':
+            cuenta = self.get_cuenta_naviera_fallback(obj)
+            if cuenta: 
+                return cuenta.cuenta
+        
         return obj.proveedor.cuenta if obj.proveedor else None
 
     def get_proveedor_clabe(self, obj):
-        """Devolver CLABE del proveedor o de la naviera según tipo de operación"""
-        if obj.tipo_operacion == 'revalidaciones' and obj.naviera_cuenta:
-            # Para naviera, devolver CLABE o ABA/SWIFT si no hay CLABE
-            return obj.naviera_cuenta.clabe or obj.naviera_cuenta.aba_swift
+        if obj.tipo_operacion == 'revalidaciones':
+            cuenta = self.get_cuenta_naviera_fallback(obj)
+            if cuenta: 
+                return cuenta.clabe or cuenta.aba_swift
+        
         return obj.proveedor.clabe if obj.proveedor else None
 
 
