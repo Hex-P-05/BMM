@@ -1,13 +1,19 @@
 import React, { useState, useMemo } from 'react';
-import { ChevronUp, ChevronDown, Edit, Lock, FileText, Search, DollarSign, Download } from 'lucide-react';
+import { ChevronUp, ChevronDown, Edit, Lock, FileText, Search, DollarSign, Download, FolderOpen } from 'lucide-react';
 import StatusBadge from '../components/StatusBadge';
 import { formatDate } from '../utils/helpers';
 import { generatePDF } from '../utils/pdfGenerator';
+import api from '../api/axios';
 
 const ListView = ({ data = [], onPayItem, onPayAll, onCloseOperation, role, onEdit, loading }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [expandedRow, setExpandedRow] = useState(null);
   const [viewMode, setViewMode] = useState('full');
+
+  // Estado para edición de BL/Contenedor (solo admin)
+  const [editingTicket, setEditingTicket] = useState(null);
+  const [editForm, setEditForm] = useState({ bl_master: '', contenedor: '' });
+  const [savingEdit, setSavingEdit] = useState(false);
   
   // Permisos por rol
   const canPay = role === 'admin' || role === 'pagos';
@@ -20,20 +26,10 @@ const ListView = ({ data = [], onPayItem, onPayAll, onCloseOperation, role, onEd
   // Agrupar tickets por identificador (bl_master para revalidaciones, contenedor para logística)
   const groupedData = useMemo(() => {
     const groups = {};
-    
+
     data.forEach(ticket => {
       // -----------------------------------------------------------------------
-      // FILTRO ESPECÍFICO: Ocultar "Apertura de Expediente" (Dummy)
-      // Criterio: Rol Clasificación + Concepto ID 1 + Importe $0
-      // -----------------------------------------------------------------------
-      if (ticket.tipo_operacion === 'clasificacion') {
-        const esConceptoDummy = ticket.concepto == 1; 
-        const esMontoCero = parseFloat(ticket.importe || 0) === 0;
-
-        if (esConceptoDummy && esMontoCero) {
-          return; 
-        }
-      }
+      // Ya no ocultamos "Apertura de Expediente" - ahora lo mostramos diferente
       // -----------------------------------------------------------------------
 
       // Determinar el identificador principal
@@ -69,16 +65,26 @@ const ListView = ({ data = [], onPayItem, onPayAll, onCloseOperation, role, onEd
           
           // Acumuladores
           totalImporte: 0,
-          
+
           // Para el semáforo, usar el peor caso del grupo
           semaforo: 'verde',
-          estatus: 'pendiente'
+          estatus: 'pendiente',
+
+          // Nuevo: marcar si es apertura de expediente
+          es_apertura_expediente: false,
+          sensibilidad_contenido: ticket.sensibilidad_contenido || 'verde'
         };
       }
-      
+
       // Agregamos el ticket al grupo
       groups[uniqueGroupKey].tickets.push(ticket);
-      
+
+      // Marcar si algún ticket es apertura de expediente
+      if (ticket.es_apertura_expediente) {
+        groups[uniqueGroupKey].es_apertura_expediente = true;
+        groups[uniqueGroupKey].sensibilidad_contenido = ticket.sensibilidad_contenido || 'verde';
+      }
+
       // Sumamos el importe
       groups[uniqueGroupKey].totalImporte += parseFloat(ticket.importe) || 0;
       
@@ -134,6 +140,35 @@ const ListView = ({ data = [], onPayItem, onPayAll, onCloseOperation, role, onEd
 
   const toggleRow = (id) => setExpandedRow(expandedRow === id ? null : id);
   const isSimpleView = viewMode === 'simple';
+
+  // Función para abrir el modal de edición de BL/Contenedor
+  const openEditModal = (ticket) => {
+    setEditingTicket(ticket);
+    setEditForm({
+      bl_master: ticket.bl_master || '',
+      contenedor: ticket.contenedor || ''
+    });
+  };
+
+  // Función para guardar los cambios de BL/Contenedor
+  const saveEditBLContenedor = async () => {
+    if (!editingTicket) return;
+    setSavingEdit(true);
+    try {
+      await api.patch(`operaciones/tickets/${editingTicket.id}/`, {
+        bl_master: editForm.bl_master.toUpperCase(),
+        contenedor: editForm.contenedor.toUpperCase()
+      });
+      // Recargar la página para ver los cambios
+      window.location.reload();
+    } catch (error) {
+      console.error('Error al guardar:', error);
+      alert(error.response?.data?.detail || 'Error al guardar los cambios');
+    } finally {
+      setSavingEdit(false);
+      setEditingTicket(null);
+    }
+  };
 
   const isClosed = (group) => group.estatus === 'cerrado';
   const isPaid = (group) => group.estatus === 'pagado';
@@ -336,9 +371,26 @@ const ListView = ({ data = [], onPayItem, onPayAll, onCloseOperation, role, onEd
                     <td className="p-4 font-bold text-slate-700">{group.empresa}</td>
 
                     <td className="p-4">
-                      <span className="inline-block px-2 py-1 bg-yellow-50 border border-yellow-200 rounded text-xs font-mono font-bold text-slate-700 shadow-sm">
-                        {group.prefijo} {group.consecutivo || ''} {group.identifier}
-                      </span>
+                      <div className="flex items-center gap-2">
+                        {/* Indicador de sensibilidad del contenido */}
+                        {group.sensibilidad_contenido && group.sensibilidad_contenido !== 'verde' && (
+                          <div
+                            className={`w-3 h-3 rounded-full shadow-sm flex-shrink-0 ${
+                              group.sensibilidad_contenido === 'rojo' ? 'bg-red-500' :
+                              group.sensibilidad_contenido === 'amarillo' ? 'bg-yellow-400' :
+                              'bg-emerald-500'
+                            }`}
+                            title={`Sensibilidad: ${
+                              group.sensibilidad_contenido === 'rojo' ? 'Contenido sensible' :
+                              group.sensibilidad_contenido === 'amarillo' ? 'Contenido tolerable' :
+                              'Contenido común'
+                            }`}
+                          />
+                        )}
+                        <span className="inline-block px-2 py-1 bg-yellow-50 border border-yellow-200 rounded text-xs font-mono font-bold text-slate-700 shadow-sm">
+                          {group.prefijo} {group.consecutivo || ''} {group.identifier}
+                        </span>
+                      </div>
                     </td>
 
                     {!isSimpleView && (
@@ -348,10 +400,24 @@ const ListView = ({ data = [], onPayItem, onPayAll, onCloseOperation, role, onEd
                     )}
 
                     <td className="p-4 font-mono text-xs">
-                      <div>{group.bl_master || '-'}</div>
-                      {group.contenedor && group.contenedor !== group.bl_master && (
-                        <div className="text-slate-400">{group.contenedor}</div>
-                      )}
+                      <div className="flex items-center gap-2">
+                        <div className="flex-1">
+                          <div>{group.bl_master || '-'}</div>
+                          {group.contenedor && group.contenedor !== group.bl_master && (
+                            <div className="text-slate-400">{group.contenedor}</div>
+                          )}
+                        </div>
+                        {/* Botón de edición de BL/Contenedor (solo admin) */}
+                        {canEditAll && (
+                          <button
+                            onClick={() => openEditModal(group.tickets[0])}
+                            className="p-1.5 text-slate-300 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                            title="Editar BL/Contenedor"
+                          >
+                            <Edit size={14} />
+                          </button>
+                        )}
+                      </div>
                     </td>
 
                     <td className="p-4 text-xs">{group.pedimento || '-'}</td>
@@ -408,8 +474,17 @@ const ListView = ({ data = [], onPayItem, onPayAll, onCloseOperation, role, onEd
                       </span>
                     </td>
 
-                    <td className="p-4 text-right font-bold text-slate-800">
-                      ${group.totalImporte.toLocaleString('es-MX', { minimumFractionDigits: 2 })}
+                    <td className="p-4 text-right font-bold">
+                      {group.es_apertura_expediente && group.totalImporte === 0 ? (
+                        <span className="inline-flex items-center gap-2 text-purple-600 bg-purple-50 px-3 py-1 rounded-full text-xs">
+                          <FolderOpen size={14} />
+                          Apertura de expediente
+                        </span>
+                      ) : (
+                        <span className="text-slate-800">
+                          ${group.totalImporte.toLocaleString('es-MX', { minimumFractionDigits: 2 })}
+                        </span>
+                      )}
                     </td>
 
                     <td className="p-4 text-center">
@@ -589,6 +664,74 @@ const ListView = ({ data = [], onPayItem, onPayAll, onCloseOperation, role, onEd
           </div>
         )}
       </div>
+
+      {/* Modal de edición de BL/Contenedor (solo admin) */}
+      {editingTicket && canEditAll && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-md mx-4 overflow-hidden">
+            <div className="bg-gradient-to-r from-blue-600 to-blue-700 p-4">
+              <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                <Edit size={20} />
+                Editar BL / Contenedor
+              </h3>
+              <p className="text-blue-100 text-sm mt-1">
+                Solo el administrador puede modificar estos campos
+              </p>
+            </div>
+
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-bold text-slate-700 mb-2">
+                  BL Master
+                </label>
+                <input
+                  type="text"
+                  value={editForm.bl_master}
+                  onChange={(e) => setEditForm(prev => ({ ...prev, bl_master: e.target.value.toUpperCase() }))}
+                  className="w-full p-3 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 font-mono uppercase"
+                  placeholder="Ingresa el BL Master"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-bold text-slate-700 mb-2">
+                  # Contenedor
+                </label>
+                <input
+                  type="text"
+                  value={editForm.contenedor}
+                  onChange={(e) => setEditForm(prev => ({ ...prev, contenedor: e.target.value.toUpperCase() }))}
+                  className="w-full p-3 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 font-mono uppercase"
+                  placeholder="Ingresa el número de contenedor"
+                />
+              </div>
+            </div>
+
+            <div className="bg-slate-50 px-6 py-4 flex justify-end gap-3 border-t border-slate-200">
+              <button
+                onClick={() => setEditingTicket(null)}
+                className="px-4 py-2 text-slate-600 font-medium hover:bg-slate-200 rounded-lg transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={saveEditBLContenedor}
+                disabled={savingEdit}
+                className="px-6 py-2 bg-blue-600 text-white font-bold rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+              >
+                {savingEdit ? (
+                  <>
+                    <div className="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full" />
+                    Guardando...
+                  </>
+                ) : (
+                  'Guardar cambios'
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -1110,6 +1110,11 @@ class Ticket(models.Model):
         MXN = 'MXN', 'Pesos Mexicanos'
         USD = 'USD', 'Dólares Americanos'
 
+    class SensibilidadContenido(models.TextChoices):
+        ROJO = 'rojo', 'Contenido sensible'
+        AMARILLO = 'amarillo', 'Contenido tolerable'
+        VERDE = 'verde', 'Contenido común'
+
     ejecutivo = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.PROTECT,
@@ -1220,6 +1225,38 @@ class Ticket(models.Model):
         related_name='tickets',
         verbose_name='Cuenta de naviera',
         help_text='Cuenta bancaria de la naviera para este concepto'
+    )
+
+    # Nuevos campos para clasificación
+    agente_aduanal = models.ForeignKey(
+        'catalogos.AgenteAduanal',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='tickets',
+        verbose_name='Agente aduanal'
+    )
+
+    sensibilidad_contenido = models.CharField(
+        'Sensibilidad del contenido',
+        max_length=10,
+        choices=SensibilidadContenido.choices,
+        default=SensibilidadContenido.VERDE,
+        help_text='Rojo=Sensible, Amarillo=Tolerable, Verde=Común'
+    )
+
+    # Pedimento separado en prefijo (4 chars) y consecutivo (7 chars)
+    pedimento_prefijo = models.CharField(
+        'Pedimento prefijo',
+        max_length=4,
+        blank=True,
+        help_text='Primeros 4 caracteres del pedimento'
+    )
+    pedimento_consecutivo = models.CharField(
+        'Pedimento consecutivo',
+        max_length=7,
+        blank=True,
+        help_text='Últimos 7 caracteres del pedimento'
     )
 
     class Meta:

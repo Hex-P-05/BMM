@@ -112,23 +112,24 @@ const SabanaView = ({
   };
 
   // -----------------------------------------------------------------------
-  // FILTRO MAESTRO: Limpiar datos "dummy" antes de usarlos
-  // Esto arregla tanto el contador como la tabla ListView
+  // FILTRO MAESTRO: Ya no ocultamos los registros dummy de clasificación
+  // Ahora los mostramos con texto "Apertura de expediente" en lugar de $0.00
   // -----------------------------------------------------------------------
   const filteredData = useMemo(() => {
-    return data.filter(ticket => {
-      // Si es clasificación, revisamos si es el registro dummy (Concepto 1 y Monto 0)
+    return data.map(ticket => {
+      // Si es clasificación con concepto 1 y monto 0, marcarlo como apertura
       if (ticket.tipo_operacion === 'clasificacion') {
         const esConceptoDummy = ticket.concepto == 1;
         const esMontoCero = parseFloat(ticket.importe || 0) === 0;
-        
-        // Si cumple ambas, lo ocultamos (return false)
+
         if (esConceptoDummy && esMontoCero) {
-          return false;
+          return {
+            ...ticket,
+            es_apertura_expediente: true
+          };
         }
       }
-      // Todos los demás registros pasan
-      return true;
+      return ticket;
     });
   }, [data]);
   // -----------------------------------------------------------------------
