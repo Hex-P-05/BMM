@@ -6,9 +6,9 @@ from .models import (
 from apps.catalogos.serializers import (
     EmpresaSerializer, ConceptoSerializer, ProveedorSerializer,
     ClienteSerializer, NavieraCuentaSerializer, PuertoSerializer,
-    TerminalSerializer, NavieraSerializer
+    TerminalSerializer, NavieraSerializer, AgenteAduanalSerializer
 )
-from apps.catalogos.models import Concepto, Proveedor, Naviera, NavieraCuenta
+from apps.catalogos.models import Concepto, Proveedor, Naviera, NavieraCuenta, AgenteAduanal
 
 
 # ============ CONTENEDOR ============
@@ -351,6 +351,9 @@ class TicketListSerializer(serializers.ModelSerializer):
     semaforo = serializers.CharField(read_only=True)
     dias_restantes = serializers.IntegerField(read_only=True)
     estatus_display = serializers.CharField(source='get_estatus_display', read_only=True)
+    # Nuevos campos
+    agente_aduanal_nombre = serializers.CharField(source='agente_aduanal.nombre', read_only=True, default='')
+    sensibilidad_contenido_display = serializers.CharField(source='get_sensibilidad_contenido_display', read_only=True)
 
     class Meta:
         model = Ticket
@@ -361,9 +364,12 @@ class TicketListSerializer(serializers.ModelSerializer):
             'concepto', 'concepto_nombre',
             'prefijo', 'consecutivo', 'contenedor',
             'bl_master', 'pedimento', 'factura',
+            'pedimento_prefijo', 'pedimento_consecutivo',
             'proveedor', 'proveedor_nombre', 'proveedor_banco',
             'proveedor_cuenta', 'proveedor_clabe',
             'naviera', 'naviera_nombre', 'naviera_cuenta', 'naviera_cuenta_info',
+            'agente_aduanal', 'agente_aduanal_nombre',
+            'sensibilidad_contenido', 'sensibilidad_contenido_display',
             'importe', 'divisa',
             'estatus', 'estatus_display', 'fecha_pago', 'comprobante_pago',
             'eta', 'dias_libres', 'dias_restantes', 'semaforo',
@@ -482,19 +488,58 @@ class TicketCreateSerializer(serializers.ModelSerializer):
         allow_null=True
     )
 
+    # Campo de agente aduanal para clasificación
+    agente_aduanal = serializers.PrimaryKeyRelatedField(
+        queryset=AgenteAduanal.objects.all(),
+        required=False,
+        allow_null=True
+    )
+
     contenedor = serializers.CharField(required=False, allow_blank=True, default='')
     # Permitir enviar consecutivo explícito para evitar incremento por cada concepto
     consecutivo = serializers.IntegerField(required=False, allow_null=True)
+
+    # Pedimento separado (opcionales)
+    pedimento_prefijo = serializers.CharField(required=False, allow_blank=True, max_length=4)
+    pedimento_consecutivo = serializers.CharField(required=False, allow_blank=True, max_length=7)
+
+    # Sensibilidad del contenido
+    sensibilidad_contenido = serializers.ChoiceField(
+        choices=Ticket.SensibilidadContenido.choices,
+        required=False,
+        default='verde'
+    )
 
     class Meta:
         model = Ticket
         fields = [
             'empresa', 'fecha_alta', 'concepto', 'prefijo', 'contenedor',
             'bl_master', 'pedimento', 'factura', 'proveedor',
-            'naviera', 'naviera_cuenta',
+            'naviera', 'naviera_cuenta', 'agente_aduanal',
+            'pedimento_prefijo', 'pedimento_consecutivo', 'sensibilidad_contenido',
             'importe', 'divisa', 'eta', 'dias_libres', 'observaciones',
             'tipo_operacion', 'puerto', 'consecutivo'
         ]
+
+    def validate_bl_master(self, value):
+        """Validar que el BL Master sea único para nuevas operaciones de clasificación"""
+        if value:
+            value = value.upper()
+            # Solo validar en creación (no en actualización)
+            if self.instance is None:
+                # Verificar si es una operación de clasificación
+                tipo_operacion = self.initial_data.get('tipo_operacion')
+                if tipo_operacion == 'clasificacion':
+                    # Verificar si ya existe un ticket con el mismo BL
+                    existe = Ticket.objects.filter(
+                        bl_master__iexact=value,
+                        tipo_operacion='clasificacion'
+                    ).exists()
+                    if existe:
+                        raise serializers.ValidationError(
+                            f'Ya existe una operación de clasificación con el BL "{value}". No se puede duplicar.'
+                        )
+        return value
 
     def create(self, validated_data):
         prefijo = validated_data.get('prefijo', '').upper()
@@ -506,6 +551,13 @@ class TicketCreateSerializer(serializers.ModelSerializer):
 
         validated_data['contenedor'] = validated_data.get('contenedor', '').upper()
         validated_data['bl_master'] = validated_data.get('bl_master', '').upper()
+
+        # Combinar pedimento si viene separado
+        pedimento_prefijo = validated_data.get('pedimento_prefijo', '').upper()
+        pedimento_consecutivo = validated_data.get('pedimento_consecutivo', '').upper()
+        if pedimento_prefijo or pedimento_consecutivo:
+            validated_data['pedimento'] = f"{pedimento_prefijo}{pedimento_consecutivo}"
+
         return super().create(validated_data)
 
 
@@ -531,12 +583,18 @@ class TicketUpdateSerializer(serializers.ModelSerializer):
         user = request.user
         instance = self.instance
 
+        # Admin puede editar todo, incluyendo BL y contenedor
+        if hasattr(user, 'es_admin') and user.es_admin:
+            return attrs
+
         if hasattr(user, 'es_ejecutivo') and user.es_ejecutivo and instance:
             if not instance.puede_ser_editado_por_ejecutivo:
                 raise serializers.ValidationError(
                     'Has alcanzado el límite de 2 ediciones. Contacta al administrador.'
                 )
 
+            # Ejecutivos solo pueden editar ETA y días libres
+            # BL y contenedor requieren permiso de admin
             campos_permitidos = {'eta', 'dias_libres'}
             campos_modificados = set(attrs.keys())
             campos_no_permitidos = campos_modificados - campos_permitidos
@@ -544,6 +602,7 @@ class TicketUpdateSerializer(serializers.ModelSerializer):
             if campos_no_permitidos:
                 raise serializers.ValidationError(
                     f'Solo puedes editar ETA y días libres. '
+                    f'Para editar BL o Contenedor, contacta al administrador. '
                     f'Campos no permitidos: {", ".join(campos_no_permitidos)}'
                 )
 
